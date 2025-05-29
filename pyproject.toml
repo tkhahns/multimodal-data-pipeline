@@ -1,0 +1,109 @@
+[tool.poetry]
+name = "multimodal-data-pipeline"
+version = "0.1.0"
+description = "Multimodal data processing pipeline for speech, vision, and text analysis"
+authors = ["Your Name <your.email@example.com>"]
+readme = "README.md"
+packages = [{include = "src"}]
+
+[tool.poetry.dependencies]
+python = "~3.12"
+numpy = "<2.0.0"
+pip = ">=23.0.0"  # Ensure latest pip for better Git support
+setuptools = ">=65.0.0"  # Required by many Git packages
+
+# Common multimedia processing dependencies
+[tool.poetry.group.common]
+optional = true
+
+[tool.poetry.group.common.dependencies]
+torch = ">=2.7.0"
+opencv-python = ">=4.8.0.76"
+
+# Speech processing dependencies
+[tool.poetry.group.speech]
+optional = true
+
+[tool.poetry.group.speech.dependencies]
+whisperx = ">=3.3.1"
+librosa = ">=0.10.0"
+opensmile = ">=2.4.0"
+speechbrain = { git = "https://github.com/speechbrain/speechbrain.git", branch = "develop", extras = ["full"] }
+# Git repos that need more complex setup and will be cloned separately:
+# speech-emotion-recognition = { git = "https://github.com/x4nth055/emotion-recognition-using-speech.git" }
+# fairseq = { git = "https://github.com/facebookresearch/fairseq.git" }
+
+# Text processing dependencies
+[tool.poetry.group.text]
+optional = true
+
+[tool.poetry.group.text.dependencies]
+sentence-transformers = ">=2.2.2"
+transformers = ">=4.33.0"
+tensorflow-hub = ">=0.13.0"
+# Git repos that need more complex setup and will be cloned separately:
+# heinsen-routing = { git = "https://github.com/glassroom/heinsen_routing.git" }
+# deberta = { git = "https://github.com/microsoft/DeBERTa.git" }
+# simcse = { git = "https://github.com/princeton-nlp/SimCSE.git" }
+# albert = { git = "https://github.com/google-research/ALBERT.git" }
+
+# Vision and pose estimation
+[tool.poetry.group.vision]
+optional = true
+
+[tool.poetry.group.vision.dependencies]
+mediapipe = ">=0.10.0"
+opencv-contrib-python = ">=4.8.0.76"
+py-feat = ">=0.4.0"
+tensorflow = ">=2.13.0"
+
+# Audio-visual models
+[tool.poetry.group.audiovisual]
+optional = true
+
+[tool.poetry.group.audiovisual.dependencies]
+audiostretchy = { git = "https://github.com/twardoch/audiostretchy.git" }
+av-hubert = { git = "https://github.com/facebookresearch/av_hubert.git" }
+meld = { git = "https://github.com/declare-lab/MELD.git" }
+
+# Pose and facial expression models
+[tool.poetry.group.pose]
+optional = true
+
+[tool.poetry.group.pose.dependencies]
+vitpose = { git = "https://github.com/ViTAE-Transformer/ViTPose.git" }
+psa = { git = "https://github.com/DeLightCMU/PSA.git" }
+rsn = { git = "https://github.com/caiyuanhao1998/RSN.git" }
+hrnet = { git = "https://github.com/leoxiaobin/deep-high-resolution-net.pytorch.git" }
+human-pose-estimation = { git = "https://github.com/Microsoft/human-pose-estimation.pytorch.git" }
+openpose = { git = "https://github.com/CMU-Perceptual-Computing-Lab/openpose.git" }
+smoothnet = { git = "https://github.com/cure-lab/SmoothNet.git" }
+
+# Facial expression models
+[tool.poetry.group.face]
+optional = true
+
+[tool.poetry.group.face.dependencies]
+me-graphau = { git = "https://github.com/CVI-SZU/ME-GraphAU.git" }
+dan = { git = "https://github.com/yaoing/DAN.git" }
+ganimation = { git = "https://github.com/albertpumarola/GANimation.git" }
+arbex = { git = "https://github.com/takihasan/ARBEx.git" }
+emotiefflib = { git = "https://github.com/sb-ai-lab/EmotiEffLib.git" }
+
+# Video and motion models
+[tool.poetry.group.video]
+optional = true
+
+[tool.poetry.group.video.dependencies]
+fact = { git = "https://github.com/ZijiaLewisLu/CVPR2024-FACT.git" }
+insta-dm = { git = "https://github.com/SeokjuLee/Insta-DM.git" }
+video-frame-extractor = { git = "https://github.com/BSM0oo/intelligent-video-frame-extractor.git" }
+optical-flow = { git = "https://github.com/chuanenlin/optical-flow.git" }
+crowdflow = { git = "https://github.com/tsenst/CrowdFlow.git" }
+videofinder = { git = "https://github.com/win4r/VideoFinder-Llama3.2-vision-Ollama.git" }
+rife = { git = "https://github.com/hzwer/ECCV2022-RIFE.git" }
+lanegcn = { git = "https://github.com/uber-research/LaneGCN.git" }
+
+[build-system]
+requires = ["poetry-core>=1.0.0", "wheel>=0.38.0", "setuptools>=65.0.0"]
+build-backend = "poetry.core.masonry.api"
