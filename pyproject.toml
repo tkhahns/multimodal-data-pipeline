@@ -18,14 +18,21 @@ optional = true
 
 [tool.poetry.group.common.dependencies]
 torch = ">=2.7.0"
+torchaudio = ">=2.1.0"
 opencv-python = ">=4.8.0.76"
+# Data processing
+pandas = ">=2.0.0"
+pyarrow = ">=14.0.0"
+# Audio processing
+ffmpeg-python = ">=0.2.0" 
+soundfile = ">=0.12.1"
 
 # Speech processing dependencies
 [tool.poetry.group.speech]
 optional = true
 
 [tool.poetry.group.speech.dependencies]
-whisperx = ">=3.3.1"
+whisperx = { git = "https://github.com/m-bain/whisperx.git" }
 librosa = ">=0.10.0"
 opensmile = ">=2.4.0"
 speechbrain = { git = "https://github.com/speechbrain/speechbrain.git", branch = "develop", extras = ["full"] }
