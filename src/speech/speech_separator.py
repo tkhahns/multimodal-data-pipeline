@@ -32,7 +32,7 @@ class SpeechSeparator:
                 run_opts={"device": self.device}
             )
         except ImportError:
-            print("SpeechBrain not installed. Please install it using: pip install speechbrain")
+            print("SpeechBrain not installed. Please install it using: poetry add speechbrain")
             raise
     
     def separate(self, audio_path: str, output_dir: str = None) -> Tuple[List[np.ndarray], List[str]]:
@@ -70,12 +70,15 @@ class SpeechSeparator:
         output_paths = []
         if output_dir:
             output_dir = Path(output_dir)
-            os.makedirs(output_dir, exist_ok=True)
-            
             base_name = Path(audio_path).stem
             
+            # Create a subfolder for this specific audio file
+            audio_out_dir = output_dir / base_name
+            os.makedirs(audio_out_dir, exist_ok=True)
+            
             for i, source in enumerate(separated_sources):
-                output_path = str(output_dir / f"{base_name}_source{i+1}.wav")
+                # Using standard naming convention from HuggingFace SepFormer: source{i}hat.wav
+                output_path = str(audio_out_dir / f"source{i+1}hat.wav")
                 torchaudio.save(
                     output_path,
                     torch.tensor(source),
@@ -100,7 +103,7 @@ class SpeechSeparator:
         
         result = {}
         for i, (source, path) in enumerate(zip(separated_sources, source_paths if output_dir else [])):
-            source_key = f"separated_source_{i+1}"
+            source_key = f"source{i+1}hat"
             result[source_key] = source
             
             if output_dir:

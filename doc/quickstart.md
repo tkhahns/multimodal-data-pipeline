@@ -18,14 +18,17 @@ This guide provides a quick introduction to get you started with the Multimodal 
 
 Run the pipeline with default settings:
 ```bash
-# Using the simple Python script with Poetry (recommended)
-poetry run python run_simple.py
+# Using the unified run script (recommended)
+./run_pipeline.sh
 
 # See all available options
-poetry run python run_simple.py --help
+./run_pipeline.sh --help
 
 # List all available features
-poetry run python run_simple.py --list-features
+./run_pipeline.sh --list-features
+
+# Check if all dependencies are properly installed
+./run_pipeline.sh --check-dependencies
 ```
 
 This will:
@@ -40,7 +43,7 @@ This will:
 
 To extract only specific features:
 ```bash
-poetry run python run_simple.py --features basic_audio,speech_emotion
+./run_pipeline.sh --features basic_audio,speech_emotion
 ```
 
 Available features:

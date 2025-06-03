@@ -29,23 +29,58 @@ poetry env use python3.12
 
 # Install dependencies
 echo "Installing dependencies..."
-# Install core dependencies
-poetry install
+# Install core dependencies and optional dependency groups
+poetry install --with common,speech,text
 
-# Install core packages directly to ensure they're available
-echo "Installing essential packages..."
-poetry run pip install numpy pandas librosa opencv-python torch torchaudio ffmpeg-python soundfile
-poetry run pip install pyarrow fastparquet # For parquet support
+# Ensure all dependencies are properly installed
+echo "Verifying installations..."
+poetry run python -c "
+import importlib
+import sys
 
-# Install optional dependency groups
-echo "Installing optional dependency groups..."
-poetry install --with common
+# Check for required packages
+required_packages = {
+    'numpy': 'numpy',
+    'pandas': 'pandas',
+    'librosa': 'librosa',
+    'opencv-python': 'cv2',
+    'torch': 'torch',
+    'torchaudio': 'torchaudio',
+    'ffmpeg-python': 'ffmpeg',
+    'soundfile': 'soundfile',
+    'pyarrow': 'pyarrow',
+    'transformers': 'transformers'
+}
+
+missing = []
+for package_name, import_name in required_packages.items():
+    try:
+        importlib.import_module(import_name)
+        print(f'✓ {package_name} installed')
+    except ImportError:
+        missing.append(package_name)
+        print(f'✗ {package_name} not found')
+
+if missing:
+    print(f'\nInstalling missing packages...')
+    
+    # Install each package separately to avoid errors
+    for package in missing:
+        print(f'Installing {package}...')
+        try:
+            import subprocess
+            subprocess.check_call(['pip', 'install', package])
+            print(f'  ✓ {package} installed successfully')
+        except Exception as e:
+            print(f'  ✗ Failed to install {package}: {e}')
+"
 
 # Create necessary directories
 mkdir -p output
 mkdir -p pretrained_models
 
-# Make the run script executable
+# Make the run scripts executable
+chmod +x run_simple.py
 chmod +x run_pipeline.sh
 
 echo ""
@@ -54,13 +89,15 @@ echo "Setup completed!"
 echo ""
 echo "To run the pipeline, you have two options:"
 echo ""
-echo "Option 1: Activate the environment first, then run the script:"
-echo "  poetry env activate"
+echo "Option 1: Use the unified run script (recommended):"
 echo "  ./run_pipeline.sh"
 echo ""
 echo "Option 2: Run with Poetry directly:"
-echo "  poetry run ./run_pipeline.sh"
+echo "  poetry run python run_simple.py"
 echo ""
 echo "To see available options:"
 echo "  ./run_pipeline.sh --help"
+echo ""
+echo "To check if all dependencies are installed:"
+echo "  ./run_pipeline.sh --check-dependencies"
 echo "========================================================"

@@ -70,8 +70,8 @@ optional = true
 
 [tool.poetry.group.audiovisual.dependencies]
 audiostretchy = { git = "https://github.com/twardoch/audiostretchy.git" }
-av-hubert = { git = "https://github.com/facebookresearch/av_hubert.git" }
-meld = { git = "https://github.com/declare-lab/MELD.git" }
+# av-hubert = { git = "https://github.com/facebookresearch/av_hubert.git" }
+# meld = { git = "https://github.com/declare-lab/MELD.git" }
 
 # Pose and facial expression models
 [tool.poetry.group.pose]

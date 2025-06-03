@@ -60,17 +60,14 @@ This will:
 
 ### Command Line
 
-The easiest way to use the pipeline is through the provided Python script with Poetry:
+The easiest way to use the pipeline is through the unified run script:
 
 ```bash
-# Using the simple Python entry point (recommended)
+# Using the shell wrapper (recommended)
+./run_pipeline.sh
+
+# Or using Poetry directly
 poetry run python run_simple.py
-
-# To see all available options
-poetry run python run_simple.py --help
-
-# To list available features
-poetry run python run_simple.py --list-features
 ```
 
 This will process all video files in the `data/` directory and output results to `output/`.
@@ -78,7 +75,7 @@ This will process all video files in the `data/` directory and output results to
 #### Options
 
 ```
-Usage: poetry run python run_simple.py [options]
+Usage: ./run_pipeline.sh [options]
 
 Options:
   -d, --data-dir DIR    Directory with video/audio files (default: ./data)
@@ -88,6 +85,8 @@ Options:
                                   speech_separation,whisperx,xlsr_speech,s2t_speech
   --list-features       List available features and exit
   --is-audio            Process files as audio instead of video
+  --check-dependencies  Check if all required dependencies are installed
+  --log-file FILE       Path to log file (default: <output_dir>/pipeline.log)
   -h, --help            Show this help message
 ```
 
@@ -95,17 +94,22 @@ Options:
 
 Process all videos with all features:
 ```bash
-poetry run python run_simple.py
+./run_pipeline.sh
 ```
 
 Process videos in a specific directory:
 ```bash
-poetry run python run_simple.py --data-dir /path/to/videos
+./run_pipeline.sh --data-dir /path/to/videos
 ```
 
 Only extract basic audio and speech emotion features:
 ```bash
-poetry run python run_simple.py --features basic_audio,speech_emotion
+./run_pipeline.sh --features basic_audio,speech_emotion
+```
+
+Check if all dependencies are properly installed:
+```bash
+./run_pipeline.sh --check-dependencies
 ```
 
 ### Programmatic Usage
@@ -140,7 +144,10 @@ results = pipeline.process_directory('data/', is_video=True)
 The pipeline generates the following outputs:
 
 1. Extracted audio files (in `output/audio/`)
-2. Feature JSONs with all computed features (in `output/features/`)
+2. Feature JSONs with all computed features:
+   - Individual JSON files per audio/video file with video name as the first key (in `output/features/`)
+   - Complete JSON files with detailed feature information (in `output/features/`)
+   - Consolidated JSON file with features from all files (`output/pipeline_features.json`)
 3. Parquet files for tabular data (in `output/features/`)
 4. Separate NPY files for large numpy arrays (in `output/features/`)
 

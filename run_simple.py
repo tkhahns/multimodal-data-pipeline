@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 # filepath: /Users/evidenceb/Desktop/multimodal-data-pipeline/run_simple.py
 """
-Simple entry point for the multimodal data pipeline.
-This script can be run directly with Poetry without activating a shell:
+Main entry point for the multimodal data pipeline.
+It can be run directly with Poetry without activating a shell:
     poetry run python run_simple.py [options]
 """
 import os
 import sys
 import argparse
+import logging
+import traceback
 from pathlib import Path
 from datetime import datetime
 
@@ -32,7 +34,53 @@ def main():
         "--is-audio", action="store_true", 
         help="Process files as audio instead of video"
     )
+    parser.add_argument(
+        "--log-file", 
+        help="Path to log file (default: <output_dir>/pipeline.log)"
+    )
+    parser.add_argument(
+        "--check-dependencies", action="store_true", 
+        help="Check if all required dependencies are installed"
+    )
     args = parser.parse_args()
+    
+    # Check dependencies if requested
+    if args.check_dependencies:
+        try:
+            import importlib
+            required_packages = {
+                'numpy': 'numpy',
+                'pandas': 'pandas',
+                'librosa': 'librosa',
+                'opencv-python': 'cv2',
+                'torch': 'torch',
+                'torchaudio': 'torchaudio',
+                'ffmpeg-python': 'ffmpeg',
+                'soundfile': 'soundfile',
+                'pyarrow': 'pyarrow',
+                'transformers': 'transformers'
+            }
+            missing = []
+            print("Checking required dependencies:")
+            
+            for package_name, import_name in required_packages.items():
+                try:
+                    importlib.import_module(import_name)
+                    print(f"  ✓ {package_name}")
+                except ImportError:
+                    missing.append(package_name)
+                    print(f"  ✗ {package_name} - MISSING")
+                    
+            if missing:
+                print("\nSome dependencies are missing. Please run: ./setup_env.sh")
+                print("Or install the missing packages with: poetry add " + " ".join(missing))
+                sys.exit(1)
+            else:
+                print("\nAll dependencies are installed correctly!")
+                sys.exit(0)
+        except Exception as e:
+            print(f"Error checking dependencies: {e}")
+            sys.exit(1)
     
     # Try importing the pipeline module
     try:
@@ -62,37 +110,75 @@ def main():
     # Set up output directory
     output_dir = args.output_dir
     if not output_dir:
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_dir = os.path.join("output", timestamp)
+        output_dir = "output"  # Use a fixed output directory
     
-    # Initialize the pipeline
-    pipeline = MultimodalPipeline(
-        output_dir=output_dir,
-        features=features,
-        device="cpu"  # Use 'cuda' if GPU is available
+    # Create output directory if it doesn't exist
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Set up logging
+    log_file = args.log_file if args.log_file else os.path.join(output_dir, "pipeline.log")
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler(log_file),
+            logging.StreamHandler()
+        ]
     )
     
-    # Check if the data directory exists
-    data_dir = Path(args.data_dir)
-    if not data_dir.exists():
-        print(f"Error: Data directory {data_dir} does not exist.")
+    logging.info(f"Multimodal Pipeline started at {datetime.now()}")
+    logging.info(f"Output directory: {output_dir}")
+    logging.info(f"Features to extract: {features if features else 'all available'}")
+    
+    # Check if ffmpeg is available
+    import shutil
+    if not shutil.which("ffmpeg"):
+        logging.error("Error: ffmpeg is not installed or not in PATH")
+        logging.error("Please install ffmpeg before running this script")
         sys.exit(1)
     
-    # Process the data directory
-    print(f"Processing directory: {data_dir}")
+    # Initialize the pipeline
     try:
+        pipeline = MultimodalPipeline(
+            output_dir=output_dir,
+            features=features,
+            device="cpu"  # Use 'cuda' if GPU is available
+        )
+        
+        # Check for CUDA availability
+        try:
+            import torch
+            if torch.cuda.is_available():
+                logging.info("CUDA is available! GPU will be used if supported by models.")
+        except (ImportError, AttributeError):
+            logging.warning("Could not check CUDA availability. Using CPU.")
+    
+        # Check if the data directory exists
+        data_dir = Path(args.data_dir)
+        if not data_dir.exists():
+            logging.error(f"Error: Data directory {data_dir} does not exist.")
+            sys.exit(1)
+        
+        # Process the data directory
+        logging.info(f"Processing directory: {data_dir}")
         results = pipeline.process_directory(data_dir, is_video=(not args.is_audio))
         
         # Print results summary
-        print(f"\nSuccessfully processed {len(results)} files:")
+        logging.info(f"\nSuccessfully processed {len(results)} files:")
         for filename in results:
-            print(f"  - {filename}")
+            logging.info(f"  - {filename}")
+        logging.info(f"\nResults saved to: {output_dir}")
+        logging.info(f"Log file saved to: {log_file}")
+        logging.info(f"Features JSON: {os.path.join(output_dir, 'pipeline_features.json')}")
         print(f"\nResults saved to: {output_dir}")
+        print(f"Log file saved to: {log_file}")
+        print(f"Features JSON: {os.path.join(output_dir, 'pipeline_features.json')}")
         
     except Exception as e:
-        import traceback
+        logging.error(f"Error processing files: {e}")
+        logging.error(traceback.format_exc())
         print(f"Error processing files: {e}")
-        traceback.print_exc()
+        print("Check the log file for details.")
         sys.exit(1)
 
 

@@ -3,10 +3,10 @@ Main pipeline for processing audio files with all available features.
 """
 import os
 import json
+import traceback
 import numpy as np
 from pathlib import Path
 from typing import Dict, List, Any, Union
-import pandas as pd
 from datetime import datetime
 
 from src.utils.audio_extraction import extract_audio_from_video, extract_audio_from_videos
@@ -39,7 +39,7 @@ class MultimodalPipeline:
         
         # Set up output directory
         if output_dir is None:
-            self.output_dir = Path("output") / datetime.now().strftime("%Y%m%d_%H%M%S")
+            self.output_dir = Path("output")
         else:
             self.output_dir = Path(output_dir)
             
@@ -188,47 +188,65 @@ class MultimodalPipeline:
         
         # Save features as JSON and/or parquet
         base_name = audio_path.stem
-        feature_file_json = self.output_dir / "features" / f"{base_name}_features.json"
-        feature_file_parquet = self.output_dir / "features" / f"{base_name}_features.parquet"
+        feature_file_json = self.output_dir / "features" / f"{base_name}.json"
         
-        # Filter out non-serializable objects
-        serializable_features = {}
-        for key, value in features.items():
-            # Skip large arrays
-            if isinstance(value, np.ndarray) and value.size > 1000:
-                # Save large arrays separately
-                np.save(
-                    self.output_dir / "features" / f"{base_name}_{key}.npy",
-                    value
-                )
-                serializable_features[key] = f"{base_name}_{key}.npy"
-            elif isinstance(value, (str, int, float, bool, list, dict)) or (
-                isinstance(value, np.ndarray) and value.size <= 1000
-            ):
-                # Convert small numpy arrays to list
-                if isinstance(value, np.ndarray):
-                    value = value.tolist()
-                serializable_features[key] = value
-                
-        # Save as JSON
-        with open(feature_file_json, "w") as f:
-            json.dump(serializable_features, f, indent=2)
+        # Create a JSON structure with the file name as the first key
+        json_features = {base_name: {}}
         
-        # Save as Parquet (for tabular data)
+        # Add metadata
         try:
-            # Convert dict to dataframe - this won't work for nested structures
-            flat_dict = {}
-            for key, value in serializable_features.items():
-                if not isinstance(value, (list, dict, np.ndarray)) or (
-                    isinstance(value, list) and len(value) == 1
-                ):
-                    flat_dict[key] = [value]
-                    
-            if flat_dict:
-                df = pd.DataFrame(flat_dict)
-                df.to_parquet(feature_file_parquet)
+            import librosa
+            audio_data, sr = librosa.load(str(audio_path), sr=None)
+            json_features[base_name]["metadata"] = {
+                "filename": audio_path.name,
+                "file_size_bytes": os.path.getsize(audio_path),
+                "duration_seconds": len(audio_data) / sr,
+                "sample_rate": sr,
+                "channels": audio_data.shape[1] if len(audio_data.shape) > 1 else 1,
+                "extraction_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "features_included": self.features
+            }
         except Exception as e:
-            print(f"Warning: Could not save as parquet: {e}")
+            json_features[base_name]["metadata"] = {
+                "filename": audio_path.name,
+                "extraction_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "features_included": self.features,
+                "metadata_error": str(e)
+            }
+        
+        # Process features for JSON
+        for key, value in features.items():
+            if isinstance(value, np.ndarray):
+                # Convert all arrays to JSON-compatible data with statistics for large arrays
+                if value.size > 1000:
+                    # Include statistics for large arrays
+                    json_features[base_name][key] = {
+                        'mean': float(np.mean(value)),
+                        'min': float(np.min(value)),
+                        'max': float(np.max(value)),
+                        'std': float(np.std(value)),
+                        'shape': list(value.shape),
+                        'dtype': str(value.dtype),
+                        'samples': [float(x) if isinstance(x, (np.number, np.float32, np.float64)) else x for x in value[:10].tolist()] if value.size > 10 else [float(x) if isinstance(x, (np.number, np.float32, np.float64)) else x for x in value.tolist()]
+                    }
+                else:
+                    # For smaller arrays, convert to list and include directly
+                    if value.dtype.kind in 'fc':  # float or complex
+                        json_features[base_name][key] = [float(x) for x in value.tolist()]
+                    elif value.dtype.kind in 'iu':  # integer
+                        json_features[base_name][key] = [int(x) for x in value.tolist()]
+                    else:
+                        json_features[base_name][key] = value.tolist()
+            elif isinstance(value, (np.number, np.float32, np.float64, np.int32, np.int64)):
+                # Convert numpy scalar types to native Python types
+                json_features[base_name][key] = float(value) if isinstance(value, (np.float32, np.float64)) else int(value)
+            elif isinstance(value, (str, int, float, bool, list, dict)):
+                # Other Python native types go directly to JSON
+                json_features[base_name][key] = value
+        
+        # Save a single JSON file
+        with open(feature_file_json, "w") as f:
+            json.dump(json_features, f, indent=2)
             
         return features
     
@@ -298,5 +316,50 @@ class MultimodalPipeline:
                 results[file_path.name] = features
             except Exception as e:
                 print(f"Error processing {file_path}: {e}")
+        
+        # Create a consolidated JSON file with features from all files
+        try:
+            consolidated_json = {}
+            for filename, file_features in results.items():
+                consolidated_json[filename] = {}
+                
+                # Add all serializable features
+                for key, value in file_features.items():
+                    if isinstance(value, np.ndarray):
+                        if value.size > 1000:
+                            # Include statistics for large arrays
+                            consolidated_json[filename][key] = {
+                                'mean': float(np.mean(value)),
+                                'min': float(np.min(value)),
+                                'max': float(np.max(value)),
+                                'std': float(np.std(value)),
+                                'shape': list(value.shape),
+                                'dtype': str(value.dtype),
+                                'samples': [float(x) if isinstance(x, (np.number, np.float32, np.float64)) else x for x in value[:5].tolist()] if value.size > 5 else [float(x) if isinstance(x, (np.number, np.float32, np.float64)) else x for x in value.tolist()]
+                            }
+                        else:
+                            # Convert numpy values to Python native types
+                            if value.dtype.kind in 'fc':  # float or complex
+                                consolidated_json[filename][key] = [float(x) for x in value.tolist()]
+                            elif value.dtype.kind in 'iu':  # integer
+                                consolidated_json[filename][key] = [int(x) for x in value.tolist()]
+                            else:
+                                consolidated_json[filename][key] = value.tolist()
+                    elif not callable(value):
+                        # Handle other numpy types that might be scalars
+                        if isinstance(value, (np.number, np.float32, np.float64, np.int32, np.int64)):
+                            consolidated_json[filename][key] = float(value) if isinstance(value, (np.float32, np.float64)) else int(value)
+                        else:
+                            consolidated_json[filename][key] = value
+            
+            # Save consolidated JSON
+            with open(self.output_dir / "pipeline_features.json", "w") as f:
+                json.dump(consolidated_json, f, indent=2)
+                
+            print(f"Consolidated features saved to {self.output_dir / 'pipeline_features.json'}")
+                
+        except Exception as e:
+            print(f"Warning: Could not save consolidated JSON: {e}")
+            traceback.print_exc()
         
         return results
