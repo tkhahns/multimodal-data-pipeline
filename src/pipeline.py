@@ -52,7 +52,7 @@ class MultimodalPipeline:
             "basic_audio",      # Volume and pitch from OpenCV
             "librosa_spectral", # Spectral features from librosa
             "speech_emotion",   # Speech emotion recognition
-            "speech_separation", # Speech source separation
+            # "speech_separation", # Speech source separation
             "whisperx",         # WhisperX transcription with diarization
             "xlsr_speech",      # XLSR speech-to-text
             "s2t_speech"        # S2T speech-to-text
