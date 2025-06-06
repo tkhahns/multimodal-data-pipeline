@@ -83,17 +83,13 @@ poetry add tqdm requests pathlib2 python-dotenv
 # GitHub-based repositories and specialized libraries
 echo "-> Installing GitHub-based and specialized libraries..."
 
-# Speech Emotion Recognition
-echo "-> Installing speech emotion recognition..."
-poetry add git+https://github.com/x4nth055/emotion-recognition-using-speech.git
+# Speech Emotion Recognition (alternative implementation)
+echo "-> Installing speech emotion recognition dependencies..."
+poetry add joblib scikit-learn
 
 # WhisperX for speech transcription
 echo "-> Installing WhisperX..."
 poetry add git+https://github.com/m-bain/whisperX.git
-
-# Fairseq for XLSR and S2T
-echo "-> Installing Fairseq (for XLSR and S2T)..."
-poetry add fairseq
 
 # AudioStretchy for audio manipulation
 echo "-> Installing AudioStretchy..."
@@ -103,9 +99,9 @@ poetry add git+https://github.com/twardoch/audiostretchy.git
 echo "-> Installing advanced ML libraries..."
 poetry add tensorflow tensorflow-hub
 
-# MediaPipe for pose estimation and face detection
-echo "-> Installing MediaPipe..."
-poetry add mediapipe
+# # MediaPipe for pose estimation and face detection
+# echo "-> Installing MediaPipe..."
+# poetry add mediapipe
 
 # Additional computer vision libraries
 echo "-> Installing additional computer vision libraries..."
