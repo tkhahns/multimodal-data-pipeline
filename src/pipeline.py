@@ -1,5 +1,9 @@
 """
-Main pipeline for processing audio files with all available features.
+Main pipefrom src.audio.librosa_features import LibrosaFeatureExtractor
+from src.audio.opensmile_features import OpenSMILEFeatureExtractor
+from src.emotion.speech_emotion_recognizer import SpeechEmotionRecognizer
+from src.speech.speech_separator import SpeechSeparator
+from src.speech.whisperx_transcriber import WhisperXTranscriberor processing audio files with all available features.
 """
 import os
 import json
@@ -12,6 +16,7 @@ from datetime import datetime
 from src.utils.audio_extraction import extract_audio_from_video, extract_audio_from_videos
 from src.audio.basic_features import AudioFeatureExtractor
 from src.audio.spectral_features import LibrosaFeatureExtractor
+from src.audio.opensmile_features import OpenSMILEFeatureExtractor
 from src.speech.emotion_recognition import SpeechEmotionRecognizer
 from src.speech.speech_separator import SpeechSeparator
 from src.speech.whisperx_transcriber import WhisperXTranscriber
@@ -50,12 +55,13 @@ class MultimodalPipeline:
         all_features = [
             "basic_audio",      # Volume and pitch from OpenCV
             "librosa_spectral", # Spectral features from librosa
+            "opensmile",        # OpenSMILE Low-Level Descriptors and Functionals
             "speech_emotion",   # Speech emotion recognition
             "speech_separation", # Speech source separation
             "whisperx_transcription", # WhisperX transcription with diarization
-            "comprehensive"    # All advanced features (oc_audvol, ser_*, WhX_highlight_diarize_*)
         ]
         
+        # Default behavior: extract all features when none specified
         self.features = features if features is not None else all_features
         
         # Initialize feature extractors (lazily loaded later)
@@ -76,14 +82,14 @@ class MultimodalPipeline:
                 self.extractors[feature_name] = AudioFeatureExtractor()
             elif feature_name == "librosa_spectral":
                 self.extractors[feature_name] = LibrosaFeatureExtractor()
+            elif feature_name == "opensmile":
+                self.extractors[feature_name] = OpenSMILEFeatureExtractor()
             elif feature_name == "speech_emotion":
                 self.extractors[feature_name] = SpeechEmotionRecognizer()
             elif feature_name == "speech_separation":
                 self.extractors[feature_name] = SpeechSeparator(device=self.device)
             elif feature_name == "whisperx_transcription":
                 self.extractors[feature_name] = WhisperXTranscriber(device=self.device)
-            elif feature_name == "comprehensive":
-                self.extractors[feature_name] = ComprehensiveFeatureExtractor()
                 
         return self.extractors.get(feature_name)
     
@@ -113,6 +119,13 @@ class MultimodalPipeline:
             spectral_features = extractor.extract_all_features(audio_path)
             features.update(spectral_features)
         
+        # Extract OpenSMILE features
+        if "opensmile" in self.features:
+            print(f"Extracting OpenSMILE features from {audio_path}")
+            extractor = self._get_extractor("opensmile")
+            opensmile_features = extractor.get_feature_dict(audio_path)
+            features.update(opensmile_features)
+        
         # Extract speech emotion features
         if "speech_emotion" in self.features:
             print(f"Extracting speech emotion features from {audio_path}")
@@ -131,24 +144,15 @@ class MultimodalPipeline:
             for key, val in separation_features.items():
                 if "_path" in key:
                     features[key] = val
-        
-        # Extract comprehensive features (oc_audvol, ser_*, WhX_highlight_diarize_*)
-        if "comprehensive" in self.features:
-            print(f"Extracting comprehensive features from {audio_path}")
-            extractor = self._get_extractor("comprehensive")
-            comp_out_dir = self.output_dir / "audio" / "separated"
-            os.makedirs(comp_out_dir, exist_ok=True)
-            comprehensive_features = extractor.extract_all_features(audio_path, comp_out_dir)
-            features.update(comprehensive_features)
-        
-        # Extract WhisperX features (separate from comprehensive for backward compatibility)
+
+        # Extract WhisperX features
         if "whisperx_transcription" in self.features:
             print(f"Extracting WhisperX transcription features from {audio_path}")
             extractor = self._get_extractor("whisperx_transcription")
             # Limit maximum number of speakers to 3
             whisperx_features = extractor.get_feature_dict(audio_path, max_speakers=3)
             features.update(whisperx_features)
-        
+
         return features
     
     def process_audio_file(self, audio_path: str) -> Dict[str, Any]:

@@ -69,12 +69,14 @@ To extract only specific features:
 Available features:
 - `basic_audio`: Volume and pitch (OpenCV)
 - `librosa_spectral`: Spectral features (Librosa)
+- `opensmile`: OpenSMILE Low-Level Descriptors and Functionals
 - `speech_emotion`: Speech emotion recognition
 - `speech_separation`: Speech source separation
 - `whisperx_transcription`: WhisperX transcription with diarization
   - Uses OpenAI Whisper for speech-to-text
   - Uses pyannote.audio models for speaker identification
-- `comprehensive`: All advanced features combined
+
+**Note**: When no specific features are specified, all available features are extracted by default.
 
 ### Processing a Specific Directory
 

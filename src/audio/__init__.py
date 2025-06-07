@@ -6,11 +6,13 @@ Audio processing modules.
 try:
     from .basic_features import AudioFeatureExtractor
     from .spectral_features import LibrosaFeatureExtractor
+    from .opensmile_features import OpenSMILEFeatureExtractor
 except ImportError as e:
     import warnings
     warnings.warn(f"Some audio modules couldn't be imported: {e}")
 
 __all__ = [
     'AudioFeatureExtractor',
-    'LibrosaFeatureExtractor'
+    'LibrosaFeatureExtractor',
+    'OpenSMILEFeatureExtractor'
 ]

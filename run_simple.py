@@ -95,10 +95,12 @@ def main():
         print("Available features:")
         print("  basic_audio      - Volume and pitch using OpenCV")
         print("  librosa_spectral - Spectral features using Librosa")
+        print("  opensmile        - OpenSMILE Low-Level Descriptors and Functionals")
         print("  speech_emotion   - Speech emotion recognition")
         print("  speech_separation - Speech source separation")
         print("  whisperx_transcription - WhisperX transcription with diarization")
-        print("  comprehensive    - All advanced features (oc_audvol, ser_*, WhX_*)")
+        print("")
+        print("Note: When no features are specified, all features are extracted by default.")
         sys.exit(0)
     
     # Parse features

@@ -22,6 +22,12 @@ The pipeline currently supports the following audio feature extractors:
 - Tempo (`lbrs_tempo`)
 - Single-value aggregations for each feature
 
+### OpenSMILE Features
+- Low-Level Descriptors (LLDs): Energy, spectral features, MFCCs, pitch, voice quality, LSFs
+- Functional Statistics: Mean, std, percentiles, skewness, kurtosis, regression coefficients
+- Uses ComParE 2016 feature set with `osm_*` prefix
+- Extracts 700+ comprehensive audio features including time-series and statistical summaries
+
 ### Speech Analysis
 - Speech Emotion Recognition (`ser_*` emotion probabilities)
 - Speech Separation (separated audio sources)
@@ -30,7 +36,6 @@ The pipeline currently supports the following audio feature extractors:
   - Uses pyannote.audio models for speaker diarization:
     - `pyannote/speaker-diarization-3.1`
     - `pyannote/segmentation-3.0`
-- Comprehensive feature extraction combining all audio analysis methods
 
 ## Installation
 
@@ -111,8 +116,8 @@ Options:
   -d, --data-dir DIR    Directory with video/audio files (default: ./data)
   -o, --output-dir DIR  Output directory (default: ./output/YYYYMMDD_HHMMSS)
   -f, --features LIST   Comma-separated features to extract
-                        Available: basic_audio,librosa_spectral,speech_emotion,
-                                  speech_separation,whisperx
+                        Available: basic_audio,librosa_spectral,opensmile,
+                                  speech_emotion,speech_separation,whisperx
   --list-features       List available features and exit
   --is-audio            Process files as audio instead of video
   --check-dependencies  Check if all required dependencies are installed
