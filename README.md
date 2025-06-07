@@ -117,7 +117,8 @@ Options:
   -o, --output-dir DIR  Output directory (default: ./output/YYYYMMDD_HHMMSS)
   -f, --features LIST   Comma-separated features to extract
                         Available: basic_audio,librosa_spectral,opensmile,
-                                  speech_emotion,speech_separation,whisperx
+                                  speech_emotion,heinsen_sentiment,speech_separation,
+                                  whisperx_transcription
   --list-features       List available features and exit
   --is-audio            Process files as audio instead of video
   --check-dependencies  Check if all required dependencies are installed

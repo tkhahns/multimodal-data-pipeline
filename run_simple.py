@@ -97,6 +97,7 @@ def main():
         print("  librosa_spectral - Spectral features using Librosa")
         print("  opensmile        - OpenSMILE Low-Level Descriptors and Functionals")
         print("  speech_emotion   - Speech emotion recognition")
+        print("  heinsen_sentiment - Heinsen routing sentiment analysis")
         print("  speech_separation - Speech source separation")
         print("  whisperx_transcription - WhisperX transcription with diarization")
         print("")

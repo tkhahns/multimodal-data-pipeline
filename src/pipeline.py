@@ -2,6 +2,7 @@
 Main pipefrom src.audio.librosa_features import LibrosaFeatureExtractor
 from src.audio.opensmile_features import OpenSMILEFeatureExtractor
 from src.emotion.speech_emotion_recognizer import SpeechEmotionRecognizer
+from src.emotion.heinsen_routing_sentiment import AudioSentimentAnalyzer
 from src.speech.speech_separator import SpeechSeparator
 from src.speech.whisperx_transcriber import WhisperXTranscriberor processing audio files with all available features.
 """
@@ -18,6 +19,7 @@ from src.audio.basic_features import AudioFeatureExtractor
 from src.audio.spectral_features import LibrosaFeatureExtractor
 from src.audio.opensmile_features import OpenSMILEFeatureExtractor
 from src.speech.emotion_recognition import SpeechEmotionRecognizer
+from src.emotion.heinsen_routing_sentiment import AudioSentimentAnalyzer
 from src.speech.speech_separator import SpeechSeparator
 from src.speech.whisperx_transcriber import WhisperXTranscriber
 from src.features.comprehensive_features import ComprehensiveFeatureExtractor
@@ -57,6 +59,7 @@ class MultimodalPipeline:
             "librosa_spectral", # Spectral features from librosa
             "opensmile",        # OpenSMILE Low-Level Descriptors and Functionals
             "speech_emotion",   # Speech emotion recognition
+            "heinsen_sentiment", # Heinsen routing sentiment analysis
             "speech_separation", # Speech source separation
             "whisperx_transcription", # WhisperX transcription with diarization
         ]
@@ -86,6 +89,8 @@ class MultimodalPipeline:
                 self.extractors[feature_name] = OpenSMILEFeatureExtractor()
             elif feature_name == "speech_emotion":
                 self.extractors[feature_name] = SpeechEmotionRecognizer()
+            elif feature_name == "heinsen_sentiment":
+                self.extractors[feature_name] = AudioSentimentAnalyzer(device=self.device)
             elif feature_name == "speech_separation":
                 self.extractors[feature_name] = SpeechSeparator(device=self.device)
             elif feature_name == "whisperx_transcription":
@@ -132,6 +137,13 @@ class MultimodalPipeline:
             extractor = self._get_extractor("speech_emotion")
             emotion_features = extractor.predict(audio_path)
             features.update(emotion_features)
+        
+        # Extract Heinsen routing sentiment features
+        if "heinsen_sentiment" in self.features:
+            print(f"Extracting Heinsen routing sentiment features from {audio_path}")
+            extractor = self._get_extractor("heinsen_sentiment")
+            sentiment_features = extractor.get_feature_dict(features)
+            features.update(sentiment_features)
         
         # Extract speech separation features
         if "speech_separation" in self.features:

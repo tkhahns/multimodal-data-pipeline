@@ -71,6 +71,7 @@ Available features:
 - `librosa_spectral`: Spectral features (Librosa)
 - `opensmile`: OpenSMILE Low-Level Descriptors and Functionals
 - `speech_emotion`: Speech emotion recognition
+- `heinsen_sentiment`: Heinsen routing sentiment analysis with capsule networks
 - `speech_separation`: Speech source separation
 - `whisperx_transcription`: WhisperX transcription with diarization
   - Uses OpenAI Whisper for speech-to-text
