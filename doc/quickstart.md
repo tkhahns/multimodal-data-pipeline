@@ -76,6 +76,9 @@ Available features:
 - `whisperx_transcription`: WhisperX transcription with diarization
   - Uses OpenAI Whisper for speech-to-text
   - Uses pyannote.audio models for speaker identification
+- `deberta_text`: DeBERTa benchmark performance analysis
+  - Processes transcribed text from WhisperX or other sources
+  - Computes performance metrics for SQuAD, MNLI, SST-2, QNLI, CoLA, RTE, MRPC, QQP, STS-B
 
 **Note**: When no specific features are specified, all available features are extracted by default.
 
@@ -93,13 +96,36 @@ poetry run python run_simple.py --output-dir /path/to/save/results
 
 ## Using in Python Code
 
+You can use the pipeline in two ways:
+
+### Option 1: MultimodalFeatureExtractor (Recommended)
+
+```python
+from src.feature_extractor import MultimodalFeatureExtractor
+
+# Initialize the extractor
+extractor = MultimodalFeatureExtractor(
+    features=['basic_audio', 'whisperx_transcription', 'deberta_text'],
+    device='cpu'  # Use 'cuda' for GPU acceleration
+)
+
+# Process a video file (extracts audio, transcribes, and analyzes text)
+features = extractor.extract_features('path/to/video.mp4')
+
+# Process existing text data
+text_data = {"transcript": "This is some text to analyze"}
+features = extractor.extract_features(text_data)
+```
+
+### Option 2: Direct Pipeline Usage
+
 ```python
 from src.pipeline import MultimodalPipeline
 
 # Initialize the pipeline
 pipeline = MultimodalPipeline(
     output_dir='my_results',
-    features=['basic_audio', 'speech_emotion'],
+    features=['basic_audio', 'speech_emotion', 'deberta_text'],
     device='cpu'  # Use 'cuda' for GPU acceleration
 )
 

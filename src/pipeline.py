@@ -1,10 +1,5 @@
 """
-Main pipefrom src.audio.librosa_features import LibrosaFeatureExtractor
-from src.audio.opensmile_features import OpenSMILEFeatureExtractor
-from src.emotion.speech_emotion_recognizer import SpeechEmotionRecognizer
-from src.emotion.heinsen_routing_sentiment import AudioSentimentAnalyzer
-from src.speech.speech_separator import SpeechSeparator
-from src.speech.whisperx_transcriber import WhisperXTranscriberor processing audio files with all available features.
+Main pipeline for processing audio files with all available features.
 """
 import os
 import json
@@ -22,7 +17,7 @@ from src.speech.emotion_recognition import SpeechEmotionRecognizer
 from src.emotion.heinsen_routing_sentiment import AudioSentimentAnalyzer
 from src.speech.speech_separator import SpeechSeparator
 from src.speech.whisperx_transcriber import WhisperXTranscriber
-from src.features.comprehensive_features import ComprehensiveFeatureExtractor
+from src.text.deberta_analyzer import DeBERTaAnalyzer
 
 class MultimodalPipeline:
     """Main pipeline for processing multimodal data."""
@@ -62,6 +57,7 @@ class MultimodalPipeline:
             "heinsen_sentiment", # Heinsen routing sentiment analysis
             "speech_separation", # Speech source separation
             "whisperx_transcription", # WhisperX transcription with diarization
+            "deberta_text",     # DeBERTa text analysis with benchmark performance metrics
         ]
         
         # Default behavior: extract all features when none specified
@@ -95,6 +91,8 @@ class MultimodalPipeline:
                 self.extractors[feature_name] = SpeechSeparator(device=self.device)
             elif feature_name == "whisperx_transcription":
                 self.extractors[feature_name] = WhisperXTranscriber(device=self.device)
+            elif feature_name == "deberta_text":
+                self.extractors[feature_name] = DeBERTaAnalyzer(device=self.device)
                 
         return self.extractors.get(feature_name)
     
@@ -164,6 +162,15 @@ class MultimodalPipeline:
             # Limit maximum number of speakers to 3
             whisperx_features = extractor.get_feature_dict(audio_path, max_speakers=3)
             features.update(whisperx_features)
+
+        # Extract DeBERTa text analysis features
+        if "deberta_text" in self.features:
+            print(f"Extracting DeBERTa text analysis features from {audio_path}")
+            extractor = self._get_extractor("deberta_text")
+            # Pass the entire feature dictionary to DeBERTa analyzer 
+            # It will look for transcribed text from WhisperX or other sources
+            deberta_features = extractor.get_feature_dict(features)
+            features.update(deberta_features)
 
         return features
     

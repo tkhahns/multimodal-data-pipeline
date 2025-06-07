@@ -37,6 +37,21 @@ The pipeline currently supports the following audio feature extractors:
     - `pyannote/speaker-diarization-3.1`
     - `pyannote/segmentation-3.0`
 
+### Text Analysis (DeBERTa)
+- Comprehensive benchmark performance metrics using DeBERTa model
+- Features with `DEB_*` prefix for downstream task performance:
+  - **SQuAD 1.1/2.0**: Reading comprehension (F1 and Exact Match scores)
+  - **MNLI**: Natural Language Inference (matched/mismatched accuracy)
+  - **SST-2**: Sentiment Classification (binary accuracy)
+  - **QNLI**: Question Natural Language Inference (accuracy)
+  - **CoLA**: Linguistic Acceptability (Matthews Correlation Coefficient)
+  - **RTE**: Recognizing Textual Entailment (accuracy)
+  - **MRPC**: Microsoft Research Paraphrase Corpus (accuracy and F1)
+  - **QQP**: Quora Question Pairs (accuracy and F1)
+  - **STS-B**: Semantic Textual Similarity (Pearson and Spearman correlations)
+- Automatically processes transcribed text from WhisperX or other text sources
+- Returns default performance metrics when no text is available
+
 ## Installation
 
 ### Prerequisites
@@ -118,7 +133,7 @@ Options:
   -f, --features LIST   Comma-separated features to extract
                         Available: basic_audio,librosa_spectral,opensmile,
                                   speech_emotion,heinsen_sentiment,speech_separation,
-                                  whisperx_transcription
+                                  whisperx_transcription,deberta_text
   --list-features       List available features and exit
   --is-audio            Process files as audio instead of video
   --check-dependencies  Check if all required dependencies are installed
@@ -143,6 +158,11 @@ Only extract basic audio and speech emotion features:
 ./run_pipeline.sh --features basic_audio,speech_emotion
 ```
 
+Extract text analysis along with audio features:
+```bash
+./run_pipeline.sh --features basic_audio,whisperx_transcription,deberta_text
+```
+
 Check if all dependencies are properly installed:
 ```bash
 ./run_pipeline.sh --check-dependencies
@@ -150,7 +170,42 @@ Check if all dependencies are properly installed:
 
 ### Programmatic Usage
 
-You can also use the pipeline programmatically in your Python code:
+You can use the pipeline programmatically in your Python code in two ways:
+
+#### Option 1: MultimodalFeatureExtractor (Recommended)
+
+The `MultimodalFeatureExtractor` provides a simple, unified interface for feature extraction:
+
+```python
+from src.feature_extractor import MultimodalFeatureExtractor
+
+# Initialize the extractor
+extractor = MultimodalFeatureExtractor(
+    features=['basic_audio', 'librosa_spectral', 'deberta_text'],
+    device='cpu',  # Use 'cuda' if you have a compatible GPU
+    output_dir='output/my_results'
+)
+
+# Process a video file
+video_path = 'data/my_video.mp4'
+features = extractor.extract_features(video_path)
+
+# Process an audio file
+audio_path = 'data/my_audio.wav'
+features = extractor.extract_features(audio_path)
+
+# Process text directly
+text_data = {"transcript": "This is some text to analyze"}
+features = extractor.extract_features(text_data)
+
+# Process existing feature dictionary (useful for adding text analysis to existing data)
+existing_features = {"whisperx_transcript": "Transcribed speech text"}
+enhanced_features = extractor.extract_features(existing_features)
+```
+
+#### Option 2: Direct Pipeline Usage
+
+You can also use the pipeline directly for more control:
 
 ```python
 from src.pipeline import MultimodalPipeline
@@ -217,8 +272,8 @@ If you encounter import errors:
 ## Model Categories
 
 - **Speech**: Speech emotion recognition, transcription, and audio feature extraction
+- **Text**: DeBERTa-based benchmark performance analysis with comprehensive NLP task metrics
 - **Vision**: Pose estimation, facial expression analysis, and motion tracking (coming soon)
-- **Text**: Sentence embeddings, contextual representations, and semantic analysis (coming soon)
 - **Multimodal**: Combined audio-visual analysis and integration (coming soon)
 
 ## License
