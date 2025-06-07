@@ -65,79 +65,73 @@ class OpenSMILEFeatureExtractor:
             
             # Map OpenSMILE column names to our standardized names
             column_mapping = {
-                # Energy & Loudness
+                # Energy & Voice Quality
                 'pcm_RMSenergy_sma': 'osm_pcm_RMSenergy_sma',
-                'loudness_sma': 'osm_loudness_sma',
-                
-                # Spectral Features
-                'spectralFlux_sma': 'osm_spectralFlux_sma',
-                'spectralRollOff25.0_sma': 'osm_spectralRollOff25_sma',
-                'spectralRollOff75.0_sma': 'osm_spectralRollOff75_sma',
-                'spectralCentroid_sma': 'osm_spectralCentroid_sma',
-                'spectralEntropy_sma': 'osm_spectralEntropy_sma',
-                'spectralSlope_sma': 'osm_spectralSlope_sma',
-                'spectralDecrease_sma': 'osm_spectralDecrease_sma',
-                
-                # MFCCs
-                'mfcc[1]_sma': 'osm_mfcc1_sma',
-                'mfcc[2]_sma': 'osm_mfcc2_sma',
-                'mfcc[3]_sma': 'osm_mfcc3_sma',
-                'mfcc[4]_sma': 'osm_mfcc4_sma',
-                'mfcc[5]_sma': 'osm_mfcc5_sma',
-                'mfcc[6]_sma': 'osm_mfcc6_sma',
-                'mfcc[7]_sma': 'osm_mfcc7_sma',
-                'mfcc[8]_sma': 'osm_mfcc8_sma',
-                'mfcc[9]_sma': 'osm_mfcc9_sma',
-                'mfcc[10]_sma': 'osm_mfcc10_sma',
-                'mfcc[11]_sma': 'osm_mfcc11_sma',
-                'mfcc[12]_sma': 'osm_mfcc12_sma',
-                
-                # Pitch & Voice Quality
-                'F0final_sma': 'osm_F0final_sma',
-                'voicingProb_sma': 'osm_voicingProb_sma',
-                'jitterLocal_sma': 'osm_jitterLocal_sma',
-                'shimmerLocal_sma': 'osm_shimmerLocal_sma',
-                
-                # Linear Spectral Pairs
-                'lspFreq[1]_sma': 'osm_lsf1',
-                'lspFreq[2]_sma': 'osm_lsf2',
-                'lspFreq[3]_sma': 'osm_lsf3',
-                'lspFreq[4]_sma': 'osm_lsf4',
-                'lspFreq[5]_sma': 'osm_lsf5',
-                'lspFreq[6]_sma': 'osm_lsf6',
-                'lspFreq[7]_sma': 'osm_lsf7',
-                'lspFreq[8]_sma': 'osm_lsf8',
-                
-                # Zero Crossing Rate
                 'pcm_zcr_sma': 'osm_zcr_sma',
+                'F0final_sma': 'osm_F0final_sma',
+                'voicingFinalUnclipped_sma': 'osm_voicingFinalUnclipped_sma',
+                'jitterLocal_sma': 'osm_jitterLocal_sma',
+                'jitterDDP_sma': 'osm_jitterDDP_sma',
+                'shimmerLocal_sma': 'osm_shimmerLocal_sma',
+                'logHNR_sma': 'osm_logHNR_sma',
                 
-                # Psychoacoustic Features
-                'psychoacousticHarmonicity_sma': 'osm_psychoacousticHarmonicity_sma',
-                'psychoacousticSharpness_sma': 'osm_psychoacousticSharpness_sma',
+                # Spectral Features with correct names
+                'pcm_fftMag_spectralFlux_sma': 'osm_spectralFlux_sma',
+                'pcm_fftMag_spectralRollOff25.0_sma': 'osm_spectralRollOff25_sma',
+                'pcm_fftMag_spectralRollOff50.0_sma': 'osm_spectralRollOff50_sma',
+                'pcm_fftMag_spectralRollOff75.0_sma': 'osm_spectralRollOff75_sma',
+                'pcm_fftMag_spectralRollOff90.0_sma': 'osm_spectralRollOff90_sma',
+                'pcm_fftMag_spectralCentroid_sma': 'osm_spectralCentroid_sma',
+                'pcm_fftMag_spectralEntropy_sma': 'osm_spectralEntropy_sma',
+                'pcm_fftMag_spectralVariance_sma': 'osm_spectralVariance_sma',
+                'pcm_fftMag_spectralSkewness_sma': 'osm_spectralSkewness_sma',
+                'pcm_fftMag_spectralKurtosis_sma': 'osm_spectralKurtosis_sma',
+                'pcm_fftMag_spectralSlope_sma': 'osm_spectralSlope_sma',
+                'pcm_fftMag_spectralDecrease_sma': 'osm_spectralDecrease_sma',
+                
+                # MFCCs with correct format
+                'mfcc_sma[1]': 'osm_mfcc1_sma',
+                'mfcc_sma[2]': 'osm_mfcc2_sma',
+                'mfcc_sma[3]': 'osm_mfcc3_sma',
+                'mfcc_sma[4]': 'osm_mfcc4_sma',
+                'mfcc_sma[5]': 'osm_mfcc5_sma',
+                'mfcc_sma[6]': 'osm_mfcc6_sma',
+                'mfcc_sma[7]': 'osm_mfcc7_sma',
+                'mfcc_sma[8]': 'osm_mfcc8_sma',
+                'mfcc_sma[9]': 'osm_mfcc9_sma',
+                'mfcc_sma[10]': 'osm_mfcc10_sma',
+                'mfcc_sma[11]': 'osm_mfcc11_sma',
+                'mfcc_sma[12]': 'osm_mfcc12_sma',
+                
+                # Auditory spectrum features
+                'audspec_lengthL1norm_sma': 'osm_audspec_lengthL1norm_sma',
+                'audspecRasta_lengthL1norm_sma': 'osm_audspecRasta_lengthL1norm_sma',
+                
+                # Auditory spectrum filter bank features (first 10 filters)
+                'audSpec_Rfilt_sma[0]': 'osm_audSpec_Rfilt_0',
+                'audSpec_Rfilt_sma[1]': 'osm_audSpec_Rfilt_1',
+                'audSpec_Rfilt_sma[2]': 'osm_audSpec_Rfilt_2',
+                'audSpec_Rfilt_sma[3]': 'osm_audSpec_Rfilt_3',
+                'audSpec_Rfilt_sma[4]': 'osm_audSpec_Rfilt_4',
+                'audSpec_Rfilt_sma[5]': 'osm_audSpec_Rfilt_5',
+                'audSpec_Rfilt_sma[6]': 'osm_audSpec_Rfilt_6',
+                'audSpec_Rfilt_sma[7]': 'osm_audSpec_Rfilt_7',
+                'audSpec_Rfilt_sma[8]': 'osm_audSpec_Rfilt_8',
+                'audSpec_Rfilt_sma[9]': 'osm_audSpec_Rfilt_9',
             }
             
             # Extract features with standardized names
-            for opensmile_name, standard_name in column_mapping.items():
-                if opensmile_name in lld_features.columns:
-                    features[standard_name] = lld_features[opensmile_name].values
-                else:
-                    # Try alternative column names
-                    possible_names = [
-                        opensmile_name.replace('_sma', ''),
-                        opensmile_name.replace('[', '_').replace(']', ''),
-                        opensmile_name.replace('[', '').replace(']', ''),
-                    ]
-                    found = False
-                    for alt_name in possible_names:
-                        if alt_name in lld_features.columns:
-                            features[standard_name] = lld_features[alt_name].values
-                            found = True
-                            break
-                    
-                    if not found:
-                        print(f"Warning: Feature {opensmile_name} not found in OpenSMILE output")
-                        # Create zero array as fallback
-                        features[standard_name] = np.zeros(len(lld_features))
+            features = {}
+            
+            # Process all OpenSMILE columns and create standardized names
+            for col in lld_features.columns:
+                # Create standardized feature name
+                standard_name = f"osm_{col}"
+                # Clean up special characters in the name
+                standard_name = standard_name.replace('[', '_').replace(']', '').replace('.', '_').replace('-', '_')
+                
+                # Extract the feature values
+                features[standard_name] = lld_features[col].values
             
             return features
             
@@ -319,30 +313,65 @@ class OpenSMILEFeatureExtractor:
         Returns:
             List of feature names that will be extracted
         """
-        lld_features = [
-            'osm_pcm_RMSenergy_sma', 'osm_loudness_sma', 'osm_spectralFlux_sma',
-            'osm_spectralRollOff25_sma', 'osm_spectralRollOff75_sma', 'osm_spectralCentroid_sma',
-            'osm_spectralEntropy_sma', 'osm_spectralSlope_sma', 'osm_spectralDecrease_sma',
-            'osm_mfcc1_sma', 'osm_mfcc2_sma', 'osm_mfcc3_sma', 'osm_mfcc4_sma',
-            'osm_mfcc5_sma', 'osm_mfcc6_sma', 'osm_mfcc7_sma', 'osm_mfcc8_sma',
-            'osm_mfcc9_sma', 'osm_mfcc10_sma', 'osm_mfcc11_sma', 'osm_mfcc12_sma',
-            'osm_F0final_sma', 'osm_voicingProb_sma', 'osm_jitterLocal_sma', 'osm_shimmerLocal_sma',
-            'osm_lsf1', 'osm_lsf2', 'osm_lsf3', 'osm_lsf4', 'osm_lsf5', 'osm_lsf6', 'osm_lsf7', 'osm_lsf8',
-            'osm_zcr_sma', 'osm_psychoacousticHarmonicity_sma', 'osm_psychoacousticSharpness_sma'
-        ]
-        
-        functional_stats = [
-            'mean', 'stddev', 'skewness', 'kurtosis',
-            'percentile1', 'percentile5', 'percentile25', 'percentile50', 'percentile75', 'percentile95', 'percentile99',
-            'min', 'max', 'minPos', 'maxPos', 'range',
-            'quartile1', 'quartile3', 'interquartileRange',
-            'linregc1', 'linregc2', 'linregerr'
-        ]
-        
-        # Generate functional feature names for each LLD
-        functional_features = []
-        for lld in lld_features:
-            for stat in functional_stats:
-                functional_features.append(f"{lld}_{stat}")
-        
-        return lld_features + functional_features
+        # Get the actual column names from OpenSMILE
+        if self.smile is None:
+            return []
+            
+        try:
+            # Use a dummy file to get column names
+            # For now, return the expected feature structure
+            base_features = [
+                'osm_F0final_sma',
+                'osm_voicingFinalUnclipped_sma', 
+                'osm_jitterLocal_sma',
+                'osm_jitterDDP_sma',
+                'osm_shimmerLocal_sma',
+                'osm_logHNR_sma',
+                'osm_audspec_lengthL1norm_sma',
+                'osm_audspecRasta_lengthL1norm_sma',
+                'osm_pcm_RMSenergy_sma',
+                'osm_pcm_zcr_sma',
+                'osm_pcm_fftMag_fband250_650_sma',
+                'osm_pcm_fftMag_fband1000_4000_sma',
+                'osm_pcm_fftMag_spectralRollOff25_0_sma',
+                'osm_pcm_fftMag_spectralRollOff50_0_sma',
+                'osm_pcm_fftMag_spectralRollOff75_0_sma',
+                'osm_pcm_fftMag_spectralRollOff90_0_sma',
+                'osm_pcm_fftMag_spectralFlux_sma',
+                'osm_pcm_fftMag_spectralCentroid_sma',
+                'osm_pcm_fftMag_spectralEntropy_sma',
+                'osm_pcm_fftMag_spectralVariance_sma',
+                'osm_pcm_fftMag_spectralSkewness_sma',
+                'osm_pcm_fftMag_spectralKurtosis_sma',
+                'osm_pcm_fftMag_spectralSlope_sma',
+                'osm_pcm_fftMag_psySharpness_sma',
+                'osm_pcm_fftMag_spectralHarmonicity_sma',
+            ]
+            
+            # Add MFCC features
+            for i in range(1, 13):
+                base_features.append(f'osm_mfcc_sma_{i}')
+            
+            # Add auditory spectrum filter bank features
+            for i in range(26):
+                base_features.append(f'osm_audSpec_Rfilt_sma_{i}')
+            
+            functional_stats = [
+                'mean', 'stddev', 'skewness', 'kurtosis',
+                'percentile1', 'percentile5', 'percentile25', 'percentile50', 'percentile75', 'percentile95', 'percentile99',
+                'min', 'max', 'minPos', 'maxPos', 'range',
+                'quartile1', 'quartile3', 'interquartileRange',
+                'linregc1', 'linregc2', 'linregerr'
+            ]
+            
+            # Generate functional feature names for each LLD
+            all_features = base_features.copy()
+            for lld in base_features:
+                for stat in functional_stats:
+                    all_features.append(f"{lld}_{stat}")
+            
+            return all_features
+            
+        except Exception as e:
+            print(f"Warning: Could not determine available features: {e}")
+            return []
