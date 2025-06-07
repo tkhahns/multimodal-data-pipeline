@@ -26,7 +26,11 @@ The pipeline currently supports the following audio feature extractors:
 - Speech Emotion Recognition (`ser_*` emotion probabilities)
 - Speech Separation (separated audio sources)
 - Time-Accurate Speech Transcription with speaker diarization (WhisperX)
-- Speech-to-Text transcription (XLSR and S2T models)
+  - Uses OpenAI Whisper models for transcription
+  - Uses pyannote.audio models for speaker diarization:
+    - `pyannote/speaker-diarization-3.1`
+    - `pyannote/segmentation-3.0`
+- Comprehensive feature extraction combining all audio analysis methods
 
 ## Installation
 
@@ -34,7 +38,25 @@ The pipeline currently supports the following audio feature extractors:
 - Python 3.12
 - Poetry
 - Git
-- ffmpeg (required for audio extraction)
+
+### HuggingFace Setup (Required)
+
+This pipeline uses several HuggingFace models for speech processing. You'll need to:
+
+1. **Create a HuggingFace account** at https://huggingface.co/join
+2. **Generate an access token** at https://huggingface.co/settings/tokens
+   - Click "New token"
+   - Choose "Read" access (sufficient for most models)
+   - Copy the generated token
+3. **Accept model licenses** (required for some models):
+   - Visit https://huggingface.co/pyannote/speaker-diarization-3.1 and click "Agree"
+   - Visit https://huggingface.co/pyannote/segmentation-3.0 and click "Agree"
+4. **Set up authentication** by creating a `.env` file:
+   ```bash
+   echo "HF_TOKEN=your_huggingface_token_here" > .env
+   ```
+
+**Note**: Without proper HuggingFace authentication, speaker diarization and some transcription features will not work.
 
 ### Basic Installation
 
@@ -49,6 +71,14 @@ The pipeline currently supports the following audio feature extractors:
    chmod +x setup_env.sh
    ./setup_env.sh
    ```
+   This will automatically install ffmpeg and all other required dependencies via Poetry.
+
+3. Set up HuggingFace authentication (required for speaker diarization):
+   ```bash
+   # Create a .env file with your HuggingFace token
+   echo "HF_TOKEN=your_huggingface_token_here" > .env
+   ```
+   Get your token from https://huggingface.co/settings/tokens and make sure you've accepted the required model licenses (see Prerequisites section above).
 
 This will:
 - Create a Poetry environment with Python 3.12
@@ -82,7 +112,7 @@ Options:
   -o, --output-dir DIR  Output directory (default: ./output/YYYYMMDD_HHMMSS)
   -f, --features LIST   Comma-separated features to extract
                         Available: basic_audio,librosa_spectral,speech_emotion,
-                                  speech_separation,whisperx,xlsr_speech,s2t_speech
+                                  speech_separation,whisperx
   --list-features       List available features and exit
   --is-audio            Process files as audio instead of video
   --check-dependencies  Check if all required dependencies are installed
@@ -150,6 +180,33 @@ The pipeline generates the following outputs:
    - Consolidated JSON file with features from all files (`output/pipeline_features.json`)
 3. Parquet files for tabular data (in `output/features/`)
 4. Separate NPY files for large numpy arrays (in `output/features/`)
+
+## Troubleshooting
+
+### HuggingFace Authentication Issues
+
+If you encounter errors related to model access:
+
+1. **Verify your token is correct**: Check that your `.env` file contains the right token
+2. **Accept model licenses**: Make sure you've clicked "Agree" on all required model pages
+3. **Check token permissions**: Ensure your token has "Read" access
+4. **Restart the pipeline**: After updating authentication, restart the pipeline completely
+
+Common error messages and solutions:
+- `401 Unauthorized`: Token is invalid or missing
+- `403 Forbidden`: You haven't accepted the model license agreements
+- `Repository not found`: Model name may have changed or requires special access
+
+### Dependency Issues
+
+If you encounter import errors:
+```bash
+# Check if all dependencies are installed
+./run_pipeline.sh --check-dependencies
+
+# Reinstall dependencies if needed
+./setup_env.sh
+```
 
 ## Model Categories
 

@@ -12,7 +12,27 @@ This guide provides a quick introduction to get you started with the Multimodal 
    ./setup_env.sh
    ```
 
-3. **Make sure you have video files in the `data/` directory**
+3. **Set up HuggingFace authentication** (required for speaker diarization):
+   
+   a. **Create a HuggingFace account** at https://huggingface.co/join
+   
+   b. **Generate an access token** at https://huggingface.co/settings/tokens:
+      - Click "New token"
+      - Choose "Read" access 
+      - Copy the generated token
+   
+   c. **Accept model licenses** (required):
+      - Visit https://huggingface.co/pyannote/speaker-diarization-3.1 and click "Agree"
+      - Visit https://huggingface.co/pyannote/segmentation-3.0 and click "Agree"
+   
+   d. **Create authentication file**:
+      ```bash
+      echo "HF_TOKEN=your_huggingface_token_here" > .env
+      ```
+   
+   **Important**: Replace `your_huggingface_token_here` with your actual token. Without this setup, speaker diarization features will not work.
+
+4. **Make sure you have video files in the `data/` directory**
 
 ## Basic Usage
 
@@ -51,9 +71,10 @@ Available features:
 - `librosa_spectral`: Spectral features (Librosa)
 - `speech_emotion`: Speech emotion recognition
 - `speech_separation`: Speech source separation
-- `whisperx`: WhisperX transcription with diarization
-- `xlsr_speech`: XLSR speech-to-text
-- `s2t_speech`: S2T speech-to-text
+- `whisperx_transcription`: WhisperX transcription with diarization
+  - Uses OpenAI Whisper for speech-to-text
+  - Uses pyannote.audio models for speaker identification
+- `comprehensive`: All advanced features combined
 
 ### Processing a Specific Directory
 
