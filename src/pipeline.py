@@ -15,8 +15,7 @@ from src.audio.spectral_features import LibrosaFeatureExtractor
 from src.speech.emotion_recognition import SpeechEmotionRecognizer
 from src.speech.speech_separator import SpeechSeparator
 from src.speech.whisperx_transcriber import WhisperXTranscriber
-from src.speech.xlsr_speech_to_text import XLSRSpeechToText
-from src.speech.s2t_speech_to_text import S2TSpeechToText
+from src.features.comprehensive_features import ComprehensiveFeatureExtractor
 
 class MultimodalPipeline:
     """Main pipeline for processing multimodal data."""
@@ -52,10 +51,9 @@ class MultimodalPipeline:
             "basic_audio",      # Volume and pitch from OpenCV
             "librosa_spectral", # Spectral features from librosa
             "speech_emotion",   # Speech emotion recognition
-            # "speech_separation", # Speech source separation
-            "whisperx",         # WhisperX transcription with diarization
-            "xlsr_speech",      # XLSR speech-to-text
-            "s2t_speech"        # S2T speech-to-text
+            "speech_separation", # Speech source separation
+            "whisperx_transcription", # WhisperX transcription with diarization
+            "comprehensive"    # All advanced features (oc_audvol, ser_*, WhX_highlight_diarize_*)
         ]
         
         self.features = features if features is not None else all_features
@@ -82,12 +80,10 @@ class MultimodalPipeline:
                 self.extractors[feature_name] = SpeechEmotionRecognizer()
             elif feature_name == "speech_separation":
                 self.extractors[feature_name] = SpeechSeparator(device=self.device)
-            elif feature_name == "whisperx":
+            elif feature_name == "whisperx_transcription":
                 self.extractors[feature_name] = WhisperXTranscriber(device=self.device)
-            elif feature_name == "xlsr_speech":
-                self.extractors[feature_name] = XLSRSpeechToText(device=self.device)
-            elif feature_name == "s2t_speech":
-                self.extractors[feature_name] = S2TSpeechToText(device=self.device)
+            elif feature_name == "comprehensive":
+                self.extractors[feature_name] = ComprehensiveFeatureExtractor()
                 
         return self.extractors.get(feature_name)
     
@@ -136,34 +132,22 @@ class MultimodalPipeline:
                 if "_path" in key:
                     features[key] = val
         
-        # Extract WhisperX features
-        if "whisperx" in self.features:
+        # Extract comprehensive features (oc_audvol, ser_*, WhX_highlight_diarize_*)
+        if "comprehensive" in self.features:
+            print(f"Extracting comprehensive features from {audio_path}")
+            extractor = self._get_extractor("comprehensive")
+            comp_out_dir = self.output_dir / "audio" / "separated"
+            os.makedirs(comp_out_dir, exist_ok=True)
+            comprehensive_features = extractor.extract_all_features(audio_path, comp_out_dir)
+            features.update(comprehensive_features)
+        
+        # Extract WhisperX features (separate from comprehensive for backward compatibility)
+        if "whisperx_transcription" in self.features:
             print(f"Extracting WhisperX transcription features from {audio_path}")
-            extractor = self._get_extractor("whisperx")
-            whisperx_features = extractor.get_feature_dict(audio_path)
+            extractor = self._get_extractor("whisperx_transcription")
+            # Limit maximum number of speakers to 3
+            whisperx_features = extractor.get_feature_dict(audio_path, max_speakers=3)
             features.update(whisperx_features)
-        
-        # Extract XLSR speech-to-text features
-        if "xlsr_speech" in self.features:
-            print(f"Extracting XLSR speech-to-text features from {audio_path}")
-            extractor = self._get_extractor("xlsr_speech")
-            xlsr_features = extractor.get_feature_dict(audio_path)
-            # Don't store large hidden states in the features dict
-            if "hidden_states" in xlsr_features:
-                hidden_states = xlsr_features.pop("hidden_states")
-                # Save hidden states separately
-                np.save(
-                    self.output_dir / "features" / f"{Path(audio_path).stem}_xlsr_hidden.npy",
-                    hidden_states
-                )
-            features.update(xlsr_features)
-        
-        # Extract S2T speech-to-text features
-        if "s2t_speech" in self.features:
-            print(f"Extracting S2T speech-to-text features from {audio_path}")
-            extractor = self._get_extractor("s2t_speech")
-            s2t_features = extractor.get_feature_dict(audio_path)
-            features.update(s2t_features)
         
         return features
     

@@ -173,7 +173,6 @@ mkdir -p output
 mkdir -p output/audio
 mkdir -p output/audio/separated
 mkdir -p output/features
-mkdir -p pretrained_models
 mkdir -p data
 
 # Make the run scripts executable
@@ -189,7 +188,7 @@ echo "  • Core: NumPy, Pandas, Matplotlib, Scikit-learn"
 echo "  • Computer Vision: OpenCV, Pillow, MediaPipe"
 echo "  • Audio: Librosa, SoundFile, PyAudio, SpeechBrain"
 echo "  • Deep Learning: PyTorch, Transformers, Sentence-Transformers"
-echo "  • Speech: WhisperX, Fairseq (XLSR/S2T), OpenSMILE"
+echo "  • Speech: WhisperX, OpenSMILE"
 echo "  • Video: FFmpeg-Python, MoviePy"
 echo "  • NLP: Hugging Face ecosystem, TensorFlow Hub"
 echo ""

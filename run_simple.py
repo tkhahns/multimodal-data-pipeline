@@ -97,9 +97,8 @@ def main():
         print("  librosa_spectral - Spectral features using Librosa")
         print("  speech_emotion   - Speech emotion recognition")
         print("  speech_separation - Speech source separation")
-        print("  whisperx         - WhisperX transcription with diarization")
-        print("  xlsr_speech      - XLSR speech-to-text")
-        print("  s2t_speech       - S2T speech-to-text")
+        print("  whisperx_transcription - WhisperX transcription with diarization")
+        print("  comprehensive    - All advanced features (oc_audvol, ser_*, WhX_*)")
         sys.exit(0)
     
     # Parse features
