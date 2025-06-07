@@ -20,14 +20,6 @@ if ! command -v poetry &> /dev/null; then
     curl -sSL https://install.python-poetry.org | python3 -
 fi
 
-# Check if ffmpeg is installed
-if ! command -v ffmpeg &> /dev/null; then
-    echo "ffmpeg is required for audio extraction."
-    echo "Please install ffmpeg using: brew install ffmpeg"
-    echo "Then run this script again."
-    exit 1
-fi
-
 # Initialize Poetry project if pyproject.toml doesn't exist
 if [ ! -f "pyproject.toml" ]; then
     echo "Initializing Poetry project..."
@@ -74,7 +66,7 @@ poetry add datasets accelerate
 
 # Video Processing
 echo "-> Installing video processing libraries..."
-poetry add ffmpeg-python moviepy
+poetry add ffmpeg ffmpeg-python moviepy
 
 # Additional utilities
 echo "-> Installing additional utilities..."
