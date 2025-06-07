@@ -3,3 +3,4 @@ data
 .DS_STORE
 output
 __pycache__
+.env
