@@ -293,30 +293,12 @@ class AudioSentimentAnalyzer:
             predicted_class = results['predicted_classes'][0]
             routed_capsules = results['routed_capsules'][0]
             
-            # Create detailed results
+            # Create results matching the specified feature naming convention
             sentiment_results = {
-                # Sentiment predictions
-                'hrs_predicted_sentiment': self.sentiment_labels[predicted_class],
-                'hrs_sentiment_confidence': float(sentiment_probs[predicted_class]),
-                'hrs_negative_prob': float(sentiment_probs[0]),
-                'hrs_neutral_prob': float(sentiment_probs[1]),
-                'hrs_positive_prob': float(sentiment_probs[2]),
-                
-                # Routing parameters
-                'hrs_arvs_batch_size': results['arvs_batch_size'],
-                'hrs_arvs_n_out': results['arvs_n_out'],
-                'hrs_arvs_d_out': results['arvs_d_out'],
-                
-                # Capsule information
-                'hrs_num_capsules': routed_capsules.shape[0],
-                'hrs_capsule_dim': routed_capsules.shape[1],
-                'hrs_capsule_activations': routed_capsules.tolist(),
-                
-                # Summary statistics of routed capsules
-                'hrs_capsule_mean_activation': float(np.mean(routed_capsules)),
-                'hrs_capsule_std_activation': float(np.std(routed_capsules)),
-                'hrs_capsule_max_activation': float(np.max(routed_capsules)),
-                'hrs_capsule_min_activation': float(np.min(routed_capsules)),
+                # Core ARVS routing parameters (as specified in feature table)
+                'arvs_batch_size': results['arvs_batch_size'],
+                'arvs_n_out': results['arvs_n_out'], 
+                'arvs_d_out': results['arvs_d_out']
             }
             
             return sentiment_results
@@ -324,9 +306,9 @@ class AudioSentimentAnalyzer:
         except Exception as e:
             logger.error(f"Error in sentiment analysis: {e}")
             return {
-                'hrs_error': str(e),
-                'hrs_predicted_sentiment': 'unknown',
-                'hrs_sentiment_confidence': 0.0
+                'arvs_batch_size': self.arvs_batch_size,
+                'arvs_n_out': self.arvs_n_out,
+                'arvs_d_out': self.arvs_d_out
             }
     
     def get_feature_dict(self, feature_dict: Dict[str, Any]) -> Dict[str, Any]:
@@ -337,7 +319,7 @@ class AudioSentimentAnalyzer:
             feature_dict: Dictionary of extracted audio features
             
         Returns:
-            Dictionary containing sentiment features with 'hrs_' prefix
+            Dictionary containing ARVS routing parameters only
         """
         return self.analyze_sentiment(feature_dict)
 
@@ -381,10 +363,7 @@ if __name__ == "__main__":
     results = analyzer.analyze_sentiment(sample_features)
     
     # Display results
-    print(f"Predicted Sentiment: {results['hrs_predicted_sentiment']}")
-    print(f"Confidence: {results['hrs_sentiment_confidence']:.3f}")
-    print(f"Negative Prob: {results['hrs_negative_prob']:.3f}")
-    print(f"Neutral Prob: {results['hrs_neutral_prob']:.3f}")
-    print(f"Positive Prob: {results['hrs_positive_prob']:.3f}")
-    print(f"ARVS Parameters: batch_size={results['hrs_arvs_batch_size']}, n_out={results['hrs_arvs_n_out']}, d_out={results['hrs_arvs_d_out']}")
-    print(f"Capsule Stats: mean={results['hrs_capsule_mean_activation']:.3f}, std={results['hrs_capsule_std_activation']:.3f}")
+    print(f"ARVS Batch Size: {results['arvs_batch_size']}")
+    print(f"ARVS N Out: {results['arvs_n_out']}")  
+    print(f"ARVS D Out: {results['arvs_d_out']}")
+    print("Note: This returns PyTorch tensor of output capsules (vectors), one per output position.")

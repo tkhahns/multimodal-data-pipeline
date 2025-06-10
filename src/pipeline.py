@@ -193,6 +193,9 @@ class MultimodalPipeline:
         # Extract features
         features = self.extract_features(str(audio_path))
         
+        # Group features by model categories
+        grouped_features = self._group_features_by_model(features)
+        
         # Save features as JSON and/or parquet
         base_name = audio_path.stem
         feature_file_json = self.output_dir / "features" / f"{base_name}.json"
@@ -221,35 +224,43 @@ class MultimodalPipeline:
                 "metadata_error": str(e)
             }
         
-        # Process features for JSON
-        for key, value in features.items():
-            if isinstance(value, np.ndarray):
-                # Convert all arrays to JSON-compatible data with statistics for large arrays
-                if value.size > 1000:
-                    # Include statistics for large arrays
-                    json_features[base_name][key] = {
-                        'mean': float(np.mean(value)),
-                        'min': float(np.min(value)),
-                        'max': float(np.max(value)),
-                        'std': float(np.std(value)),
-                        'shape': list(value.shape),
-                        'dtype': str(value.dtype),
-                        'samples': [float(x) if isinstance(x, (np.number, np.float32, np.float64)) else x for x in value[:10].tolist()] if value.size > 10 else [float(x) if isinstance(x, (np.number, np.float32, np.float64)) else x for x in value.tolist()]
-                    }
-                else:
-                    # For smaller arrays, convert to list and include directly
-                    if value.dtype.kind in 'fc':  # float or complex
-                        json_features[base_name][key] = [float(x) for x in value.tolist()]
-                    elif value.dtype.kind in 'iu':  # integer
-                        json_features[base_name][key] = [int(x) for x in value.tolist()]
+        # Add grouped features
+        for group_name, group_data in grouped_features.items():
+            json_features[base_name][group_name] = {
+                "Feature": group_data["Feature"],
+                "Model": group_data["Model"],
+                "features": {}
+            }
+            
+            # Process features for JSON
+            for key, value in group_data["features"].items():
+                if isinstance(value, np.ndarray):
+                    # Convert all arrays to JSON-compatible data with statistics for large arrays
+                    if value.size > 1000:
+                        # Include statistics for large arrays
+                        json_features[base_name][group_name]["features"][key] = {
+                            'mean': float(np.mean(value)),
+                            'min': float(np.min(value)),
+                            'max': float(np.max(value)),
+                            'std': float(np.std(value)),
+                            'shape': list(value.shape),
+                            'dtype': str(value.dtype),
+                            'samples': [float(x) if isinstance(x, (np.number, np.float32, np.float64)) else x for x in value[:10].tolist()] if value.size > 10 else [float(x) if isinstance(x, (np.number, np.float32, np.float64)) else x for x in value.tolist()]
+                        }
                     else:
-                        json_features[base_name][key] = value.tolist()
-            elif isinstance(value, (np.number, np.float32, np.float64, np.int32, np.int64)):
-                # Convert numpy scalar types to native Python types
-                json_features[base_name][key] = float(value) if isinstance(value, (np.float32, np.float64)) else int(value)
-            elif isinstance(value, (str, int, float, bool, list, dict)):
-                # Other Python native types go directly to JSON
-                json_features[base_name][key] = value
+                        # For smaller arrays, convert to list and include directly
+                        if value.dtype.kind in 'fc':  # float or complex
+                            json_features[base_name][group_name]["features"][key] = [float(x) for x in value.tolist()]
+                        elif value.dtype.kind in 'iu':  # integer
+                            json_features[base_name][group_name]["features"][key] = [int(x) for x in value.tolist()]
+                        else:
+                            json_features[base_name][group_name]["features"][key] = value.tolist()
+                elif isinstance(value, (np.number, np.float32, np.float64, np.int32, np.int64)):
+                    # Convert numpy scalar types to native Python types
+                    json_features[base_name][group_name]["features"][key] = float(value) if isinstance(value, (np.float32, np.float64)) else int(value)
+                elif isinstance(value, (str, int, float, bool, list, dict)):
+                    # Other Python native types go directly to JSON
+                    json_features[base_name][group_name]["features"][key] = value
         
         # Save a single JSON file
         with open(feature_file_json, "w") as f:
@@ -328,36 +339,47 @@ class MultimodalPipeline:
         try:
             consolidated_json = {}
             for filename, file_features in results.items():
+                # Group features by model/algorithm categories
+                grouped_features = self._group_features_by_model(file_features)
+                
+                # Convert the grouped features to JSON-compatible format
                 consolidated_json[filename] = {}
                 
-                # Add all serializable features
-                for key, value in file_features.items():
-                    if isinstance(value, np.ndarray):
-                        if value.size > 1000:
-                            # Include statistics for large arrays
-                            consolidated_json[filename][key] = {
-                                'mean': float(np.mean(value)),
-                                'min': float(np.min(value)),
-                                'max': float(np.max(value)),
-                                'std': float(np.std(value)),
-                                'shape': list(value.shape),
-                                'dtype': str(value.dtype),
-                                'samples': [float(x) if isinstance(x, (np.number, np.float32, np.float64)) else x for x in value[:5].tolist()] if value.size > 5 else [float(x) if isinstance(x, (np.number, np.float32, np.float64)) else x for x in value.tolist()]
-                            }
-                        else:
-                            # Convert numpy values to Python native types
-                            if value.dtype.kind in 'fc':  # float or complex
-                                consolidated_json[filename][key] = [float(x) for x in value.tolist()]
-                            elif value.dtype.kind in 'iu':  # integer
-                                consolidated_json[filename][key] = [int(x) for x in value.tolist()]
+                for group_name, group_data in grouped_features.items():
+                    consolidated_json[filename][group_name] = {
+                        "Feature": group_data["Feature"],
+                        "Model": group_data["Model"],
+                        "features": {}
+                    }
+                    
+                    # Process each feature in the group
+                    for key, value in group_data["features"].items():
+                        if isinstance(value, np.ndarray):
+                            if value.size > 1000:
+                                # Include statistics for large arrays
+                                consolidated_json[filename][group_name]["features"][key] = {
+                                    'mean': float(np.mean(value)),
+                                    'min': float(np.min(value)),
+                                    'max': float(np.max(value)),
+                                    'std': float(np.std(value)),
+                                    'shape': list(value.shape),
+                                    'dtype': str(value.dtype),
+                                    'samples': [float(x) if isinstance(x, (np.number, np.float32, np.float64)) else x for x in value[:5].tolist()] if value.size > 5 else [float(x) if isinstance(x, (np.number, np.float32, np.float64)) else x for x in value.tolist()]
+                                }
                             else:
-                                consolidated_json[filename][key] = value.tolist()
-                    elif not callable(value):
-                        # Handle other numpy types that might be scalars
-                        if isinstance(value, (np.number, np.float32, np.float64, np.int32, np.int64)):
-                            consolidated_json[filename][key] = float(value) if isinstance(value, (np.float32, np.float64)) else int(value)
-                        else:
-                            consolidated_json[filename][key] = value
+                                # Convert numpy values to Python native types
+                                if value.dtype.kind in 'fc':  # float or complex
+                                    consolidated_json[filename][group_name]["features"][key] = [float(x) for x in value.tolist()]
+                                elif value.dtype.kind in 'iu':  # integer
+                                    consolidated_json[filename][group_name]["features"][key] = [int(x) for x in value.tolist()]
+                                else:
+                                    consolidated_json[filename][group_name]["features"][key] = value.tolist()
+                        elif not callable(value):
+                            # Handle other numpy types that might be scalars
+                            if isinstance(value, (np.number, np.float32, np.float64, np.int32, np.int64)):
+                                consolidated_json[filename][group_name]["features"][key] = float(value) if isinstance(value, (np.float32, np.float64)) else int(value)
+                            else:
+                                consolidated_json[filename][group_name]["features"][key] = value
             
             # Save consolidated JSON
             with open(self.output_dir / "pipeline_features.json", "w") as f:
@@ -370,3 +392,110 @@ class MultimodalPipeline:
             traceback.print_exc()
         
         return results
+    
+    def _group_features_by_model(self, features: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Group features by their model/algorithm categories according to the specification.
+        
+        Args:
+            features: Dictionary of all extracted features
+            
+        Returns:
+            Dictionary grouped by "Feature" categories
+        """
+        # Define feature groupings according to the specification table
+        feature_groups = {
+            "Audio volume": {
+                "exact_matches": ["oc_audvol"],
+                "model_name": "OpenCV"
+            },
+            "Change in audio volume": {
+                "exact_matches": ["oc_audvol_diff"],
+                "model_name": "OpenCV"
+            },
+            "Average audio pitch": {
+                "exact_matches": ["oc_audpit"],
+                "model_name": "OpenCV"
+            },
+            "Change in audio pitch": {
+                "exact_matches": ["oc_audpit_diff"],
+                "model_name": "OpenCV"
+            },
+            "Speech emotion/emotional speech classification": {
+                "prefixes": ["ser_"],
+                "exact_matches": [],
+                "model_name": "Speech Emotion Recognition"
+            },
+            "Time-Accurate Speech Transcription": {
+                "prefixes": ["WhX_"],
+                "exact_matches": ["transcription", "language", "num_segments"],
+                "model_name": "WhisperX: Time-Accurate Speech Transcription of Long-Form Audio"
+            },
+            "Spectral Features, Pitch, Rhythm": {
+                "prefixes": ["lbrs_"],
+                "exact_matches": [],
+                "model_name": "Librosa"
+            },
+            "Speech feature extraction": {
+                "prefixes": ["osm_"],
+                "exact_matches": ["sample_rate", "hop_length", "num_frames"],
+                "model_name": "openSMILE"
+            },
+            "Sentiment Analysis": {
+                "prefixes": ["arvs_"],
+                "exact_matches": [],
+                "model_name": "AnAlgorithm for Routing Vectors in Sequences"
+            },
+            "Disentangled Attention Mechanism & Enhanced Mask Decoder": {
+                "prefixes": ["DEB_"],
+                "exact_matches": [],
+                "model_name": "DEBERTA"
+            }
+        }
+        
+        # Initialize grouped features
+        grouped_features = {}
+        ungrouped_features = {}
+        
+        # Group features by category
+        for feature_name, feature_value in features.items():
+            matched = False
+            
+            for group_name, group_config in feature_groups.items():
+                # Check exact matches first (more specific)
+                if feature_name in group_config.get("exact_matches", []):
+                    if group_name not in grouped_features:
+                        grouped_features[group_name] = {
+                            "Feature": group_name,
+                            "Model": group_config["model_name"],
+                            "features": {}
+                        }
+                    grouped_features[group_name]["features"][feature_name] = feature_value
+                    matched = True
+                    break
+                
+                # Check prefix matches
+                if any(feature_name.startswith(prefix) for prefix in group_config.get("prefixes", [])):
+                    if group_name not in grouped_features:
+                        grouped_features[group_name] = {
+                            "Feature": group_name,
+                            "Model": group_config["model_name"],
+                            "features": {}
+                        }
+                    grouped_features[group_name]["features"][feature_name] = feature_value
+                    matched = True
+                    break
+            
+            # If no match found, add to ungrouped
+            if not matched:
+                ungrouped_features[feature_name] = feature_value
+        
+        # Add ungrouped features if any exist
+        if ungrouped_features:
+            grouped_features["Other"] = {
+                "Feature": "Other",
+                "Model": "Various",
+                "features": ungrouped_features
+            }
+        
+        return grouped_features
