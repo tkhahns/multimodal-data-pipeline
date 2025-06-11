@@ -63,6 +63,16 @@ The pipeline currently supports the following audio feature extractors:
 - Automatically processes transcribed text from WhisperX or other text sources
 - Returns correlation scores indicating embedding quality
 
+### Text Analysis (ALBERT)
+- Language representation analysis using ALBERT (A Lite BERT)
+- Features with `alb_*` prefix for comprehensive NLP benchmark performance:
+  - **GLUE Tasks**: MNLI, QNLI, QQP, RTE, SST, MRPC, CoLA, STS
+  - **SQuAD 1.1/2.0**: Reading comprehension (dev and test sets)
+  - **RACE**: Reading comprehension for middle/high school levels
+- Utilizes ALBERT's parameter-sharing architecture for efficient language understanding
+- Automatically processes transcribed text from WhisperX or other text sources
+- Returns single-value performance metrics across 12 benchmark tasks
+
 ## Installation
 
 ### Prerequisites

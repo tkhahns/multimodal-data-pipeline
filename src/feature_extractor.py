@@ -79,6 +79,12 @@ class MultimodalFeatureExtractor:
             simcse_features = extractor.get_feature_dict(data)
             features.update(simcse_features)
         
+        # If ALBERT text analysis is requested, process text data
+        if "albert_text" in self.pipeline.features:
+            extractor = self.pipeline._get_extractor("albert_text")
+            albert_features = extractor.get_feature_dict(data)
+            features.update(albert_features)
+        
         # Can add other feature extractors that work with dictionary input here
         
         return features

@@ -59,6 +59,7 @@ class MultimodalPipeline:
             "whisperx_transcription", # WhisperX transcription with diarization
             "deberta_text",     # DeBERTa text analysis with benchmark performance metrics
             "simcse_text",      # SimCSE contrastive learning of sentence embeddings
+            "albert_text",      # ALBERT language representation analysis
         ]
         
         # Default behavior: extract all features when none specified
@@ -97,6 +98,9 @@ class MultimodalPipeline:
             elif feature_name == "simcse_text":
                 from src.text.simcse_analyzer import SimCSEAnalyzer
                 self.extractors[feature_name] = SimCSEAnalyzer(device=self.device)
+            elif feature_name == "albert_text":
+                from src.text.albert_analyzer import ALBERTAnalyzer
+                self.extractors[feature_name] = ALBERTAnalyzer(device=self.device)
                 
         return self.extractors.get(feature_name)
     
@@ -184,6 +188,15 @@ class MultimodalPipeline:
             # It will look for transcribed text from WhisperX or other sources
             simcse_features = extractor.get_feature_dict(features)
             features.update(simcse_features)
+
+        # Extract ALBERT text analysis features
+        if "albert_text" in self.features:
+            print(f"Extracting ALBERT text analysis features from {audio_path}")
+            extractor = self._get_extractor("albert_text")
+            # Pass the entire feature dictionary to ALBERT analyzer 
+            # It will look for transcribed text from WhisperX or other sources
+            albert_features = extractor.get_feature_dict(features)
+            features.update(albert_features)
 
         return features
     
@@ -468,6 +481,11 @@ class MultimodalPipeline:
                 "prefixes": ["CSE_"],
                 "exact_matches": [],
                 "model_name": "SimCSE: Simple Contrastive Learning of Sentence Embeddings"
+            },
+            "Language representation": {
+                "prefixes": ["alb_"],
+                "exact_matches": [],
+                "model_name": "ALBERT: A Lite BERT for Self-supervised Learning of Language Representations"
             }
         }
         

@@ -82,6 +82,9 @@ Available features:
 - `simcse_text`: SimCSE contrastive learning analysis
   - Processes transcribed text from WhisperX or other sources
   - Computes STS benchmark correlations for sentence embedding quality
+- `albert_text`: ALBERT language representation analysis
+  - Processes transcribed text from WhisperX or other sources
+  - Computes performance across 12 NLP benchmarks including GLUE tasks, SQuAD, and RACE
 
 **Note**: When no specific features are specified, all available features are extracted by default.
 
