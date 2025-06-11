@@ -58,6 +58,7 @@ class MultimodalPipeline:
             "speech_separation", # Speech source separation
             "whisperx_transcription", # WhisperX transcription with diarization
             "deberta_text",     # DeBERTa text analysis with benchmark performance metrics
+            "simcse_text",      # SimCSE contrastive learning of sentence embeddings
         ]
         
         # Default behavior: extract all features when none specified
@@ -93,6 +94,9 @@ class MultimodalPipeline:
                 self.extractors[feature_name] = WhisperXTranscriber(device=self.device)
             elif feature_name == "deberta_text":
                 self.extractors[feature_name] = DeBERTaAnalyzer(device=self.device)
+            elif feature_name == "simcse_text":
+                from src.text.simcse_analyzer import SimCSEAnalyzer
+                self.extractors[feature_name] = SimCSEAnalyzer(device=self.device)
                 
         return self.extractors.get(feature_name)
     
@@ -171,6 +175,15 @@ class MultimodalPipeline:
             # It will look for transcribed text from WhisperX or other sources
             deberta_features = extractor.get_feature_dict(features)
             features.update(deberta_features)
+
+        # Extract SimCSE text analysis features
+        if "simcse_text" in self.features:
+            print(f"Extracting SimCSE text analysis features from {audio_path}")
+            extractor = self._get_extractor("simcse_text")
+            # Pass the entire feature dictionary to SimCSE analyzer 
+            # It will look for transcribed text from WhisperX or other sources
+            simcse_features = extractor.get_feature_dict(features)
+            features.update(simcse_features)
 
         return features
     
@@ -450,6 +463,11 @@ class MultimodalPipeline:
                 "prefixes": ["DEB_"],
                 "exact_matches": [],
                 "model_name": "DEBERTA"
+            },
+            "Contrastive Learning of Sentence Embeddings": {
+                "prefixes": ["CSE_"],
+                "exact_matches": [],
+                "model_name": "SimCSE: Simple Contrastive Learning of Sentence Embeddings"
             }
         }
         

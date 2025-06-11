@@ -73,6 +73,12 @@ class MultimodalFeatureExtractor:
             deberta_features = extractor.get_feature_dict(data)
             features.update(deberta_features)
         
+        # If SimCSE text analysis is requested, process text data
+        if "simcse_text" in self.pipeline.features:
+            extractor = self.pipeline._get_extractor("simcse_text")
+            simcse_features = extractor.get_feature_dict(data)
+            features.update(simcse_features)
+        
         # Can add other feature extractors that work with dictionary input here
         
         return features

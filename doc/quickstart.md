@@ -79,6 +79,9 @@ Available features:
 - `deberta_text`: DeBERTa benchmark performance analysis
   - Processes transcribed text from WhisperX or other sources
   - Computes performance metrics for SQuAD, MNLI, SST-2, QNLI, CoLA, RTE, MRPC, QQP, STS-B
+- `simcse_text`: SimCSE contrastive learning analysis
+  - Processes transcribed text from WhisperX or other sources
+  - Computes STS benchmark correlations for sentence embedding quality
 
 **Note**: When no specific features are specified, all available features are extracted by default.
 

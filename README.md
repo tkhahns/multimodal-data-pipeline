@@ -52,6 +52,17 @@ The pipeline currently supports the following audio feature extractors:
 - Automatically processes transcribed text from WhisperX or other text sources
 - Returns default performance metrics when no text is available
 
+### Text Analysis (SimCSE)
+- Contrastive learning framework for sentence embeddings
+- Features with `CSE_*` prefix for STS benchmark performance:
+  - **STS12-16**: Semantic Textual Similarity benchmarks 2012-2016
+  - **STSBenchmark**: Main STS benchmark dataset
+  - **SICKRelatedness**: Semantic relatedness evaluation
+  - **Average**: Mean performance across all benchmarks
+- Utilizes SimCSE (Simple Contrastive Learning of Sentence Embeddings) model
+- Automatically processes transcribed text from WhisperX or other text sources
+- Returns correlation scores indicating embedding quality
+
 ## Installation
 
 ### Prerequisites
