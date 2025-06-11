@@ -141,8 +141,8 @@ This pipeline uses several HuggingFace models for speech processing. You'll need
 
 2. Run the setup script to create the environment and install dependencies:
    ```
-   chmod +x setup_env.sh
-   ./setup_env.sh
+   chmod +x run_all.sh
+   ./run_all.sh --setup
    ```
    This will automatically install ffmpeg and all other required dependencies via Poetry.
 
@@ -166,11 +166,11 @@ This will:
 The easiest way to use the pipeline is through the unified run script:
 
 ```bash
-# Using the shell wrapper (recommended)
-./run_pipeline.sh
+# Using the unified script (recommended)
+./run_all.sh
 
 # Or using Poetry directly
-poetry run python run_simple.py
+poetry run python run_pipeline.py
 ```
 
 This will process all video files in the `data/` directory and output results to `output/`.
@@ -178,9 +178,12 @@ This will process all video files in the `data/` directory and output results to
 #### Options
 
 ```
-Usage: ./run_pipeline.sh [options]
+Usage: ./run_all.sh [options]
 
 Options:
+  --setup               Run full environment setup
+  --setup-quick         Run quick setup (skip optional packages)  
+  --check-deps          Check if dependencies are installed
   -d, --data-dir DIR    Directory with video/audio files (default: ./data)
   -o, --output-dir DIR  Output directory (default: ./output/YYYYMMDD_HHMMSS)
   -f, --features LIST   Comma-separated features to extract
@@ -189,7 +192,6 @@ Options:
                                   whisperx_transcription,deberta_text
   --list-features       List available features and exit
   --is-audio            Process files as audio instead of video
-  --check-dependencies  Check if all required dependencies are installed
   --log-file FILE       Path to log file (default: <output_dir>/pipeline.log)
   -h, --help            Show this help message
 ```
@@ -198,27 +200,32 @@ Options:
 
 Process all videos with all features:
 ```bash
-./run_pipeline.sh
+./run_all.sh
 ```
 
 Process videos in a specific directory:
 ```bash
-./run_pipeline.sh --data-dir /path/to/videos
+./run_all.sh --data-dir /path/to/videos
 ```
 
 Only extract basic audio and speech emotion features:
 ```bash
-./run_pipeline.sh --features basic_audio,speech_emotion
+./run_all.sh --features basic_audio,speech_emotion
 ```
 
 Extract text analysis along with audio features:
 ```bash
-./run_pipeline.sh --features basic_audio,whisperx_transcription,deberta_text
+./run_all.sh --features basic_audio,whisperx_transcription,deberta_text
 ```
 
 Check if all dependencies are properly installed:
 ```bash
-./run_pipeline.sh --check-dependencies
+./run_all.sh --check-deps
+```
+
+Set up the environment:
+```bash
+./run_all.sh --setup
 ```
 
 ### Programmatic Usage
@@ -316,10 +323,10 @@ Common error messages and solutions:
 If you encounter import errors:
 ```bash
 # Check if all dependencies are installed
-./run_pipeline.sh --check-dependencies
+./run_all.sh --check-deps
 
 # Reinstall dependencies if needed
-./setup_env.sh
+./run_all.sh --setup
 ```
 
 ## Model Categories

@@ -8,8 +8,8 @@ This guide provides a quick introduction to get you started with the Multimodal 
 
 2. **Run the setup script:**
    ```bash
-   chmod +x setup_env.sh
-   ./setup_env.sh
+   chmod +x run_all.sh
+   ./run_all.sh --setup
    ```
 
 3. **Set up HuggingFace authentication** (required for speaker diarization):
@@ -39,16 +39,16 @@ This guide provides a quick introduction to get you started with the Multimodal 
 Run the pipeline with default settings:
 ```bash
 # Using the unified run script (recommended)
-./run_pipeline.sh
+./run_all.sh
 
 # See all available options
-./run_pipeline.sh --help
+./run_all.sh --help
 
 # List all available features
-./run_pipeline.sh --list-features
+./run_all.sh --list-features
 
 # Check if all dependencies are properly installed
-./run_pipeline.sh --check-dependencies
+./run_all.sh --check-deps
 ```
 
 This will:
@@ -63,7 +63,7 @@ This will:
 
 To extract only specific features:
 ```bash
-./run_pipeline.sh --features basic_audio,speech_emotion
+./run_all.sh --features basic_audio,speech_emotion
 ```
 
 Available features:
@@ -100,13 +100,13 @@ Available features:
 ### Processing a Specific Directory
 
 ```bash
-poetry run python run_simple.py --data-dir /path/to/your/videos
+./run_all.sh --data-dir /path/to/your/videos
 ```
 
 ### Custom Output Location
 
 ```bash
-poetry run python run_simple.py --output-dir /path/to/save/results
+./run_all.sh --output-dir /path/to/save/results
 ```
 
 ## Using in Python Code
