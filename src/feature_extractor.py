@@ -91,6 +91,12 @@ class MultimodalFeatureExtractor:
             sbert_features = extractor.get_feature_dict(data)
             features.update(sbert_features)
         
+        # If Universal Sentence Encoder text analysis is requested, process text data
+        if "use_text" in self.pipeline.features:
+            extractor = self.pipeline._get_extractor("use_text")
+            use_features = extractor.get_feature_dict(data)
+            features.update(use_features)
+        
         # Can add other feature extractors that work with dictionary input here
         
         return features

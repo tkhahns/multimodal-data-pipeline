@@ -61,6 +61,7 @@ class MultimodalPipeline:
             "simcse_text",      # SimCSE contrastive learning of sentence embeddings
             "albert_text",      # ALBERT language representation analysis
             "sbert_text",       # Sentence-BERT dense vector representations and reranking
+            "use_text",         # Universal Sentence Encoder for text classification and semantic analysis
         ]
         
         # Default behavior: extract all features when none specified
@@ -105,6 +106,9 @@ class MultimodalPipeline:
             elif feature_name == "sbert_text":
                 from src.text.sbert_analyzer import SBERTAnalyzer
                 self.extractors[feature_name] = SBERTAnalyzer(device=self.device)
+            elif feature_name == "use_text":
+                from src.text.use_analyzer import USEAnalyzer
+                self.extractors[feature_name] = USEAnalyzer(device=self.device)
                 
         return self.extractors.get(feature_name)
     
@@ -210,6 +214,15 @@ class MultimodalPipeline:
             # It will look for transcribed text from WhisperX or other sources
             sbert_features = extractor.get_feature_dict(features)
             features.update(sbert_features)
+
+        # Extract Universal Sentence Encoder text analysis features
+        if "use_text" in self.features:
+            print(f"Extracting Universal Sentence Encoder text analysis features from {audio_path}")
+            extractor = self._get_extractor("use_text")
+            # Pass the entire feature dictionary to USE analyzer 
+            # It will look for transcribed text from WhisperX or other sources
+            use_features = extractor.get_feature_dict(features)
+            features.update(use_features)
 
         return features
     
@@ -504,6 +517,11 @@ class MultimodalPipeline:
                 "prefixes": ["BERT_"],
                 "exact_matches": [],
                 "model_name": "Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks"
+            },
+            "text classification + semantic similarity + semantic cluster": {
+                "prefixes": ["USE_"],
+                "exact_matches": [],
+                "model_name": "Universal Sentence Encoder"
             }
         }
         

@@ -83,6 +83,17 @@ The pipeline currently supports the following audio feature extractors:
 - Automatically processes transcribed text from WhisperX or other text sources
 - Returns embeddings, similarity matrices, and reranker scores for semantic analysis
 
+### Text Analysis (Universal Sentence Encoder)
+- Text classification, semantic similarity, and semantic clustering
+- Features with `USE_*` prefix for embedding and semantic analysis:
+  - **Fixed-Length Embeddings**: 512-dimensional vectors for any input text length
+  - **Sentence Embeddings**: Individual embeddings for each sentence (USE_embed_sentence1, USE_embed_sentence2, etc.)
+  - **Semantic Similarity**: Cosine similarity metrics between sentences
+  - **Clustering Metrics**: Centroid distance, spread variance, and pairwise distances
+- Utilizes Google's Universal Sentence Encoder from TensorFlow Hub
+- Automatically processes transcribed text from WhisperX or other text sources
+- Returns comprehensive embeddings and semantic analysis for classification and clustering tasks
+
 ## Installation
 
 ### Prerequisites

@@ -88,6 +88,9 @@ Available features:
 - `sbert_text`: Sentence-BERT dense vector representations and reranking
   - Processes transcribed text from WhisperX or other sources
   - Generates dense embeddings, correlation matrices, and reranker scores
+- `use_text`: Universal Sentence Encoder for text classification and semantic analysis
+  - Processes transcribed text from WhisperX or other sources
+  - Generates fixed-length 512-dimensional embeddings and semantic similarity metrics
 
 **Note**: When no specific features are specified, all available features are extracted by default.
 
