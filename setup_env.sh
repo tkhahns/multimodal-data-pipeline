@@ -79,13 +79,23 @@ echo "-> Installing GitHub-based and specialized libraries..."
 echo "-> Installing speech emotion recognition dependencies..."
 poetry add joblib scikit-learn
 
-# WhisperX for speech transcription
+# WhisperX for speech transcription (PyPI version - simpler and more stable)
 echo "-> Installing WhisperX..."
-poetry add git+https://github.com/m-bain/whisperX.git
+poetry add whisperx || {
+    echo "PyPI installation failed, trying GitHub version..."
+    poetry add git+https://github.com/m-bain/whisperX.git
+}
 
-# AudioStretchy for audio manipulation
+# AudioStretchy for audio manipulation (PyPI version - simpler and more stable)
 echo "-> Installing AudioStretchy..."
-poetry add git+https://github.com/twardoch/audiostretchy.git
+poetry add "audiostretchy[all]" || {
+    echo "PyPI installation failed, trying GitHub version..."
+    poetry add git+https://github.com/twardoch/audiostretchy.git
+}
+
+# Heinsen Routing for sentiment analysis (GitHub repository)
+echo "-> Installing Heinsen Routing..."
+poetry add git+https://github.com/glassroom/heinsen_routing.git
 
 # Advanced ML libraries
 echo "-> Installing advanced ML libraries..."
