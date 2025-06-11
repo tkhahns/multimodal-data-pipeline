@@ -53,6 +53,7 @@ class MultimodalPipeline:
             "basic_audio",      # Volume and pitch from OpenCV
             "librosa_spectral", # Spectral features from librosa
             "opensmile",        # OpenSMILE Low-Level Descriptors and Functionals
+            "audiostretchy",    # AudioStretchy high-quality time-stretching analysis
             "speech_emotion",   # Speech emotion recognition
             "heinsen_sentiment", # Heinsen routing sentiment analysis
             "speech_separation", # Speech source separation
@@ -87,6 +88,9 @@ class MultimodalPipeline:
                 self.extractors[feature_name] = LibrosaFeatureExtractor()
             elif feature_name == "opensmile":
                 self.extractors[feature_name] = OpenSMILEFeatureExtractor()
+            elif feature_name == "audiostretchy":
+                from src.audio.audiostretchy_features import AudioStretchyAnalyzer
+                self.extractors[feature_name] = AudioStretchyAnalyzer()
             elif feature_name == "speech_emotion":
                 self.extractors[feature_name] = SpeechEmotionRecognizer()
             elif feature_name == "heinsen_sentiment":
@@ -144,6 +148,13 @@ class MultimodalPipeline:
             extractor = self._get_extractor("opensmile")
             opensmile_features = extractor.get_feature_dict(audio_path)
             features.update(opensmile_features)
+        
+        # Extract AudioStretchy features
+        if "audiostretchy" in self.features:
+            print(f"Extracting AudioStretchy time-stretching features from {audio_path}")
+            extractor = self._get_extractor("audiostretchy")
+            audiostretchy_features = extractor.get_feature_dict(audio_path)
+            features.update(audiostretchy_features)
         
         # Extract speech emotion features
         if "speech_emotion" in self.features:
@@ -487,6 +498,11 @@ class MultimodalPipeline:
                 "prefixes": ["lbrs_"],
                 "exact_matches": [],
                 "model_name": "Librosa"
+            },
+            "(1) High-quality time-stretching of WAV/MP3 files without changing their pitch; (2) Time-stretch silence separately": {
+                "prefixes": ["AS_"],
+                "exact_matches": [],
+                "model_name": "AudioStretchy"
             },
             "Speech feature extraction": {
                 "prefixes": ["osm_"],

@@ -28,6 +28,17 @@ The pipeline currently supports the following audio feature extractors:
 - Uses ComParE 2016 feature set with `osm_*` prefix
 - Extracts 700+ comprehensive audio features including time-series and statistical summaries
 
+### AudioStretchy Analysis
+- High-quality time-stretching analysis of WAV/MP3 files without changing pitch
+- Features with `AS_*` prefix for time-stretching parameter analysis:
+  - **Stretching Parameters**: Ratio, gap ratio, frequency bounds, buffer settings
+  - **Detection Settings**: Fast detection, normal detection, double range options
+  - **Audio Characteristics**: Sample rate, channels, frame counts, duration analysis
+  - **Output Calculations**: Predicted output duration, frame counts, and ratios
+- Utilizes AudioStretchy library for professional audio time-stretching analysis
+- Provides comprehensive analysis without actually performing time-stretching
+- Returns 16 single-value features for stretching configuration and audio properties
+
 ### Speech Analysis
 - Speech Emotion Recognition (`ser_*` emotion probabilities)
 - Speech Separation (separated audio sources)

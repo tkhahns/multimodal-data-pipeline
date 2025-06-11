@@ -72,6 +72,14 @@ This document tracks the implementation status of all feature groups in the mult
   - **Note**: Covers energy, spectral, MFCC, pitch/quality, LSP, psychoacoustic features
   - **Status**: ✅ Implemented
 
+- [x] **(1) High-quality time-stretching of WAV/MP3 files without changing their pitch; (2) Time-stretch silence separately**
+  - **Model**: AudioStretchy
+  - **Features**: 16
+  - **Output**: `AS_ratio`, `AS_gap_ratio`, `AS_lower_freq`, `AS_upper_freq`, `AS_buffer_ms`, `AS_threshold_gap_db`, `AS_double_range`, `AS_fast_detection`, `AS_normal_detection`, `AS_sample_rate`, `AS_input_nframes`, `AS_output_nframes`, `AS_nchannels`, `AS_input_duration_sec`, `AS_output_duration_sec`, `AS_actual_output_ratio`
+  - **Description**: High-quality time-stretching analysis with separate silence processing capabilities
+  - **Note**: Single-value features providing stretching parameters and calculated output characteristics
+  - **Status**: ✅ Implemented
+
 ### 🧠 **AI/ML Analysis**
 
 - [x] **Sentiment Analysis**
@@ -126,9 +134,9 @@ This document tracks the implementation status of all feature groups in the mult
 |----------|--------|----------------|----------------------|
 | **Audio Features (OpenCV)** | 4 | 4 | ✅ **Complete** |
 | **Speech Analysis** | 2 | ~296 | ✅ **Complete** |
-| **Audio Analysis** | 2 | 1,528 | ✅ **Complete** |
+| **Audio Analysis** | 3 | 1,544 | ✅ **Complete** |
 | **AI/ML Analysis** | 6 | 90 | ✅ **Complete** |
-| **TOTAL** | **14** | **~1,918** | ✅ **Complete** |
+| **TOTAL** | **15** | **~1,934** | ✅ **Complete** |
 
 ---
 

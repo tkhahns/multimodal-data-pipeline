@@ -69,6 +69,9 @@ To extract only specific features:
 Available features:
 - `basic_audio`: Volume and pitch (OpenCV)
 - `librosa_spectral`: Spectral features (Librosa)
+- `audiostretchy`: AudioStretchy time-stretching analysis
+  - Analyzes audio for high-quality time-stretching parameters
+  - Generates stretching configuration and predicted output characteristics
 - `opensmile`: OpenSMILE Low-Level Descriptors and Functionals
 - `speech_emotion`: Speech emotion recognition
 - `heinsen_sentiment`: Heinsen routing sentiment analysis with capsule networks
