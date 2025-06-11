@@ -3,7 +3,7 @@
 Demo script showing the new feature grouping functionality.
 """
 
-from src.pipeline import MultimodalPipeline
+from ..src.pipeline import MultimodalPipeline
 import json
 
 def main():

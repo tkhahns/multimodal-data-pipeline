@@ -9,8 +9,8 @@ This script demonstrates:
 4. Complete multimodal pipeline with text analysis
 """
 
-from src.feature_extractor import MultimodalFeatureExtractor
-from src.pipeline import MultimodalPipeline
+from ..src.feature_extractor import MultimodalFeatureExtractor
+from ..src.pipeline import MultimodalPipeline
 import json
 import time
 

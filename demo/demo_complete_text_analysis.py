@@ -6,8 +6,8 @@ This script demonstrates the comprehensive text analysis capabilities
 of the multimodal pipeline with all three language models.
 """
 
-from src.feature_extractor import MultimodalFeatureExtractor
-from src.pipeline import MultimodalPipeline
+from ..src.feature_extractor import MultimodalFeatureExtractor
+from ..src.pipeline import MultimodalPipeline
 import json
 import time
 

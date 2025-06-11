@@ -9,7 +9,7 @@ This script demonstrates:
 4. User-friendly MultimodalFeatureExtractor interface
 """
 
-from src.feature_extractor import MultimodalFeatureExtractor
+from ..src.feature_extractor import MultimodalFeatureExtractor
 import json
 import time
 
