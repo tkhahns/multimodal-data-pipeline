@@ -73,6 +73,16 @@ The pipeline currently supports the following audio feature extractors:
 - Automatically processes transcribed text from WhisperX or other text sources
 - Returns single-value performance metrics across 12 benchmark tasks
 
+### Text Analysis (Sentence-BERT)
+- Dense vector representations and reranking capabilities
+- Features with `BERT_*` prefix for embedding analysis and passage ranking:
+  - **Dense Embeddings**: Correlational matrices for sentences and paragraphs
+  - **Reranking Scores**: Cross-encoder scores for query-passage relevance
+  - **Tensor Representations**: Flattened correlation matrices with shape metadata
+- Utilizes Sentence-BERT (SBERT) with Siamese BERT-Networks architecture
+- Automatically processes transcribed text from WhisperX or other text sources
+- Returns embeddings, similarity matrices, and reranker scores for semantic analysis
+
 ## Installation
 
 ### Prerequisites

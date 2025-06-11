@@ -60,6 +60,7 @@ class MultimodalPipeline:
             "deberta_text",     # DeBERTa text analysis with benchmark performance metrics
             "simcse_text",      # SimCSE contrastive learning of sentence embeddings
             "albert_text",      # ALBERT language representation analysis
+            "sbert_text",       # Sentence-BERT dense vector representations and reranking
         ]
         
         # Default behavior: extract all features when none specified
@@ -101,6 +102,9 @@ class MultimodalPipeline:
             elif feature_name == "albert_text":
                 from src.text.albert_analyzer import ALBERTAnalyzer
                 self.extractors[feature_name] = ALBERTAnalyzer(device=self.device)
+            elif feature_name == "sbert_text":
+                from src.text.sbert_analyzer import SBERTAnalyzer
+                self.extractors[feature_name] = SBERTAnalyzer(device=self.device)
                 
         return self.extractors.get(feature_name)
     
@@ -197,6 +201,15 @@ class MultimodalPipeline:
             # It will look for transcribed text from WhisperX or other sources
             albert_features = extractor.get_feature_dict(features)
             features.update(albert_features)
+
+        # Extract Sentence-BERT text analysis features
+        if "sbert_text" in self.features:
+            print(f"Extracting Sentence-BERT text analysis features from {audio_path}")
+            extractor = self._get_extractor("sbert_text")
+            # Pass the entire feature dictionary to Sentence-BERT analyzer 
+            # It will look for transcribed text from WhisperX or other sources
+            sbert_features = extractor.get_feature_dict(features)
+            features.update(sbert_features)
 
         return features
     
@@ -486,6 +499,11 @@ class MultimodalPipeline:
                 "prefixes": ["alb_"],
                 "exact_matches": [],
                 "model_name": "ALBERT: A Lite BERT for Self-supervised Learning of Language Representations"
+            },
+            "Dense Vector Representations and Reranking": {
+                "prefixes": ["BERT_"],
+                "exact_matches": [],
+                "model_name": "Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks"
             }
         }
         

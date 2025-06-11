@@ -85,6 +85,12 @@ class MultimodalFeatureExtractor:
             albert_features = extractor.get_feature_dict(data)
             features.update(albert_features)
         
+        # If Sentence-BERT text analysis is requested, process text data
+        if "sbert_text" in self.pipeline.features:
+            extractor = self.pipeline._get_extractor("sbert_text")
+            sbert_features = extractor.get_feature_dict(data)
+            features.update(sbert_features)
+        
         # Can add other feature extractors that work with dictionary input here
         
         return features
