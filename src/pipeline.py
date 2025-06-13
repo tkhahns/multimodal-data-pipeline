@@ -56,6 +56,7 @@ class MultimodalPipeline:
             "audiostretchy",    # AudioStretchy high-quality time-stretching analysis
             "speech_emotion",   # Speech emotion recognition
             "heinsen_sentiment", # Heinsen routing sentiment analysis
+            "meld_emotion",     # MELD emotion recognition during social interactions
             "speech_separation", # Speech source separation
             "whisperx_transcription", # WhisperX transcription with diarization
             "deberta_text",     # DeBERTa text analysis with benchmark performance metrics
@@ -95,6 +96,9 @@ class MultimodalPipeline:
                 self.extractors[feature_name] = SpeechEmotionRecognizer()
             elif feature_name == "heinsen_sentiment":
                 self.extractors[feature_name] = AudioSentimentAnalyzer(device=self.device)
+            elif feature_name == "meld_emotion":
+                from src.emotion.meld_emotion_analyzer import MELDEmotionAnalyzer
+                self.extractors[feature_name] = MELDEmotionAnalyzer()
             elif feature_name == "speech_separation":
                 self.extractors[feature_name] = SpeechSeparator(device=self.device)
             elif feature_name == "whisperx_transcription":
@@ -162,14 +166,13 @@ class MultimodalPipeline:
             extractor = self._get_extractor("speech_emotion")
             emotion_features = extractor.predict(audio_path)
             features.update(emotion_features)
-        
-        # Extract Heinsen routing sentiment features
+         # Extract Heinsen routing sentiment features
         if "heinsen_sentiment" in self.features:
             print(f"Extracting Heinsen routing sentiment features from {audio_path}")
             extractor = self._get_extractor("heinsen_sentiment")
             sentiment_features = extractor.get_feature_dict(features)
             features.update(sentiment_features)
-        
+
         # Extract speech separation features
         if "speech_separation" in self.features:
             print(f"Extracting speech separation features from {audio_path}")
@@ -189,6 +192,15 @@ class MultimodalPipeline:
             # Limit maximum number of speakers to 3
             whisperx_features = extractor.get_feature_dict(audio_path, max_speakers=3)
             features.update(whisperx_features)
+
+        # Extract MELD emotion features (after WhisperX to access transcription)
+        if "meld_emotion" in self.features:
+            print(f"Extracting MELD emotion recognition features from {audio_path}")
+            extractor = self._get_extractor("meld_emotion")
+            # Pass the entire feature dictionary to MELD analyzer 
+            # It will look for transcribed text from WhisperX or other sources
+            meld_features = extractor.get_feature_dict(features)
+            features.update(meld_features)
 
         # Extract DeBERTa text analysis features
         if "deberta_text" in self.features:
@@ -513,6 +525,11 @@ class MultimodalPipeline:
                 "prefixes": ["arvs_"],
                 "exact_matches": [],
                 "model_name": "AnAlgorithm for Routing Vectors in Sequences"
+            },
+            "Emotion Recognition during Social Interactions": {
+                "prefixes": ["MELD_"],
+                "exact_matches": [],
+                "model_name": "MELD (Multimodal Multi-Party Dataset for Emotion Recognition in Conversation)"
             },
             "Disentangled Attention Mechanism & Enhanced Mask Decoder": {
                 "prefixes": ["DEB_"],

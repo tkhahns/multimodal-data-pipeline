@@ -105,6 +105,18 @@ The pipeline currently supports the following audio feature extractors:
 - Automatically processes transcribed text from WhisperX or other text sources
 - Returns comprehensive embeddings and semantic analysis for classification and clustering tasks
 
+### Emotion Recognition during Social Interactions (MELD)
+- Multi-party conversation emotion analysis based on MELD dataset patterns
+- Features with `MELD_*` prefix for comprehensive conversational emotion analysis:
+  - **Conversation Statistics**: Unique words, utterance lengths, speaker count, dialogue structure
+  - **Emotion Distribution**: Counts for 7 emotion categories (anger, disgust, fear, joy, neutral, sadness, surprise)
+  - **Temporal Analysis**: Emotion shifts, transitions, and dialogue patterns
+  - **Speaker Analysis**: Multi-speaker conversation patterns and turn-taking
+  - **Duration Metrics**: Average utterance duration and conversation timing
+- Based on MELD (Multimodal Multi-Party Dataset for Emotion Recognition in Conversation)
+- Automatically processes transcribed text from WhisperX with speaker diarization
+- Returns 17 comprehensive features for social interaction emotion analysis
+
 ## Installation
 
 ### Prerequisites
@@ -189,7 +201,8 @@ Options:
   -f, --features LIST   Comma-separated features to extract
                         Available: basic_audio,librosa_spectral,opensmile,
                                   speech_emotion,heinsen_sentiment,speech_separation,
-                                  whisperx_transcription,deberta_text
+                                  whisperx_transcription,deberta_text,simcse_text,
+                                  albert_text,sbert_text,use_text,meld_emotion
   --list-features       List available features and exit
   --is-audio            Process files as audio instead of video
   --log-file FILE       Path to log file (default: <output_dir>/pipeline.log)
@@ -218,6 +231,16 @@ Extract text analysis along with audio features:
 ./run_all.sh --features basic_audio,whisperx_transcription,deberta_text
 ```
 
+Extract MELD emotion recognition with transcription:
+```bash
+./run_all.sh --features whisperx_transcription,meld_emotion
+```
+
+Extract comprehensive multimodal analysis:
+```bash
+./run_all.sh --features basic_audio,whisperx_transcription,meld_emotion,deberta_text,simcse_text
+```
+
 Check if all dependencies are properly installed:
 ```bash
 ./run_all.sh --check-deps
@@ -241,7 +264,7 @@ from src.feature_extractor import MultimodalFeatureExtractor
 
 # Initialize the extractor
 extractor = MultimodalFeatureExtractor(
-    features=['basic_audio', 'librosa_spectral', 'deberta_text'],
+    features=['basic_audio', 'librosa_spectral', 'meld_emotion', 'deberta_text'],
     device='cpu',  # Use 'cuda' if you have a compatible GPU
     output_dir='output/my_results'
 )
