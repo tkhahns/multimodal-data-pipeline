@@ -1,10 +1,10 @@
 # Multimodal Data Pipeline
 
-A comprehensive toolkit for processing multimodal data across speech, vision, and text modalities. This pipeline extracts various audio features from video files, including basic audio characteristics, spectral features, speech emotion recognition, speaker separation, and speech-to-text transcription.
+A comprehensive toolkit for processing multimodal data across speech, vision, and text modalities. This pipeline extracts various features from video files, including audio characteristics, spectral features, speech emotion recognition, speaker separation, speech-to-text transcription, 3D human pose estimation, and comprehensive text analysis.
 
 ## Features
 
-The pipeline currently supports the following audio feature extractors:
+The pipeline currently supports the following feature extractors across multiple modalities:
 
 ### Basic Audio Features (OpenCV)
 - Audio volume (`oc_audvol`)
@@ -117,6 +117,19 @@ The pipeline currently supports the following audio feature extractors:
 - Automatically processes transcribed text from WhisperX with speaker diarization
 - Returns 17 comprehensive features for social interaction emotion analysis
 
+### Computer Vision (PARE)
+- 3D human body estimation and pose analysis from video frames
+- Features with `PARE_*` prefix for comprehensive body and pose analysis:
+  - **Camera Parameters**: Predicted and original camera parameters (`PARE_pred_cam`, `PARE_orig_cam`)
+  - **3D Body Model**: SMPL pose parameters (72-dim) and shape parameters (10-dim)
+  - **3D Mesh**: Vertex positions for 6,890 mesh vertices (`PARE_verts`)
+  - **Joint Positions**: 3D and 2D joint locations (`PARE_joints3d`, `PARE_joints2d`, `PARE_smpl_joints2d`)
+  - **Detection Data**: Bounding boxes and frame identifiers (`PARE_bboxes`, `PARE_frame_ids`)
+  - **Statistical Analysis**: Mean, standard deviation, and shape information for mesh and joint data
+- Based on PARE (Part Attention Regressor for 3D Human Body Estimation)
+- Processes video files directly for frame-by-frame human pose estimation
+- Returns 25+ features including SMPL model parameters, 3D mesh vertices, and joint positions
+
 ## Installation
 
 ### Prerequisites
@@ -202,7 +215,8 @@ Options:
                         Available: basic_audio,librosa_spectral,opensmile,
                                   speech_emotion,heinsen_sentiment,speech_separation,
                                   whisperx_transcription,deberta_text,simcse_text,
-                                  albert_text,sbert_text,use_text,meld_emotion
+                                  albert_text,sbert_text,use_text,meld_emotion,
+                                  pare_vision
   --list-features       List available features and exit
   --is-audio            Process files as audio instead of video
   --log-file FILE       Path to log file (default: <output_dir>/pipeline.log)
@@ -239,6 +253,16 @@ Extract MELD emotion recognition with transcription:
 Extract comprehensive multimodal analysis:
 ```bash
 ./run_all.sh --features basic_audio,whisperx_transcription,meld_emotion,deberta_text,simcse_text
+```
+
+Extract vision features for 3D human pose analysis:
+```bash
+./run_all.sh --features pare_vision
+```
+
+Extract complete multimodal features (audio, text, and vision):
+```bash
+./run_all.sh --features basic_audio,whisperx_transcription,meld_emotion,pare_vision
 ```
 
 Check if all dependencies are properly installed:

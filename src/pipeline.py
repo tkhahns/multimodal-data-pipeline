@@ -64,6 +64,7 @@ class MultimodalPipeline:
             "albert_text",      # ALBERT language representation analysis
             "sbert_text",       # Sentence-BERT dense vector representations and reranking
             "use_text",         # Universal Sentence Encoder for text classification and semantic analysis
+            "pare_vision",      # PARE 3D human body estimation and pose analysis
         ]
         
         # Default behavior: extract all features when none specified
@@ -117,6 +118,9 @@ class MultimodalPipeline:
             elif feature_name == "use_text":
                 from src.text.use_analyzer import USEAnalyzer
                 self.extractors[feature_name] = USEAnalyzer(device=self.device)
+            elif feature_name == "pare_vision":
+                from src.vision.pare_analyzer import PAREAnalyzer
+                self.extractors[feature_name] = PAREAnalyzer(device=self.device)
                 
         return self.extractors.get(feature_name)
     
@@ -368,8 +372,17 @@ class MultimodalPipeline:
             sample_rate=16000
         )
         
-        # Process the audio
-        return self.process_audio_file(audio_path)
+        # Process the audio to get audio-based features
+        features = self.extract_features(str(audio_path))
+        
+        # Extract PARE vision features (video-specific)
+        if "pare_vision" in self.features:
+            print(f"Extracting PARE vision features from {video_path}")
+            extractor = self._get_extractor("pare_vision")
+            pare_features = extractor.get_feature_dict(str(video_path))
+            features.update(pare_features)
+        
+        return features
     
     def process_directory(self, directory: Union[str, Path], is_video: bool = True) -> Dict[str, Dict[str, Any]]:
         """
@@ -555,6 +568,11 @@ class MultimodalPipeline:
                 "prefixes": ["USE_"],
                 "exact_matches": [],
                 "model_name": "Universal Sentence Encoder"
+            },
+            "3D Human Body Estimation and Pose Analysis": {
+                "prefixes": ["PARE_"],
+                "exact_matches": [],
+                "model_name": "PARE (Part Attention Regressor for 3D Human Body Estimation)"
             }
         }
         

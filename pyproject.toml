@@ -54,6 +54,9 @@ joblib = "^1.5.1"
 ffmpeg = "^1.4"
 heinsen-routing = {git = "https://github.com/glassroom/heinsen_routing.git"}
 whisperx = "^3.3.4"
+loguru = "^0.7.3"
+yacs = "^0.1.8"
+flatten-dict = "^0.4.2"
 [tool.poetry.group.common]
 optional = true
 
@@ -95,6 +98,7 @@ optional = true
 [tool.poetry.group.vision.dependencies]
 mediapipe = ">=0.10.0"
 opencv-contrib-python = ">=4.8.0.76"
+pare = {git = "https://github.com/mkocabas/PARE.git"}
 # py-feat = ">=0.4.0"
 # tensorflow = ">=2.13.0"
 
