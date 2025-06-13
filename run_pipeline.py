@@ -108,6 +108,7 @@ def main():
         print("  sbert_text       - Sentence-BERT dense vector representations")
         print("  use_text         - Universal Sentence Encoder text analysis")
         print("  pare_vision      - PARE 3D human body estimation and pose analysis")
+        print("  vitpose_vision   - ViTPose Vision Transformer pose estimation")
         print("")
         print("Note: When no features are specified, all features are extracted by default.")
         sys.exit(0)

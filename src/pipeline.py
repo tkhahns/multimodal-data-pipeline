@@ -65,6 +65,7 @@ class MultimodalPipeline:
             "sbert_text",       # Sentence-BERT dense vector representations and reranking
             "use_text",         # Universal Sentence Encoder for text classification and semantic analysis
             "pare_vision",      # PARE 3D human body estimation and pose analysis
+            "vitpose_vision",   # ViTPose Vision Transformer pose estimation
         ]
         
         # Default behavior: extract all features when none specified
@@ -121,6 +122,9 @@ class MultimodalPipeline:
             elif feature_name == "pare_vision":
                 from src.vision.pare_analyzer import PAREAnalyzer
                 self.extractors[feature_name] = PAREAnalyzer(device=self.device)
+            elif feature_name == "vitpose_vision":
+                from src.vision.vitpose_analyzer import ViTPoseAnalyzer
+                self.extractors[feature_name] = ViTPoseAnalyzer(device=self.device)
                 
         return self.extractors.get(feature_name)
     
@@ -382,6 +386,13 @@ class MultimodalPipeline:
             pare_features = extractor.get_feature_dict(str(video_path))
             features.update(pare_features)
         
+        # Extract ViTPose vision features (video-specific)
+        if "vitpose_vision" in self.features:
+            print(f"Extracting ViTPose vision features from {video_path}")
+            extractor = self._get_extractor("vitpose_vision")
+            vitpose_features = extractor.get_feature_dict(str(video_path))
+            features.update(vitpose_features)
+        
         return features
     
     def process_directory(self, directory: Union[str, Path], is_video: bool = True) -> Dict[str, Dict[str, Any]]:
@@ -573,6 +584,11 @@ class MultimodalPipeline:
                 "prefixes": ["PARE_"],
                 "exact_matches": [],
                 "model_name": "PARE (Part Attention Regressor for 3D Human Body Estimation)"
+            },
+            "Pose estimation": {
+                "prefixes": ["vit_"],
+                "exact_matches": [],
+                "model_name": "ViTPose: Simple Vision Transformer Baselines for Human Pose Estimation"
             }
         }
         
