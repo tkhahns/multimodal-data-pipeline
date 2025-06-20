@@ -94,6 +94,18 @@ Available features:
 - `use_text`: Universal Sentence Encoder for text classification and semantic analysis
   - Processes transcribed text from WhisperX or other sources
   - Generates fixed-length 512-dimensional embeddings and semantic similarity metrics
+- `meld_emotion`: MELD emotion recognition for conversation analysis
+  - Processes transcribed text with speaker information for multi-party dialogue emotion analysis
+  - Analyzes conversation patterns, emotion distribution, and speaker interactions
+- `pare_vision`: PARE 3D human body estimation and pose analysis
+  - Processes video frames for comprehensive 3D human body estimation
+  - Generates SMPL model parameters, 3D mesh vertices, and joint positions
+- `vitpose_vision`: ViTPose Vision Transformer pose estimation
+  - Processes video frames using Vision Transformers for pose estimation
+  - Generates precision, recall, uncertainty, and overall performance metrics
+- `psa_vision`: PSA keypoint heatmaps and segmentation masks
+  - Processes video frames using Polarized Self-Attention mechanisms
+  - Generates Average Precision and mean IoU metrics for keypoint and segmentation analysis
 
 **Note**: When no specific features are specified, all available features are extracted by default.
 

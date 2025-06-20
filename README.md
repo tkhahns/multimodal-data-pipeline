@@ -117,7 +117,9 @@ The pipeline currently supports the following feature extractors across multiple
 - Automatically processes transcribed text from WhisperX with speaker diarization
 - Returns 17 comprehensive features for social interaction emotion analysis
 
-### Computer Vision (PARE)
+### Computer Vision
+
+#### PARE (3D Human Body Estimation)
 - 3D human body estimation and pose analysis from video frames
 - Features with `PARE_*` prefix for comprehensive body and pose analysis:
   - **Camera Parameters**: Predicted and original camera parameters (`PARE_pred_cam`, `PARE_orig_cam`)
@@ -129,6 +131,25 @@ The pipeline currently supports the following feature extractors across multiple
 - Based on PARE (Part Attention Regressor for 3D Human Body Estimation)
 - Processes video files directly for frame-by-frame human pose estimation
 - Returns 25+ features including SMPL model parameters, 3D mesh vertices, and joint positions
+
+#### ViTPose (Vision Transformer Pose Estimation)
+- Human pose estimation using Vision Transformers
+- Features with `vit_*` prefix for pose estimation performance metrics:
+  - **vit_AR**: Average Recall - measures keypoint detection completeness
+  - **vit_AP**: Average Precision - measures keypoint detection accuracy
+  - **vit_AU**: Average Uncertainty - measures prediction confidence
+  - **vit_mean**: Overall mean performance metric combining precision, recall, and uncertainty
+- Based on ViTPose: Simple Vision Transformer Baselines for Human Pose Estimation
+- Returns 4 core performance metrics for robust pose estimation analysis
+
+#### PSA (Polarized Self-Attention)
+- Keypoint heatmap estimation and segmentation mask prediction
+- Features with `psa_*` prefix for computer vision analysis:
+  - **psa_AP**: Average Precision for keypoint detection/segmentation
+  - **psa_val_mloU**: Validation mean Intersection over Union for segmentation
+- Based on Polarized Self-Attention with enhanced self-attention mechanisms
+- Uses polarized filtering for improved feature representation in computer vision tasks
+- Returns 2 core metrics for keypoint and segmentation analysis
 
 ## Installation
 
@@ -260,9 +281,24 @@ Extract vision features for 3D human pose analysis:
 ./run_all.sh --features pare_vision
 ```
 
+Extract ViTPose features for pose estimation:
+```bash
+./run_all.sh --features vitpose_vision
+```
+
+Extract PSA features for keypoint heatmaps and segmentation:
+```bash
+./run_all.sh --features psa_vision
+```
+
+Extract all vision features:
+```bash
+./run_all.sh --features pare_vision,vitpose_vision,psa_vision
+```
+
 Extract complete multimodal features (audio, text, and vision):
 ```bash
-./run_all.sh --features basic_audio,whisperx_transcription,meld_emotion,pare_vision
+./run_all.sh --features basic_audio,whisperx_transcription,meld_emotion,pare_vision,vitpose_vision,psa_vision
 ```
 
 Check if all dependencies are properly installed:

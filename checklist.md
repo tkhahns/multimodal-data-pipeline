@@ -157,6 +157,17 @@ This document tracks the implementation status of all feature groups in the mult
   - **Website**: https://github.com/ViTAE-Transformer/ViTPose
   - **Status**: ✅ Implemented
 
+- [x] **Estimating keypoint heatmaps and segmentation masks**
+  - **Model**: Polarized Self-Attention (PSA)
+  - **Features**: 2 (core metrics as single values)
+  - **Output**: `psa_AP`, `psa_val_mloU`
+  - **Description**: PSA uses polarized filtering to enhance self-attention mechanisms for keypoint heatmap estimation and segmentation mask prediction
+  - **Note**: 
+    - `psa_AP`: Average Precision for keypoint detection/segmentation
+    - `psa_val_mloU`: Validation mean Intersection over Union for segmentation
+  - **Website**: https://github.com/DeLightCMU/PSA
+  - **Status**: ✅ Implemented
+
 ---
 
 ## 📊 **IMPLEMENTATION SUMMARY**
@@ -167,8 +178,8 @@ This document tracks the implementation status of all feature groups in the mult
 | **Speech Analysis** | 2 | ~296 | ✅ **Complete** |
 | **Audio Analysis** | 3 | 1,544 | ✅ **Complete** |
 | **AI/ML Analysis** | 6 | 90 | ✅ **Complete** |
-| **Computer Vision** | 2 | 29 | ✅ **Complete** |
-| **TOTAL** | **17** | **~1,963** | ✅ **Complete** |
+| **Computer Vision** | 3 | 31 | ✅ **Complete** |
+| **TOTAL** | **18** | **~1,965** | ✅ **Complete** |
 
 ---
 
