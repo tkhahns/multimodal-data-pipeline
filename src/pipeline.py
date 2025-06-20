@@ -102,7 +102,8 @@ class MultimodalPipeline:
                 from src.emotion.meld_emotion_analyzer import MELDEmotionAnalyzer
                 self.extractors[feature_name] = MELDEmotionAnalyzer()
             elif feature_name == "speech_separation":
-                self.extractors[feature_name] = SpeechSeparator(device=self.device)            elif feature_name == "whisperx_transcription":
+                self.extractors[feature_name] = SpeechSeparator(device=self.device)            
+            elif feature_name == "whisperx_transcription":
                 self.extractors[feature_name] = WhisperXTranscriber(device=self.device)
             elif feature_name == "deberta_text":
                 self.extractors[feature_name] = DeBERTaAnalyzer(device=self.device)
