@@ -28,13 +28,19 @@ fi
 
 # Create a Poetry environment with Python 3.12
 echo "Creating Poetry environment with Python 3.12..."
+# Configure Poetry to create .venv in project directory
+poetry config virtualenvs.in-project true
 poetry env use python3.12
 
 echo "Installing core dependencies..."
 
+# 1) Pin NumPy to <2.0 first for MediaPipe compatibility
+echo "-> Pinning NumPy to 1.x (for TensorFlow & MediaPipe compatibility)..."
+poetry add "numpy>=1.26,<2.0"
+
 # Core Python packages
 echo "-> Installing core Python packages..."
-poetry add numpy pandas matplotlib seaborn scikit-learn jupyter notebook ipython
+poetry add pandas matplotlib seaborn scikit-learn jupyter notebook ipython
 
 # Computer Vision & Image Processing
 echo "-> Installing computer vision libraries..."
@@ -79,11 +85,15 @@ echo "-> Installing GitHub-based and specialized libraries..."
 echo "-> Installing speech emotion recognition dependencies..."
 poetry add joblib scikit-learn
 
-# WhisperX for speech transcription (PyPI version - simpler and more stable)
-echo "-> Installing WhisperX..."
-poetry add whisperx || {
-    echo "PyPI installation failed, trying GitHub version..."
-    poetry add git+https://github.com/m-bain/whisperX.git
+# WhisperX for speech transcription (handle NumPy compatibility issues)
+echo "-> Installing WhisperX (handling NumPy compatibility)..."
+# Try older WhisperX version that supports NumPy 1.x first
+poetry add "whisperx<3.3" || {
+    echo "Older WhisperX failed, trying GitHub version..."
+    poetry add git+https://github.com/m-bain/whisperX.git || {
+        echo "WhisperX installation failed - will skip for now"
+        echo "You may need to install WhisperX manually later or use a different transcription method"
+    }
 }
 
 # AudioStretchy for audio manipulation (PyPI version - simpler and more stable)
@@ -101,9 +111,9 @@ poetry add git+https://github.com/glassroom/heinsen_routing.git
 echo "-> Installing advanced ML libraries..."
 poetry add tensorflow tensorflow-hub
 
-# # MediaPipe for pose estimation and face detection
-# echo "-> Installing MediaPipe..."
-# poetry add mediapipe
+# MediaPipe for pose estimation and face detection
+echo "-> Installing MediaPipe..."
+poetry add mediapipe
 
 # Additional computer vision libraries
 echo "-> Installing additional computer vision libraries..."
@@ -178,8 +188,8 @@ mkdir -p output/features
 mkdir -p data
 
 # Make the run scripts executable
-chmod +x run_simple.py
-chmod +x run_pipeline.sh
+chmod +x run_pipeline.py
+chmod +x run_all.sh
 
 echo ""
 echo "========================================================"
@@ -195,11 +205,14 @@ echo "  • Video: FFmpeg-Python, MoviePy"
 echo "  • NLP: Hugging Face ecosystem, TensorFlow Hub"
 echo ""
 echo "To run the pipeline:"
-echo "  poetry run python run_simple.py"
+echo "  poetry run python run_pipeline.py"
 echo ""
 echo "To see available options:"
-echo "  poetry run python run_simple.py --help"
+echo "  poetry run python run_pipeline.py --help"
 echo ""
 echo "To check dependencies:"
-echo "  poetry run python run_simple.py --check-dependencies"
+echo "  poetry run python run_pipeline.py --check-dependencies"
+echo ""
+echo "To use the unified runner:"
+echo "  ./run_all.sh --help"
 echo "========================================================"

@@ -1,21 +1,10 @@
 [tool.poetry]
 name = "multimodal-data-pipeline"
 version = "0.1.0"
-description = "Multimodal data processing pipeline for speech, vision, and text analysis"
-authors = ["Your Name <your.email@example.com>"]
-readme = "README.md"
-packages = [{include = "src"}]
+description = "Comprehensive multimodal data processing pipeline"
 
 [tool.poetry.dependencies]
-python = "~3.12"
-numpy = ">=2.0.0"
-pip = ">=23.0.0"  # Ensure latest pip for better Git support
-setuptools = ">=65.0.0"  # Required by many Git packages
-
-# Common multimedia processing dependencies
-speechbrain = "^1.0.3"
-opensmile = "^2.5.1"
-opencv-python = "^4.11.0.86"
+python = ">=3.12,<3.13"
 pandas = "^2.3.0"
 matplotlib = "^3.10.3"
 seaborn = "^0.13.2"
@@ -23,112 +12,37 @@ scikit-learn = "^1.7.0"
 jupyter = "^1.1.1"
 notebook = "^7.4.3"
 ipython = "^9.3.0"
+opencv-python = "^4.11.0.86"
 pillow = "^11.2.1"
 torch = "^2.7.1"
 torchvision = "^0.22.1"
 torchaudio = "^2.7.1"
 transformers = "^4.52.4"
+speechbrain = "^1.0.3"
+opensmile = "^2.5.1"
 sentence-transformers = "^4.1.0"
 datasets = "^3.6.0"
-accelerate = "^1.7.0"
+accelerate = "^1.8.1"
+ffmpeg = "^1.4"
 ffmpeg-python = "^0.2.0"
 moviepy = "^2.2.1"
 tqdm = "^4.67.1"
-requests = "^2.32.3"
+requests = "^2.32.4"
 pathlib2 = "^2.3.7.post1"
 python-dotenv = "^1.1.0"
+joblib = "^1.5.1"
 audiostretchy = {extras = ["all"], version = "^1.3.5"}
-tensorflow = "^2.19.0"
-tensorflow-hub = "^0.16.1"
-# mediapipe = "^0.10.21"
+heinsen-routing = {git = "https://github.com/glassroom/heinsen_routing.git"}
 timm = "^1.0.15"
 efficientnet-pytorch = "^0.7.1"
-h5py = "^3.13.0"
+h5py = "^3.14.0"
 pyarrow = "^20.0.0"
+numpy = ">=1.26,<2.0"
 librosa = "^0.11.0"
 soundfile = "^0.13.1"
 pydub = "^0.25.1"
+tensorflow = ">=2.19,<3.0"
+tensorflow-hub = "^0.16.1"
+mediapipe = ">=0.10.21,<1.0"
 dlib = "^20.0.0"
 face-recognition = "^1.3.0"
-joblib = "^1.5.1"
-ffmpeg = "^1.4"
-heinsen-routing = {git = "https://github.com/glassroom/heinsen_routing.git"}
-whisperx = "^3.3.4"
-loguru = "^0.7.3"
-yacs = "^0.1.8"
-flatten-dict = "^0.4.2"
-[tool.poetry.group.common]
-optional = true
-
-[tool.poetry.group.common.dependencies]
-torch = ">=2.7.0"
-torchaudio = ">=2.1.0"
-opencv-python = ">=4.8.0.76"
-# Data processing
-pandas = ">=2.0.0"
-pyarrow = ">=14.0.0"
-# Audio processing
-ffmpeg-python = ">=0.2.0" 
-soundfile = ">=0.12.1"
-
-# Speech processing dependencies
-[tool.poetry.group.speech]
-optional = true
-
-[tool.poetry.group.speech.dependencies]
-librosa = ">=0.10.0"
-speechbrain = ">=1.0.0"
-transformers = ">=4.33.0"
-opensmile = ">=2.4.0"
-
-# Text processing dependencies
-[tool.poetry.group.text]
-optional = true
-
-[tool.poetry.group.text.dependencies]
-sentence-transformers = ">=2.2.2"
-transformers = ">=4.33.0"
-# tensorflow-hub = ">=0.13.0"
-# Git repos that need more complex setup and will be cloned separately
-
-# Vision and pose estimation
-[tool.poetry.group.vision]
-optional = true
-
-[tool.poetry.group.vision.dependencies]
-mediapipe = ">=0.10.0"
-opencv-contrib-python = ">=4.8.0.76"
-pare = {git = "https://github.com/mkocabas/PARE.git"}
-# py-feat = ">=0.4.0"
-# tensorflow = ">=2.13.0"
-
-# Audio-visual models
-[tool.poetry.group.audiovisual]
-optional = true
-
-[tool.poetry.group.audiovisual.dependencies]
-# audiostretchy = { git = "https://github.com/twardoch/audiostretchy.git" }
-# av-hubert = { git = "https://github.com/facebookresearch/av_hubert.git" }
-# meld = { git = "https://github.com/declare-lab/MELD.git" }
-
-# Pose and facial expression models (moved to external setup)
-# [tool.poetry.group.pose]
-# optional = true
-# [tool.poetry.group.pose.dependencies]
-# These require complex setup and will be managed separately
-
-# Facial expression models (moved to external setup)
-# [tool.poetry.group.face] 
-# optional = true
-# [tool.poetry.group.face.dependencies]
-# These require complex setup and will be managed separately
-
-# Video and motion models (moved to external setup)
-# [tool.poetry.group.video]
-# optional = true
-# [tool.poetry.group.video.dependencies] 
-# These require complex setup and will be managed separately
-
-[build-system]
-requires = ["poetry-core>=1.0.0", "wheel>=0.38.0", "setuptools>=65.0.0"]
-build-backend = "poetry.core.masonry.api"
