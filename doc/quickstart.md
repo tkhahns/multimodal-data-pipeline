@@ -6,18 +6,40 @@ This guide provides a quick introduction to get you started with the Multimodal 
 
 1. **Clone the repository and navigate to it**
 
-2. **Run the setup script:**
+2. **Install FFmpeg** (required for video/audio processing):
 
-   **Linux/macOS:**
+   **WSL/Linux:**
+   ```bash
+   sudo apt update
+   sudo apt install ffmpeg
+   ```
+
+   **macOS:**
+   ```bash
+   brew install ffmpeg
+   ```
+
+   **Windows:**
+   - Download from https://ffmpeg.org/download.html
+   - Add to system PATH
+   - Or use: `choco install ffmpeg`
+
+3. **Run the setup script:**
+
+   **Linux/macOS/WSL:**
    ```bash
    chmod +x run_all.sh
    ./run_all.sh --setup
    ```
 
-   **Windows (PowerShell):**
+   **Windows (Native PowerShell):**
    ```powershell
    .\run_all.ps1 -Setup
    ```
+
+   **Important**: Use the correct script for your environment:
+   - In WSL/Linux/macOS: Use `./run_all.sh`
+   - In Windows PowerShell: Use `.\run_all.ps1`
 
 3. **Set up HuggingFace authentication** (required for speaker diarization):
    
@@ -51,7 +73,7 @@ This guide provides a quick introduction to get you started with the Multimodal 
 
 Run the pipeline with default settings:
 
-**Linux/macOS:**
+**Linux/macOS/WSL:**
 ```bash
 # Using the unified run script (recommended)
 ./run_all.sh
@@ -66,7 +88,7 @@ Run the pipeline with default settings:
 ./run_all.sh --check-deps
 ```
 
-**Windows (PowerShell):**
+**Windows (Native PowerShell):**
 ```powershell
 # Using the unified run script (recommended)
 .\run_all.ps1
@@ -228,3 +250,55 @@ The pipeline generates:
 - See the full README.md for detailed information
 - Check doc/manual_installation.md for advanced installation options
 - Explore src/example.py for programming examples
+
+## Troubleshooting
+
+### Script Execution Issues (WSL/Linux)
+
+If you get the error `/bin/bash^M: bad interpreter` when running bash scripts:
+
+```bash
+# Fix line endings
+dos2unix run_all.sh setup_env.sh
+
+# Make executable
+chmod +x run_all.sh setup_env.sh
+```
+
+This error occurs when files have Windows line endings instead of Unix line endings.
+
+### Script Compatibility Issues
+
+**Error**: `syntax error near unexpected token` when trying to run scripts
+
+**Solution**: Use the correct script for your environment:
+- **In WSL/Linux/macOS**: Use `./run_all.sh` (bash script)
+- **In Windows PowerShell**: Use `.\run_all.ps1` (PowerShell script)
+
+**Never**: Run `.ps1` files in bash or `.sh` files in PowerShell.
+
+### FFmpeg Installation Issues
+
+**Error**: `ffmpeg is not installed or not in PATH`
+
+**Solution**: Install the FFmpeg system binary:
+
+**WSL/Linux:**
+```bash
+sudo apt update
+sudo apt install ffmpeg
+```
+
+**macOS:**
+```bash
+brew install ffmpeg
+```
+
+**Windows:**
+- Download from https://ffmpeg.org/download.html
+- Add to system PATH
+
+**Verify:**
+```bash
+ffmpeg -version
+```

@@ -156,6 +156,48 @@ The pipeline currently supports the following feature extractors across multiple
 - Python 3.12
 - Poetry
 - Git
+- FFmpeg (for video/audio processing)
+
+### FFmpeg Installation
+
+FFmpeg is required for video and audio processing. Install it before running the setup:
+
+**Linux (Ubuntu/Debian):**
+```bash
+sudo apt update
+sudo apt install ffmpeg
+```
+
+**Linux (CentOS/RHEL/Fedora):**
+```bash
+# CentOS/RHEL
+sudo yum install ffmpeg
+# or Fedora
+sudo dnf install ffmpeg
+```
+
+**macOS:**
+```bash
+# Using Homebrew
+brew install ffmpeg
+```
+
+**Windows:**
+1. Download FFmpeg from https://ffmpeg.org/download.html
+2. Extract to a folder (e.g., `C:\ffmpeg`)
+3. Add `C:\ffmpeg\bin` to your system PATH
+4. Or use Chocolatey: `choco install ffmpeg`
+
+**WSL (Windows Subsystem for Linux):**
+```bash
+sudo apt update
+sudo apt install ffmpeg
+```
+
+Verify installation:
+```bash
+ffmpeg -version
+```
 
 ### HuggingFace Setup (Required)
 
@@ -184,22 +226,32 @@ This pipeline uses several HuggingFace models for speech processing. You'll need
    cd multimodal-data-pipeline
    ```
 
-2. Run the setup script to create the environment and install dependencies:
+2. **For WSL/Linux users**: If you encounter script execution issues, fix line endings:
+   ```bash
+   dos2unix run_all.sh setup_env.sh
+   chmod +x run_all.sh setup_env.sh
+   ```
 
-   **Linux/macOS:**
+3. Run the setup script to create the environment and install dependencies:
+
+   **Linux/macOS/WSL:**
    ```bash
    chmod +x run_all.sh
    ./run_all.sh --setup
    ```
 
-   **Windows (PowerShell):**
+   **Windows (Native PowerShell):**
    ```powershell
    .\run_all.ps1 -Setup
    ```
 
+   **Important**: Use the correct script for your environment:
+   - In WSL/Linux/macOS: Use `./run_all.sh`
+   - In Windows PowerShell: Use `.\run_all.ps1`
+
    This will automatically install all required dependencies via Poetry.
 
-3. Set up HuggingFace authentication (required for speaker diarization):
+4. Set up HuggingFace authentication (required for speaker diarization):
    
    **Linux/macOS:**
    ```bash
@@ -227,7 +279,7 @@ This will:
 
 The easiest way to use the pipeline is through the unified run script:
 
-**Linux/macOS:**
+**Linux/macOS/WSL:**
 ```bash
 # Using the unified script (recommended)
 ./run_all.sh
@@ -236,7 +288,7 @@ The easiest way to use the pipeline is through the unified run script:
 poetry run python run_pipeline.py
 ```
 
-**Windows (PowerShell):**
+**Windows (Native PowerShell):**
 ```powershell
 # Using the unified script (recommended)
 .\run_all.ps1
@@ -244,6 +296,11 @@ poetry run python run_pipeline.py
 # Or using Poetry directly
 poetry run python run_pipeline.py
 ```
+
+**Important**: 
+- Use `./run_all.sh` in bash/WSL/Linux/macOS
+- Use `.\run_all.ps1` in Windows PowerShell only
+- Do not try to run `.ps1` files in bash or `.sh` files in PowerShell
 
 This will process all video files in the `data/` directory and output results to `output/`.
 
@@ -562,6 +619,59 @@ If you encounter import errors:
 # Reinstall dependencies if needed
 .\run_all.ps1 -Setup
 ```
+
+### Line Ending Issues (WSL/Linux)
+
+If you encounter the error `/bin/bash^M: bad interpreter` when running bash scripts on WSL or Linux:
+
+```bash
+# Fix line endings for bash scripts
+dos2unix run_all.sh setup_env.sh
+
+# Make scripts executable
+chmod +x run_all.sh setup_env.sh
+```
+
+This happens when files are edited on Windows and have Windows line endings (`\r\n`) instead of Unix line endings (`\n`). The `dos2unix` command converts them to the correct format.
+
+### Script Compatibility Issues
+
+**Error**: `syntax error near unexpected token` when trying to run PowerShell scripts in bash
+
+**Solution**: Use the correct script for your environment:
+- **In WSL/Linux/macOS**: Use `./run_all.sh` (bash script)
+- **In Windows PowerShell**: Use `.\run_all.ps1` (PowerShell script)
+
+**Never mix**: Don't run `.ps1` files in bash or `.sh` files in PowerShell.
+
+### FFmpeg Issues
+
+**Error**: `ffmpeg is not installed or not in PATH`
+
+**Solution**: Install FFmpeg system binary (not just the Python package):
+
+**WSL/Linux:**
+```bash
+sudo apt update
+sudo apt install ffmpeg
+```
+
+**macOS:**
+```bash
+brew install ffmpeg
+```
+
+**Windows:**
+- Download from https://ffmpeg.org/download.html
+- Extract and add to PATH
+- Or use: `choco install ffmpeg`
+
+**Verify installation:**
+```bash
+ffmpeg -version
+```
+
+**Note**: The `ffmpeg` Python package is different from the FFmpeg system binary. You need both!
 
 ## Model Categories
 

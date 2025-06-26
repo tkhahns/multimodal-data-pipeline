@@ -9,6 +9,20 @@ Write-Host "========================================================"
 Write-Host "Multimodal Data Pipeline - Comprehensive Setup"
 Write-Host "========================================================"
 
+# Check if FFmpeg is installed
+if (-not (Test-Command "ffmpeg")) {
+    Write-Host "WARNING: FFmpeg is not installed or not in PATH." -ForegroundColor Yellow
+    Write-Host "FFmpeg is required for video/audio processing." -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "Please install FFmpeg:" -ForegroundColor Yellow
+    Write-Host "  Download from: https://ffmpeg.org/download.html" -ForegroundColor White
+    Write-Host "  Or use Chocolatey: choco install ffmpeg" -ForegroundColor White
+    Write-Host "  Add FFmpeg to your system PATH" -ForegroundColor White
+    Write-Host ""
+    Write-Host "Continuing with setup, but video processing may fail..." -ForegroundColor Yellow
+    Write-Host ""
+}
+
 # Function to check if a command exists
 function Test-Command {
     param($Command)

@@ -6,6 +6,22 @@ echo "========================================================"
 echo "Multimodal Data Pipeline - Comprehensive Setup"
 echo "========================================================"
 
+# Check if FFmpeg is installed
+if ! command -v ffmpeg &> /dev/null; then
+    echo "WARNING: FFmpeg is not installed or not in PATH."
+    echo "FFmpeg is required for video/audio processing."
+    echo ""
+    echo "Please install FFmpeg:"
+    echo "  Ubuntu/Debian: sudo apt install ffmpeg"
+    echo "  CentOS/RHEL:   sudo yum install ffmpeg"
+    echo "  Fedora:        sudo dnf install ffmpeg"
+    echo "  macOS:         brew install ffmpeg"
+    echo "  WSL:           sudo apt install ffmpeg"
+    echo ""
+    echo "Continuing with setup, but video processing may fail..."
+    echo ""
+fi
+
 # Check if Python 3.12 is installed
 if ! command -v python3.12 &> /dev/null; then
     echo "Python 3.12 is required but not found."
