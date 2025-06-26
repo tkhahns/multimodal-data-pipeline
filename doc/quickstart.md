@@ -7,9 +7,16 @@ This guide provides a quick introduction to get you started with the Multimodal 
 1. **Clone the repository and navigate to it**
 
 2. **Run the setup script:**
+
+   **Linux/macOS:**
    ```bash
    chmod +x run_all.sh
    ./run_all.sh --setup
+   ```
+
+   **Windows (PowerShell):**
+   ```powershell
+   .\run_all.ps1 -Setup
    ```
 
 3. **Set up HuggingFace authentication** (required for speaker diarization):
@@ -24,10 +31,16 @@ This guide provides a quick introduction to get you started with the Multimodal 
    c. **Accept model licenses** (required):
       - Visit https://huggingface.co/pyannote/speaker-diarization-3.1 and click "Agree"
       - Visit https://huggingface.co/pyannote/segmentation-3.0 and click "Agree"
+     d. **Create authentication file**:
    
-   d. **Create authentication file**:
+      **Linux/macOS:**
       ```bash
       echo "HF_TOKEN=your_huggingface_token_here" > .env
+      ```
+      
+      **Windows (PowerShell):**
+      ```powershell
+      "HF_TOKEN=your_huggingface_token_here" | Out-File -FilePath .env -Encoding utf8
       ```
    
    **Important**: Replace `your_huggingface_token_here` with your actual token. Without this setup, speaker diarization features will not work.
@@ -37,6 +50,8 @@ This guide provides a quick introduction to get you started with the Multimodal 
 ## Basic Usage
 
 Run the pipeline with default settings:
+
+**Linux/macOS:**
 ```bash
 # Using the unified run script (recommended)
 ./run_all.sh
@@ -51,6 +66,21 @@ Run the pipeline with default settings:
 ./run_all.sh --check-deps
 ```
 
+**Windows (PowerShell):**
+```powershell
+# Using the unified run script (recommended)
+.\run_all.ps1
+
+# See all available options
+.\run_all.ps1 -Help
+
+# List all available features
+.\run_all.ps1 -ListFeatures
+
+# Check if all dependencies are properly installed
+.\run_all.ps1 -CheckDeps
+```
+
 This will:
 - Process all video files in the `data/` directory
 - Extract audio from each video
@@ -62,8 +92,15 @@ This will:
 ### Selecting Specific Features
 
 To extract only specific features:
+
+**Linux/macOS:**
 ```bash
 ./run_all.sh --features basic_audio,speech_emotion
+```
+
+**Windows (PowerShell):**
+```powershell
+.\run_all.ps1 -Features "basic_audio,speech_emotion"
 ```
 
 Available features:
@@ -111,14 +148,26 @@ Available features:
 
 ### Processing a Specific Directory
 
+**Linux/macOS:**
 ```bash
 ./run_all.sh --data-dir /path/to/your/videos
 ```
 
+**Windows (PowerShell):**
+```powershell
+.\run_all.ps1 -DataDir "C:\path\to\your\videos"
+```
+
 ### Custom Output Location
 
+**Linux/macOS:**
 ```bash
 ./run_all.sh --output-dir /path/to/save/results
+```
+
+**Windows (PowerShell):**
+```powershell
+.\run_all.ps1 -OutputDir "C:\path\to\save\results"
 ```
 
 ## Using in Python Code

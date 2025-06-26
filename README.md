@@ -97,8 +97,7 @@ The pipeline currently supports the following feature extractors across multiple
 ### Text Analysis (Universal Sentence Encoder)
 - Text classification, semantic similarity, and semantic clustering
 - Features with `USE_*` prefix for embedding and semantic analysis:
-  - **Fixed-Length Embeddings**: 512-dimensional vectors for any input text length
-  - **Sentence Embeddings**: Individual embeddings for each sentence (USE_embed_sentence1, USE_embed_sentence2, etc.)
+  - **Fixed-Length Embeddings**: 512-dimensional vectors for any input text length  - **Sentence Embeddings**: Individual embeddings for each sentence (USE_embed_sentence1, USE_embed_sentence2, etc.)
   - **Semantic Similarity**: Cosine similarity metrics between sentences
   - **Clustering Metrics**: Centroid distance, spread variance, and pairwise distances
 - Utilizes Google's Universal Sentence Encoder from TensorFlow Hub
@@ -186,17 +185,34 @@ This pipeline uses several HuggingFace models for speech processing. You'll need
    ```
 
 2. Run the setup script to create the environment and install dependencies:
-   ```
+
+   **Linux/macOS:**
+   ```bash
    chmod +x run_all.sh
    ./run_all.sh --setup
    ```
-   This will automatically install ffmpeg and all other required dependencies via Poetry.
+
+   **Windows (PowerShell):**
+   ```powershell
+   .\run_all.ps1 -Setup
+   ```
+
+   This will automatically install all required dependencies via Poetry.
 
 3. Set up HuggingFace authentication (required for speaker diarization):
+   
+   **Linux/macOS:**
    ```bash
    # Create a .env file with your HuggingFace token
    echo "HF_TOKEN=your_huggingface_token_here" > .env
    ```
+   
+   **Windows (PowerShell):**
+   ```powershell
+   # Create a .env file with your HuggingFace token
+   "HF_TOKEN=your_huggingface_token_here" | Out-File -FilePath .env -Encoding utf8
+   ```
+   
    Get your token from https://huggingface.co/settings/tokens and make sure you've accepted the required model licenses (see Prerequisites section above).
 
 This will:
@@ -211,9 +227,19 @@ This will:
 
 The easiest way to use the pipeline is through the unified run script:
 
+**Linux/macOS:**
 ```bash
 # Using the unified script (recommended)
 ./run_all.sh
+
+# Or using Poetry directly
+poetry run python run_pipeline.py
+```
+
+**Windows (PowerShell):**
+```powershell
+# Using the unified script (recommended)
+.\run_all.ps1
 
 # Or using Poetry directly
 poetry run python run_pipeline.py
@@ -223,6 +249,7 @@ This will process all video files in the `data/` directory and output results to
 
 #### Options
 
+**Linux/macOS:**
 ```
 Usage: ./run_all.sh [options]
 
@@ -235,7 +262,7 @@ Options:
   -f, --features LIST   Comma-separated features to extract
                         Available: basic_audio,librosa_spectral,opensmile,
                                   speech_emotion,heinsen_sentiment,speech_separation,
-                                  whisperx_transcription,deberta_text,simcse_text,
+                                  whisper_transcription,deberta_text,simcse_text,
                                   albert_text,sbert_text,use_text,meld_emotion,
                                   pare_vision
   --list-features       List available features and exit
@@ -244,71 +271,184 @@ Options:
   -h, --help            Show this help message
 ```
 
+**Windows (PowerShell):**
+```
+Usage: .\run_all.ps1 [options]
+
+Options:
+  -Setup                Run full environment setup
+  -SetupQuick           Run quick setup (skip optional packages)  
+  -CheckDeps            Check if dependencies are installed
+  -DataDir DIR          Directory with video/audio files (default: .\data)
+  -OutputDir DIR        Output directory (default: .\output\YYYYMMDD_HHMMSS)
+  -Features LIST        Comma-separated features to extract
+                        Available: basic_audio,librosa_spectral,opensmile,
+                                  speech_emotion,heinsen_sentiment,speech_separation,
+                                  whisper_transcription,deberta_text,simcse_text,
+                                  albert_text,sbert_text,use_text,meld_emotion,
+                                  pare_vision
+  -ListFeatures         List available features and exit
+  -IsAudio              Process files as audio instead of video
+  -LogFile FILE         Path to log file (default: <output_dir>\pipeline.log)
+  -Help                 Show this help message
+```
+
 #### Examples
 
 Process all videos with all features:
+
+**Linux/macOS:**
 ```bash
 ./run_all.sh
 ```
 
+**Windows (PowerShell):**
+```powershell
+.\run_all.ps1
+```
+
 Process videos in a specific directory:
+
+**Linux/macOS:**
 ```bash
 ./run_all.sh --data-dir /path/to/videos
 ```
 
+**Windows (PowerShell):**
+```powershell
+.\run_all.ps1 -DataDir "C:\path\to\videos"
+```
+
 Only extract basic audio and speech emotion features:
+
+**Linux/macOS:**
 ```bash
 ./run_all.sh --features basic_audio,speech_emotion
 ```
 
+**Windows (PowerShell):**
+```powershell
+.\run_all.ps1 -Features "basic_audio,speech_emotion"
+```
+
 Extract text analysis along with audio features:
+
+**Linux/macOS:**
 ```bash
 ./run_all.sh --features basic_audio,whisperx_transcription,deberta_text
 ```
 
+**Windows (PowerShell):**
+```powershell
+.\run_all.ps1 -Features "basic_audio,whisperx_transcription,deberta_text"
+```
+
 Extract MELD emotion recognition with transcription:
+
+**Linux/macOS:**
 ```bash
 ./run_all.sh --features whisperx_transcription,meld_emotion
 ```
 
+**Windows (PowerShell):**
+```powershell
+.\run_all.ps1 -Features "whisperx_transcription,meld_emotion"
+```
+
 Extract comprehensive multimodal analysis:
+
+**Linux/macOS:**
 ```bash
 ./run_all.sh --features basic_audio,whisperx_transcription,meld_emotion,deberta_text,simcse_text
 ```
 
+**Windows (PowerShell):**
+```powershell
+.\run_all.ps1 -Features "basic_audio,whisperx_transcription,meld_emotion,deberta_text,simcse_text"
+```
+
 Extract vision features for 3D human pose analysis:
+
+**Linux/macOS:**
 ```bash
 ./run_all.sh --features pare_vision
 ```
 
+**Windows (PowerShell):**
+```powershell
+.\run_all.ps1 -Features "pare_vision"
+```
+
 Extract ViTPose features for pose estimation:
+
+**Linux/macOS:**
 ```bash
 ./run_all.sh --features vitpose_vision
 ```
 
+**Windows (PowerShell):**
+```powershell
+.\run_all.ps1 -Features "vitpose_vision"
+```
+
 Extract PSA features for keypoint heatmaps and segmentation:
+
+**Linux/macOS:**
 ```bash
 ./run_all.sh --features psa_vision
 ```
 
+**Windows (PowerShell):**
+```powershell
+.\run_all.ps1 -Features "psa_vision"
+```
+
 Extract all vision features:
+
+**Linux/macOS:**
 ```bash
 ./run_all.sh --features pare_vision,vitpose_vision,psa_vision
 ```
 
+**Windows (PowerShell):**
+```powershell
+.\run_all.ps1 -Features "pare_vision,vitpose_vision,psa_vision"
+```
+
 Extract complete multimodal features (audio, text, and vision):
+
+**Linux/macOS:**
 ```bash
 ./run_all.sh --features basic_audio,whisperx_transcription,meld_emotion,pare_vision,vitpose_vision,psa_vision
 ```
 
+**Windows (PowerShell):**
+```powershell
+.\run_all.ps1 -Features "basic_audio,whisperx_transcription,meld_emotion,pare_vision,vitpose_vision,psa_vision"
+```
+
 Check if all dependencies are properly installed:
+
+**Linux/macOS:**
 ```bash
 ./run_all.sh --check-deps
 ```
 
+**Windows (PowerShell):**
+```powershell
+.\run_all.ps1 -CheckDeps
+```
+
 Set up the environment:
+
+**Linux/macOS:**
 ```bash
 ./run_all.sh --setup
+```
+
+**Windows (PowerShell):**
+```powershell
+.\run_all.ps1 -Setup
 ```
 
 ### Programmatic Usage
@@ -404,12 +544,23 @@ Common error messages and solutions:
 ### Dependency Issues
 
 If you encounter import errors:
+
+**Linux/macOS:**
 ```bash
 # Check if all dependencies are installed
 ./run_all.sh --check-deps
 
 # Reinstall dependencies if needed
 ./run_all.sh --setup
+```
+
+**Windows (PowerShell):**
+```powershell
+# Check if all dependencies are installed
+.\run_all.ps1 -CheckDeps
+
+# Reinstall dependencies if needed
+.\run_all.ps1 -Setup
 ```
 
 ## Model Categories
