@@ -115,26 +115,19 @@ Write-Host "-> Installing GitHub-based and specialized libraries..." -Foreground
 Write-Host "-> Installing speech emotion recognition dependencies..." -ForegroundColor Cyan
 poetry add joblib scikit-learn
 
-# Speech transcription (using stable OpenAI Whisper instead of WhisperX due to dependency conflicts)
-Write-Host "-> Installing OpenAI Whisper for speech transcription..." -ForegroundColor Cyan
+# WhisperX for speech transcription (handle NumPy compatibility issues)
+Write-Host "-> Installing WhisperX (handling NumPy compatibility)..." -ForegroundColor Cyan
+# Try older WhisperX version that supports NumPy 1.x first
 try {
-    poetry add openai-whisper
+    poetry add "whisperx<3.3"
 } catch {
-    Write-Host "OpenAI Whisper installation failed, trying alternative..." -ForegroundColor Yellow
-    # Fallback to a basic speech recognition library
+    Write-Host "Older WhisperX failed, trying GitHub version..." -ForegroundColor Yellow
     try {
-        poetry add SpeechRecognition
+        poetry add git+https://github.com/m-bain/whisperX.git
     } catch {
-        Write-Host "Speech transcription libraries failed - you may need to install manually" -ForegroundColor Yellow
+        Write-Host "WhisperX installation failed - will skip for now" -ForegroundColor Yellow
+        Write-Host "You may need to install WhisperX manually later or use a different transcription method" -ForegroundColor Yellow
     }
-}
-
-# Additional audio processing libraries for speech analysis
-Write-Host "-> Installing additional speech processing libraries..." -ForegroundColor Cyan
-try {
-    poetry add pyannote.audio
-} catch {
-    Write-Host "pyannote.audio installation failed - this is optional for speaker diarization" -ForegroundColor Yellow
 }
 
 # AudioStretchy for audio manipulation (PyPI version - simpler and more stable)
@@ -207,8 +200,7 @@ critical_packages = {
     'speechbrain': 'speechbrain',
     'sentence-transformers': 'sentence_transformers',
     'ffmpeg-python': 'ffmpeg',
-    'mediapipe': 'mediapipe',
-    'openai-whisper': 'whisper'
+    'mediapipe': 'mediapipe'
 }
 
 print('Critical Package Verification:')
@@ -253,7 +245,7 @@ Write-Host "  • Core: NumPy, Pandas, Matplotlib, Scikit-learn" -ForegroundColo
 Write-Host "  • Computer Vision: OpenCV, Pillow, MediaPipe" -ForegroundColor White
 Write-Host "  • Audio: Librosa, SoundFile, PyAudio, SpeechBrain" -ForegroundColor White
 Write-Host "  • Deep Learning: PyTorch, Transformers, Sentence-Transformers" -ForegroundColor White
-Write-Host "  • Speech: OpenAI Whisper, OpenSMILE" -ForegroundColor White
+Write-Host "  • Speech: WhisperX, OpenSMILE" -ForegroundColor White
 Write-Host "  • Video: FFmpeg-Python, MoviePy" -ForegroundColor White
 Write-Host "  • NLP: Hugging Face ecosystem, TensorFlow Hub" -ForegroundColor White
 Write-Host ""
