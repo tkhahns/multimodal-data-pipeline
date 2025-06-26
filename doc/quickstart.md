@@ -162,6 +162,9 @@ Available features:
 - `vitpose_vision`: ViTPose Vision Transformer pose estimation
   - Processes video frames using Vision Transformers for pose estimation
   - Generates precision, recall, uncertainty, and overall performance metrics
+- `rsn_vision`: RSN keypoint localization with progressive refinement
+  - Processes video frames using Residual Steps Network for keypoint localization
+  - Generates comprehensive metrics including AP scores, body part accuracy, and computational complexity
 - `psa_vision`: PSA keypoint heatmaps and segmentation masks
   - Processes video frames using Polarized Self-Attention mechanisms
   - Generates Average Precision and mean IoU metrics for keypoint and segmentation analysis

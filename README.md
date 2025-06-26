@@ -150,6 +150,22 @@ The pipeline currently supports the following feature extractors across multiple
 - Uses polarized filtering for improved feature representation in computer vision tasks
 - Returns 2 core metrics for keypoint and segmentation analysis
 
+#### RSN (Residual Steps Network)
+- Keypoint localization and human pose estimation with progressive refinement
+- Features with `rsn_*` prefix for keypoint localization analysis:
+  - **rsn_gflops**: Computational complexity in GFLOPS
+  - **rsn_ap**: Average Precision for keypoint detection
+  - **rsn_ap50**: AP at IoU=0.50
+  - **rsn_ap75**: AP at IoU=0.75
+  - **rsn_apm**: AP for medium objects
+  - **rsn_apl**: AP for large objects
+  - **rsn_ar_head**: Average Recall for head keypoints
+  - **Body part accuracy**: `rsn_shoulder`, `rsn_elbow`, `rsn_wrist`, `rsn_hip`, `rsn_knee`, `rsn_ankle`
+  - **rsn_mean**: Overall mean performance metric
+- Based on Residual Steps Network for multi-stage pose estimation
+- Uses residual steps to progressively refine keypoint predictions
+- Returns 14 comprehensive metrics for keypoint localization performance
+
 ## Installation
 
 ### Prerequisites
@@ -464,24 +480,24 @@ Extract all vision features:
 
 **Linux/macOS:**
 ```bash
-./run_all.sh --features pare_vision,vitpose_vision,psa_vision
+./run_all.sh --features pare_vision,vitpose_vision,rsn_vision,psa_vision
 ```
 
 **Windows (PowerShell):**
 ```powershell
-.\run_all.ps1 -Features "pare_vision,vitpose_vision,psa_vision"
+.\run_all.ps1 -Features "pare_vision,vitpose_vision,rsn_vision,psa_vision"
 ```
 
 Extract complete multimodal features (audio, text, and vision):
 
 **Linux/macOS:**
 ```bash
-./run_all.sh --features basic_audio,whisperx_transcription,meld_emotion,pare_vision,vitpose_vision,psa_vision
+./run_all.sh --features basic_audio,whisperx_transcription,meld_emotion,pare_vision,vitpose_vision,rsn_vision,psa_vision
 ```
 
 **Windows (PowerShell):**
 ```powershell
-.\run_all.ps1 -Features "basic_audio,whisperx_transcription,meld_emotion,pare_vision,vitpose_vision,psa_vision"
+.\run_all.ps1 -Features "basic_audio,whisperx_transcription,meld_emotion,pare_vision,vitpose_vision,rsn_vision,psa_vision"
 ```
 
 Check if all dependencies are properly installed:
@@ -561,6 +577,14 @@ pipeline = MultimodalPipeline(
 # Process a video file
 video_path = 'data/my_video.mp4'
 results = pipeline.process_video_file(video_path)
+
+# Process a video file with vision features (pose estimation and keypoint localization)
+vision_pipeline = MultimodalPipeline(
+    output_dir='output/vision_results',
+    features=['basic_audio', 'pare_vision', 'vitpose_vision', 'rsn_vision'],
+    device='cpu'  # Use 'cuda' for better performance with vision models
+)
+vision_results = vision_pipeline.process_video_file(video_path)
 
 # Or process an audio file directly
 audio_path = 'data/my_audio.wav'

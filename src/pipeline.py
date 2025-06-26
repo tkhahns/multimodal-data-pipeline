@@ -63,11 +63,10 @@ class MultimodalPipeline:
             "simcse_text",      # SimCSE contrastive learning of sentence embeddings
             "albert_text",      # ALBERT language representation analysis
             "sbert_text",       # Sentence-BERT dense vector representations and reranking
-            "use_text",         # Universal Sentence Encoder for text classification and semantic analysis
-            "pare_vision",      # PARE 3D human body estimation and pose analysis
+            "use_text",         # Universal Sentence Encoder for text classification and semantic analysis            "pare_vision",      # PARE 3D human body estimation and pose analysis
             "vitpose_vision",   # ViTPose Vision Transformer pose estimation
-        ]
-        
+            "rsn_vision",       # RSN Residual Steps Network keypoint localization
+        ]        
         # Default behavior: extract all features when none specified
         self.features = features if features is not None else all_features
         
@@ -102,7 +101,7 @@ class MultimodalPipeline:
                 from src.emotion.meld_emotion_analyzer import MELDEmotionAnalyzer
                 self.extractors[feature_name] = MELDEmotionAnalyzer()
             elif feature_name == "speech_separation":
-                self.extractors[feature_name] = SpeechSeparator(device=self.device)            
+                self.extractors[feature_name] = SpeechSeparator(device=self.device)
             elif feature_name == "whisperx_transcription":
                 self.extractors[feature_name] = WhisperXTranscriber(device=self.device)
             elif feature_name == "deberta_text":
@@ -125,6 +124,9 @@ class MultimodalPipeline:
             elif feature_name == "vitpose_vision":
                 from src.vision.vitpose_analyzer import ViTPoseAnalyzer
                 self.extractors[feature_name] = ViTPoseAnalyzer(device=self.device)
+            elif feature_name == "rsn_vision":
+                from src.vision.rsn_analyzer import RSNAnalyzer
+                self.extractors[feature_name] = RSNAnalyzer(device=self.device)
             elif feature_name == "psa_vision":
                 from src.vision.psa_analyzer import PSAAnalyzer
                 self.extractors[feature_name] = PSAAnalyzer(device=self.device)
@@ -387,13 +389,19 @@ class MultimodalPipeline:
             print(f"Extracting PARE vision features from {video_path}")
             extractor = self._get_extractor("pare_vision")
             pare_features = extractor.get_feature_dict(str(video_path))
-            features.update(pare_features)
-          # Extract ViTPose vision features (video-specific)
+            features.update(pare_features)          # Extract ViTPose vision features (video-specific)
         if "vitpose_vision" in self.features:
             print(f"Extracting ViTPose vision features from {video_path}")
             extractor = self._get_extractor("vitpose_vision")
             vitpose_features = extractor.get_feature_dict(str(video_path))
             features.update(vitpose_features)
+        
+        # Extract RSN vision features (video-specific)
+        if "rsn_vision" in self.features:
+            print(f"Extracting RSN keypoint localization features from {video_path}")
+            extractor = self._get_extractor("rsn_vision")
+            rsn_features = extractor.get_feature_dict(str(video_path))
+            features.update(rsn_features)
         
         # Extract PSA vision features (video-specific)
         if "psa_vision" in self.features:
@@ -593,11 +601,15 @@ class MultimodalPipeline:
                 "prefixes": ["PARE_"],
                 "exact_matches": [],
                 "model_name": "PARE (Part Attention Regressor for 3D Human Body Estimation)"
-            },
-            "Pose estimation": {
+            },            "Pose estimation": {
                 "prefixes": ["vit_"],
                 "exact_matches": [],
                 "model_name": "ViTPose: Simple Vision Transformer Baselines for Human Pose Estimation"
+            },
+            "Keypoint localization": {
+                "prefixes": ["rsn_"],
+                "exact_matches": [],
+                "model_name": "Residual Steps Network (RSN)"
             }
         }
         
