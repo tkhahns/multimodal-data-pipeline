@@ -166,6 +166,22 @@ The pipeline currently supports the following feature extractors across multiple
 - Provides reliable pose tracking with simplified architecture for practical applications
 - Returns 19 comprehensive features optimized for both accuracy and computational efficiency
 
+#### Py-Feat (Facial Expression Analysis)
+- Comprehensive facial expression analysis including action units, emotions, and face geometry
+- Features with `pf_*` prefix for complete facial behavior analysis:
+  - **Action Units (20 AUs)**: `pf_au01` to `pf_au43` (intensity scores for facial muscle movements)
+    - Upper face: Inner/Outer Brow Raiser, Brow Lowerer, Upper Lid Raiser, Cheek Raiser, Lid Tightener, Eyes Closed
+    - Lower face: Nose Wrinkler, Upper Lip Raiser, Lip Corner Puller (smile), Jaw Drop, Lip movements, etc.
+  - **Emotion Classification (7 emotions)**: `pf_anger`, `pf_disgust`, `pf_fear`, `pf_happiness`, `pf_sadness`, `pf_surprise`, `pf_neutral`
+  - **Face Detection**: `pf_facerectx`, `pf_facerecty`, `pf_facerectwidth`, `pf_facerectheight`, `pf_facescore`
+  - **Head Pose**: `pf_pitch`, `pf_roll`, `pf_yaw` (head rotation angles in degrees)
+  - **3D Position**: `pf_x`, `pf_y`, `pf_z` (face center coordinates and depth)
+  - **Statistics**: Detection rates, face size metrics, and confidence scores
+- Based on Py-Feat: Python Facial Expression Analysis Toolbox
+- Combines multiple computer vision models for comprehensive facial behavior understanding
+- Supports both research-grade FACS (Facial Action Coding System) analysis and real-time applications
+- Returns 37 comprehensive features covering all aspects of facial expression and geometry
+
 #### PARE (3D Human Body Estimation)
 - 3D human body estimation and pose analysis from video frames
 - Features with `PARE_*` prefix for comprehensive body and pose analysis:
@@ -555,6 +571,18 @@ Extract Simple Baselines pose estimation and tracking:
 .\run_all.ps1 -Features "simple_baselines_vision"
 ```
 
+Extract Py-Feat facial expression analysis:
+
+**Linux/macOS:**
+```bash
+./run_all.sh --features pyfeat_vision
+```
+
+**Windows (PowerShell):**
+```powershell
+.\run_all.ps1 -Features "pyfeat_vision"
+```
+
 Extract ViTPose features for pose estimation:
 
 **Linux/macOS:**
@@ -583,24 +611,24 @@ Extract all vision features:
 
 **Linux/macOS:**
 ```bash
-./run_all.sh --features pare_vision,mediapipe_pose_vision,deep_hrnet_vision,simple_baselines_vision,vitpose_vision,rsn_vision,me_graphau_vision,dan_vision,psa_vision
+./run_all.sh --features pare_vision,mediapipe_pose_vision,deep_hrnet_vision,simple_baselines_vision,pyfeat_vision,vitpose_vision,rsn_vision,me_graphau_vision,dan_vision,psa_vision
 ```
 
 **Windows (PowerShell):**
 ```powershell
-.\run_all.ps1 -Features "pare_vision,mediapipe_pose_vision,deep_hrnet_vision,simple_baselines_vision,vitpose_vision,rsn_vision,me_graphau_vision,dan_vision,psa_vision"
+.\run_all.ps1 -Features "pare_vision,mediapipe_pose_vision,deep_hrnet_vision,simple_baselines_vision,pyfeat_vision,vitpose_vision,rsn_vision,me_graphau_vision,dan_vision,psa_vision"
 ```
 
 Extract complete multimodal features (audio, text, and vision):
 
 **Linux/macOS:**
 ```bash
-./run_all.sh --features basic_audio,whisperx_transcription,meld_emotion,mediapipe_pose_vision,deep_hrnet_vision,simple_baselines_vision,pare_vision,vitpose_vision,rsn_vision,me_graphau_vision,dan_vision,psa_vision
+./run_all.sh --features basic_audio,whisperx_transcription,meld_emotion,mediapipe_pose_vision,deep_hrnet_vision,simple_baselines_vision,pyfeat_vision,pare_vision,vitpose_vision,rsn_vision,me_graphau_vision,dan_vision,psa_vision
 ```
 
 **Windows (PowerShell):**
 ```powershell
-.\run_all.ps1 -Features "basic_audio,whisperx_transcription,meld_emotion,mediapipe_pose_vision,deep_hrnet_vision,simple_baselines_vision,pare_vision,vitpose_vision,rsn_vision,me_graphau_vision,dan_vision,psa_vision"
+.\run_all.ps1 -Features "basic_audio,whisperx_transcription,meld_emotion,mediapipe_pose_vision,deep_hrnet_vision,simple_baselines_vision,pyfeat_vision,pare_vision,vitpose_vision,rsn_vision,me_graphau_vision,dan_vision,psa_vision"
 ```
 
 Check if all dependencies are properly installed:
