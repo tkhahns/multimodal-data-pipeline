@@ -140,6 +140,19 @@ The pipeline currently supports the following feature extractors across multiple
 - Covers full body landmarks: face, arms, torso, and legs with visibility scores
 - Returns 330+ features including all landmark coordinates, visibility scores, and pose visualization
 
+#### Deep HRNet (High-Resolution Pose Estimation)
+- High-precision pose estimation using Deep High-Resolution Representation Learning
+- Features with `DHiR_*` prefix for detailed body part accuracy and performance metrics:
+  - **Body Part Accuracy**: `DHiR_Head`, `DHiR_Shoulder`, `DHiR_Elbow`, `DHiR_Wrist`, `DHiR_Hip`, `DHiR_Knee`, `DHiR_Ankle`
+  - **Overall Accuracy**: `DHiR_Mean` (average across all body parts), `DHiR_Meanat0.1` (mean for parts with >0.1 confidence)
+  - **Average Precision (AP)**: `DHiR_AP` (overall), `DHiR_AP_5` (IoU=0.5), `DHiR_AP_75` (IoU=0.75), `DHiR_AP_M` (medium), `DHiR_AP_L` (large)
+  - **Average Recall (AR)**: `DHiR_AR` (overall), `DHiR_AR_5` (IoU=0.5), `DHiR_AR_75` (IoU=0.75), `DHiR_AR_M` (medium), `DHiR_AR_L` (large)
+  - **Statistics**: Detection rate, keypoints per frame, and processing metrics
+- Based on Deep High-Resolution Representation Learning for Human Pose Estimation
+- Maintains high-resolution representations throughout the network for superior pose accuracy
+- Provides COCO-style evaluation metrics (AP/AR) for research-grade pose analysis
+- Returns 19 comprehensive features focusing on accuracy and precision metrics
+
 #### PARE (3D Human Body Estimation)
 - 3D human body estimation and pose analysis from video frames
 - Features with `PARE_*` prefix for comprehensive body and pose analysis:
@@ -505,6 +518,18 @@ Extract MediaPipe pose estimation and tracking:
 .\run_all.ps1 -Features "mediapipe_pose_vision"
 ```
 
+Extract Deep HRNet high-resolution pose estimation:
+
+**Linux/macOS:**
+```bash
+./run_all.sh --features deep_hrnet_vision
+```
+
+**Windows (PowerShell):**
+```powershell
+.\run_all.ps1 -Features "deep_hrnet_vision"
+```
+
 Extract ViTPose features for pose estimation:
 
 **Linux/macOS:**
@@ -533,24 +558,24 @@ Extract all vision features:
 
 **Linux/macOS:**
 ```bash
-./run_all.sh --features pare_vision,mediapipe_pose_vision,vitpose_vision,rsn_vision,me_graphau_vision,dan_vision,psa_vision
+./run_all.sh --features pare_vision,mediapipe_pose_vision,deep_hrnet_vision,vitpose_vision,rsn_vision,me_graphau_vision,dan_vision,psa_vision
 ```
 
 **Windows (PowerShell):**
 ```powershell
-.\run_all.ps1 -Features "pare_vision,mediapipe_pose_vision,vitpose_vision,rsn_vision,me_graphau_vision,dan_vision,psa_vision"
+.\run_all.ps1 -Features "pare_vision,mediapipe_pose_vision,deep_hrnet_vision,vitpose_vision,rsn_vision,me_graphau_vision,dan_vision,psa_vision"
 ```
 
 Extract complete multimodal features (audio, text, and vision):
 
 **Linux/macOS:**
 ```bash
-./run_all.sh --features basic_audio,whisperx_transcription,meld_emotion,mediapipe_pose_vision,pare_vision,vitpose_vision,rsn_vision,me_graphau_vision,dan_vision,psa_vision
+./run_all.sh --features basic_audio,whisperx_transcription,meld_emotion,mediapipe_pose_vision,deep_hrnet_vision,pare_vision,vitpose_vision,rsn_vision,me_graphau_vision,dan_vision,psa_vision
 ```
 
 **Windows (PowerShell):**
 ```powershell
-.\run_all.ps1 -Features "basic_audio,whisperx_transcription,meld_emotion,mediapipe_pose_vision,pare_vision,vitpose_vision,rsn_vision,me_graphau_vision,dan_vision,psa_vision"
+.\run_all.ps1 -Features "basic_audio,whisperx_transcription,meld_emotion,mediapipe_pose_vision,deep_hrnet_vision,pare_vision,vitpose_vision,rsn_vision,me_graphau_vision,dan_vision,psa_vision"
 ```
 
 Check if all dependencies are properly installed:
