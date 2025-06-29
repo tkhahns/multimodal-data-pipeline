@@ -104,7 +104,8 @@ Setup Options:
 Pipeline Options:
   -d, --data-dir DIR    Directory with video/audio files (default: ./data)
   -o, --output-dir DIR  Output directory (default: ./output/YYYYMMDD_HHMMSS)
-  -f, --features LIST   Comma-separated features to extract                        Available: basic_audio,librosa_spectral,opensmile,
+  -f, --features LIST   Comma-separated features to extract
+                        Available: basic_audio,librosa_spectral,opensmile,
                                   speech_emotion,heinsen_sentiment,speech_separation,
                                   whisperx_transcription,deberta_text,simcse_text,
                                   albert_text,sbert_text,use_text

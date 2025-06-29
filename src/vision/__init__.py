@@ -11,6 +11,7 @@ This module provides computer vision capabilities including:
 - Polarized Self-Attention for keypoint heatmaps and segmentation masks
 - Facial Action Unit recognition with AU relation graphs
 - Emotional expression recognition with cross-attention networks
+- Real-time video emotion analysis and AU detection for mobile devices
 """
 
 from .pare_analyzer import PAREAnalyzer, create_pare_analyzer
@@ -19,6 +20,7 @@ from .psa_analyzer import PSAAnalyzer, create_psa_analyzer
 from .rsn_analyzer import RSNAnalyzer, extract_rsn_features
 from .me_graphau_analyzer import MEGraphAUAnalyzer, extract_me_graphau_features
 from .dan_analyzer import DANAnalyzer, extract_dan_features
+from .emotieffnet_analyzer import EmotiEffNetAnalyzer, extract_emotieffnet_features
 
 __all__ = [
     'PAREAnalyzer',
@@ -32,5 +34,7 @@ __all__ = [
     'MEGraphAUAnalyzer',
     'extract_me_graphau_features',
     'DANAnalyzer',
-    'extract_dan_features'
+    'extract_dan_features',
+    'EmotiEffNetAnalyzer',
+    'extract_emotieffnet_features'
 ]

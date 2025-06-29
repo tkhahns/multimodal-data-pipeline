@@ -47,8 +47,7 @@ class MultimodalPipeline:
         os.makedirs(self.output_dir, exist_ok=True)
         os.makedirs(self.output_dir / "audio", exist_ok=True)
         os.makedirs(self.output_dir / "features", exist_ok=True)
-        
-        # Initialize feature list
+          # Initialize feature list
         all_features = [
             "basic_audio",      # Volume and pitch from OpenCV
             "librosa_spectral", # Spectral features from librosa
@@ -63,11 +62,14 @@ class MultimodalPipeline:
             "simcse_text",      # SimCSE contrastive learning of sentence embeddings
             "albert_text",      # ALBERT language representation analysis
             "sbert_text",       # Sentence-BERT dense vector representations and reranking
-            "use_text",         # Universal Sentence Encoder for text classification and semantic analysis            "pare_vision",      # PARE 3D human body estimation and pose analysis            "vitpose_vision",   # ViTPose Vision Transformer pose estimation
+            "use_text",         # Universal Sentence Encoder for text classification and semantic analysis
+            "emotieffnet_vision", # EmotiEffNet real-time video emotion analysis and AU detection
+            "pare_vision",      # PARE 3D human body estimation and pose analysis
+            "vitpose_vision",   # ViTPose Vision Transformer pose estimation
             "rsn_vision",       # RSN Residual Steps Network keypoint localization
             "me_graphau_vision", # ME-GraphAU facial action unit recognition
             "dan_vision",       # DAN emotional expression recognition
-        ]        
+        ]
         # Default behavior: extract all features when none specified
         self.features = features if features is not None else all_features
         
@@ -118,6 +120,9 @@ class MultimodalPipeline:
             elif feature_name == "use_text":
                 from src.text.use_analyzer import USEAnalyzer
                 self.extractors[feature_name] = USEAnalyzer(device=self.device)
+            elif feature_name == "emotieffnet_vision":
+                from src.vision.emotieffnet_analyzer import EmotiEffNetAnalyzer
+                self.extractors[feature_name] = EmotiEffNetAnalyzer(device=self.device)
             elif feature_name == "pare_vision":
                 from src.vision.pare_analyzer import PAREAnalyzer
                 self.extractors[feature_name] = PAREAnalyzer(device=self.device)
@@ -386,9 +391,15 @@ class MultimodalPipeline:
             format="wav", 
             sample_rate=16000
         )
-        
-        # Process the audio to get audio-based features
+          # Process the audio to get audio-based features
         features = self.extract_features(str(audio_path))
+        
+        # Extract EmotiEffNet vision features (video-specific)
+        if "emotieffnet_vision" in self.features:
+            print(f"Extracting EmotiEffNet real-time video emotion analysis and AU detection from {video_path}")
+            extractor = self._get_extractor("emotieffnet_vision")
+            emotieffnet_features = extractor.get_feature_dict(str(video_path))
+            features.update(emotieffnet_features)
         
         # Extract PARE vision features (video-specific)
         if "pare_vision" in self.features:
@@ -609,17 +620,21 @@ class MultimodalPipeline:
                 "prefixes": ["BERT_"],
                 "exact_matches": [],
                 "model_name": "Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks"
-            },
-            "text classification + semantic similarity + semantic cluster": {
+            },            "text classification + semantic similarity + semantic cluster": {
                 "prefixes": ["USE_"],
                 "exact_matches": [],
                 "model_name": "Universal Sentence Encoder"
+            },
+            "Real time video emotion analysis and AU detection": {
+                "prefixes": ["eln_"],
+                "exact_matches": [],
+                "model_name": "Frame-level Prediction of Facial Expressions, Valence, Arousal and Action Units for Mobile Devices"
             },
             "3D Human Body Estimation and Pose Analysis": {
                 "prefixes": ["PARE_"],
                 "exact_matches": [],
                 "model_name": "PARE (Part Attention Regressor for 3D Human Body Estimation)"
-            },            "Pose estimation": {
+            },"Pose estimation": {
                 "prefixes": ["vit_"],
                 "exact_matches": [],
                 "model_name": "ViTPose: Simple Vision Transformer Baselines for Human Pose Estimation"

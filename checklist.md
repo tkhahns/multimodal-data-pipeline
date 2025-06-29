@@ -136,6 +136,19 @@ This document tracks the implementation status of all feature groups in the mult
 
 ### 👁️ **Computer Vision**
 
+- [x] **Real time video emotion analysis and AU detection**
+  - **Model**: Frame-level Prediction of Facial Expressions, Valence, Arousal and Action Units for Mobile Devices
+  - **Features**: 22 (emotion, valence, arousal, and action unit metrics)
+  - **Output**: `eln_arousal`, `eln_valence`, `eln_AU1`, `eln_AU2`, `eln_AU4`, `eln_AU6`, `eln_AU7`, `eln_AU10`, `eln_AU12`, `eln_AU15`, `eln_AU23`, `eln_AU24`, `eln_AU25`, `eln_AU26`, `eln_neutral_f1`, `eln_anger_f1`, `eln_disgust_f1`, `eln_fear_f1`, `eln_happiness_f1`, `eln_sadness_f1`, `eln_surprise_f1`, `eln_other_f1`
+  - **Description**: EmotiEffNet provides frame-level prediction of facial expressions, valence, arousal, and action units optimized for mobile devices
+  - **Note**: 
+    - `eln_arousal`, `eln_valence`: Continuous emotion dimensions
+    - `eln_AU*`: 12 Action Units (AU1, AU2, AU4, AU6, AU7, AU10, AU12, AU15, AU23, AU24, AU25, AU26)
+    - `eln_*_f1`: F1 scores for 8 emotion categories (neutral, anger, disgust, fear, happiness, sadness, surprise, other)
+    - Real-time processing capability with low computational overhead
+  - **Website**: https://github.com/sb-ai-lab/EmotiEffLib/tree/main/models/affectnet_emotions
+  - **Status**: ✅ Implemented
+
 - [x] **3D Human Body Estimation and Pose Analysis**
   - **Model**: PARE (Part Attention Regressor for 3D Human Body Estimation)
   - **Features**: 25 (core features plus metadata)
@@ -224,8 +237,8 @@ This document tracks the implementation status of all feature groups in the mult
 | **Speech Analysis** | 2 | ~296 | ✅ **Complete** |
 | **Audio Analysis** | 3 | 1,544 | ✅ **Complete** |
 | **AI/ML Analysis** | 6 | 90 | ✅ **Complete** |
-| **Computer Vision** | 6 | 74 | ✅ **Complete** |
-| **TOTAL** | **21** | **~2,100** | ✅ **Complete** |
+| **Computer Vision** | 7 | 96 | ✅ **Complete** |
+| **TOTAL** | **22** | **~2,122** | ✅ **Complete** |
 
 ---
 

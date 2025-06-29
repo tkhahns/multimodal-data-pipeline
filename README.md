@@ -118,6 +118,16 @@ The pipeline currently supports the following feature extractors across multiple
 
 ### Computer Vision
 
+#### EmotiEffNet (Real-time Video Emotion Analysis and AU Detection)
+- Frame-level prediction of facial expressions, valence, arousal, and action units optimized for mobile devices
+- Features with `eln_*` prefix for comprehensive emotion and facial analysis:
+  - **Arousal and Valence**: `eln_arousal`, `eln_valence` - continuous emotion dimensions
+  - **Action Units (12)**: `eln_AU1`, `eln_AU2`, `eln_AU4`, `eln_AU6`, `eln_AU7`, `eln_AU10`, `eln_AU12`, `eln_AU15`, `eln_AU23`, `eln_AU24`, `eln_AU25`, `eln_AU26`
+  - **Emotion F1 Scores (8)**: `eln_neutral_f1`, `eln_anger_f1`, `eln_disgust_f1`, `eln_fear_f1`, `eln_happiness_f1`, `eln_sadness_f1`, `eln_surprise_f1`, `eln_other_f1`
+- Based on EmotiEffLib/AffectNet model for mobile device optimization
+- Provides real-time emotion analysis with low computational overhead
+- Returns 22 features covering valence-arousal space, facial action units, and emotion classifications
+
 #### PARE (3D Human Body Estimation)
 - 3D human body estimation and pose analysis from video frames
 - Features with `PARE_*` prefix for comprehensive body and pose analysis:
