@@ -63,10 +63,10 @@ class MultimodalPipeline:
             "simcse_text",      # SimCSE contrastive learning of sentence embeddings
             "albert_text",      # ALBERT language representation analysis
             "sbert_text",       # Sentence-BERT dense vector representations and reranking
-            "use_text",         # Universal Sentence Encoder for text classification and semantic analysis            "pare_vision",      # PARE 3D human body estimation and pose analysis
-            "vitpose_vision",   # ViTPose Vision Transformer pose estimation
+            "use_text",         # Universal Sentence Encoder for text classification and semantic analysis            "pare_vision",      # PARE 3D human body estimation and pose analysis            "vitpose_vision",   # ViTPose Vision Transformer pose estimation
             "rsn_vision",       # RSN Residual Steps Network keypoint localization
             "me_graphau_vision", # ME-GraphAU facial action unit recognition
+            "dan_vision",       # DAN emotional expression recognition
         ]        
         # Default behavior: extract all features when none specified
         self.features = features if features is not None else all_features
@@ -82,8 +82,7 @@ class MultimodalPipeline:
             feature_name: Name of the feature extractor
             
         Returns:
-            Any: The feature extractor object
-        """
+            Any: The feature extractor object        """
         if feature_name not in self.extractors:
             if feature_name == "basic_audio":
                 self.extractors[feature_name] = AudioFeatureExtractor()
@@ -131,6 +130,9 @@ class MultimodalPipeline:
             elif feature_name == "me_graphau_vision":
                 from src.vision.me_graphau_analyzer import MEGraphAUAnalyzer
                 self.extractors[feature_name] = MEGraphAUAnalyzer(device=self.device)
+            elif feature_name == "dan_vision":
+                from src.vision.dan_analyzer import DANAnalyzer
+                self.extractors[feature_name] = DANAnalyzer(device=self.device)
             elif feature_name == "psa_vision":
                 from src.vision.psa_analyzer import PSAAnalyzer
                 self.extractors[feature_name] = PSAAnalyzer(device=self.device)
@@ -405,13 +407,19 @@ class MultimodalPipeline:
             extractor = self._get_extractor("rsn_vision")
             rsn_features = extractor.get_feature_dict(str(video_path))
             features.update(rsn_features)
-        
-        # Extract ME-GraphAU vision features (video-specific)
+          # Extract ME-GraphAU vision features (video-specific)
         if "me_graphau_vision" in self.features:
             print(f"Extracting ME-GraphAU facial action unit features from {video_path}")
             extractor = self._get_extractor("me_graphau_vision")
             me_graphau_features = extractor.get_feature_dict(str(video_path))
             features.update(me_graphau_features)
+        
+        # Extract DAN vision features (video-specific)
+        if "dan_vision" in self.features:
+            print(f"Extracting DAN emotional expression features from {video_path}")
+            extractor = self._get_extractor("dan_vision")
+            dan_features = extractor.get_feature_dict(str(video_path))
+            features.update(dan_features)
         
         # Extract PSA vision features (video-specific)
         if "psa_vision" in self.features:
@@ -619,11 +627,15 @@ class MultimodalPipeline:
                 "prefixes": ["rsn_"],
                 "exact_matches": [],
                 "model_name": "Residual Steps Network (RSN)"
-            },
-            "Facial action, AU relation graph": {
+            },            "Facial action, AU relation graph": {
                 "prefixes": ["ann_"],
                 "exact_matches": [],
                 "model_name": "Learning Multi-dimensional Edge Feature-based AU Relation Graph for Facial Action Unit Recognition"
+            },
+            "Emotional expression indices": {
+                "prefixes": ["dan_"],
+                "exact_matches": ["dan_emotion_scores"],
+                "model_name": "DAN: Distract Your Attention: Multi-head Cross Attention Network for Facial Expression Recognition"
             }
         }
         

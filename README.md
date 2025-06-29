@@ -175,6 +175,16 @@ The pipeline currently supports the following feature extractors across multiple
 - Uses graph neural networks to model relationships between facial action units
 - Returns 21 metrics covering multiple AU recognition benchmarks
 
+#### DAN (Distract Your Attention)
+- Emotional expression recognition using multi-head cross attention networks
+- Features with `dan_*` prefix for emotion classification:
+  - **Individual emotions**: `dan_angry`, `dan_disgust`, `dan_fear`, `dan_happy`, `dan_neutral`, `dan_sad`, `dan_surprise`
+  - **dan_emotion_scores**: Array of all emotion probabilities for comprehensive analysis
+- Based on DAN: Distract Your Attention: Multi-head Cross Attention Network
+- Uses attention mechanisms to focus on relevant facial regions for emotion classification
+- Supports both 7-class (excludes contempt) and 8-class (includes contempt) emotion models
+- Returns 8 features including individual emotion scores and combined probability array
+
 ## Installation
 
 ### Prerequisites
@@ -489,24 +499,24 @@ Extract all vision features:
 
 **Linux/macOS:**
 ```bash
-./run_all.sh --features pare_vision,vitpose_vision,rsn_vision,me_graphau_vision,psa_vision
+./run_all.sh --features pare_vision,vitpose_vision,rsn_vision,me_graphau_vision,dan_vision,psa_vision
 ```
 
 **Windows (PowerShell):**
 ```powershell
-.\run_all.ps1 -Features "pare_vision,vitpose_vision,rsn_vision,me_graphau_vision,psa_vision"
+.\run_all.ps1 -Features "pare_vision,vitpose_vision,rsn_vision,me_graphau_vision,dan_vision,psa_vision"
 ```
 
 Extract complete multimodal features (audio, text, and vision):
 
 **Linux/macOS:**
 ```bash
-./run_all.sh --features basic_audio,whisperx_transcription,meld_emotion,pare_vision,vitpose_vision,rsn_vision,me_graphau_vision,psa_vision
+./run_all.sh --features basic_audio,whisperx_transcription,meld_emotion,pare_vision,vitpose_vision,rsn_vision,me_graphau_vision,dan_vision,psa_vision
 ```
 
 **Windows (PowerShell):**
 ```powershell
-.\run_all.ps1 -Features "basic_audio,whisperx_transcription,meld_emotion,pare_vision,vitpose_vision,rsn_vision,me_graphau_vision,psa_vision"
+.\run_all.ps1 -Features "basic_audio,whisperx_transcription,meld_emotion,pare_vision,vitpose_vision,rsn_vision,me_graphau_vision,dan_vision,psa_vision"
 ```
 
 Check if all dependencies are properly installed:
@@ -590,7 +600,7 @@ results = pipeline.process_video_file(video_path)
 # Process a video file with vision features (pose estimation and keypoint localization)
 vision_pipeline = MultimodalPipeline(
     output_dir='output/vision_results',
-    features=['basic_audio', 'pare_vision', 'vitpose_vision', 'rsn_vision', 'me_graphau_vision'],
+    features=['basic_audio', 'pare_vision', 'vitpose_vision', 'rsn_vision', 'me_graphau_vision', 'dan_vision'],
     device='cpu'  # Use 'cuda' for better performance with vision models
 )
 vision_results = vision_pipeline.process_video_file(video_path)
