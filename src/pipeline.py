@@ -66,6 +66,7 @@ class MultimodalPipeline:
             "use_text",         # Universal Sentence Encoder for text classification and semantic analysis            "pare_vision",      # PARE 3D human body estimation and pose analysis
             "vitpose_vision",   # ViTPose Vision Transformer pose estimation
             "rsn_vision",       # RSN Residual Steps Network keypoint localization
+            "me_graphau_vision", # ME-GraphAU facial action unit recognition
         ]        
         # Default behavior: extract all features when none specified
         self.features = features if features is not None else all_features
@@ -127,6 +128,9 @@ class MultimodalPipeline:
             elif feature_name == "rsn_vision":
                 from src.vision.rsn_analyzer import RSNAnalyzer
                 self.extractors[feature_name] = RSNAnalyzer(device=self.device)
+            elif feature_name == "me_graphau_vision":
+                from src.vision.me_graphau_analyzer import MEGraphAUAnalyzer
+                self.extractors[feature_name] = MEGraphAUAnalyzer(device=self.device)
             elif feature_name == "psa_vision":
                 from src.vision.psa_analyzer import PSAAnalyzer
                 self.extractors[feature_name] = PSAAnalyzer(device=self.device)
@@ -395,13 +399,19 @@ class MultimodalPipeline:
             extractor = self._get_extractor("vitpose_vision")
             vitpose_features = extractor.get_feature_dict(str(video_path))
             features.update(vitpose_features)
-        
-        # Extract RSN vision features (video-specific)
+          # Extract RSN vision features (video-specific)
         if "rsn_vision" in self.features:
             print(f"Extracting RSN keypoint localization features from {video_path}")
             extractor = self._get_extractor("rsn_vision")
             rsn_features = extractor.get_feature_dict(str(video_path))
             features.update(rsn_features)
+        
+        # Extract ME-GraphAU vision features (video-specific)
+        if "me_graphau_vision" in self.features:
+            print(f"Extracting ME-GraphAU facial action unit features from {video_path}")
+            extractor = self._get_extractor("me_graphau_vision")
+            me_graphau_features = extractor.get_feature_dict(str(video_path))
+            features.update(me_graphau_features)
         
         # Extract PSA vision features (video-specific)
         if "psa_vision" in self.features:
@@ -605,11 +615,15 @@ class MultimodalPipeline:
                 "prefixes": ["vit_"],
                 "exact_matches": [],
                 "model_name": "ViTPose: Simple Vision Transformer Baselines for Human Pose Estimation"
-            },
-            "Keypoint localization": {
+            },            "Keypoint localization": {
                 "prefixes": ["rsn_"],
                 "exact_matches": [],
                 "model_name": "Residual Steps Network (RSN)"
+            },
+            "Facial action, AU relation graph": {
+                "prefixes": ["ann_"],
+                "exact_matches": [],
+                "model_name": "Learning Multi-dimensional Edge Feature-based AU Relation Graph for Facial Action Unit Recognition"
             }
         }
         

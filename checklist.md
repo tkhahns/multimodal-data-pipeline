@@ -186,6 +186,20 @@ This document tracks the implementation status of all feature groups in the mult
   - **Website**: https://github.com/caiyuanhao1998/RSN/
   - **Status**: ✅ Implemented
 
+- [x] **Facial action, AU relation graph**
+  - **Model**: Learning Multi-dimensional Edge Feature-based AU Relation Graph for Facial Action Unit Recognition
+  - **Features**: 21 (facial action unit recognition metrics)
+  - **Output**: `ann_AU1_bp4d`, `ann_AU2_bp4d`, `ann_AU4_bp4d`, `ann_AU6_bp4d`, `ann_AU7_bp4d`, `ann_AU10_bp4d`, `ann_AU12_bp4d`, `ann_AU14_bp4d`, `ann_AU15_bp4d`, `ann_AU17_bp4d`, `ann_AU23_bp4d`, `ann_AU24_bp4d`, `ann_avg_bp4d`, `ann_AU1_dis`, `ann_AU2_dis`, `ann_AU4_dis`, `ann_AU6_dis`, `ann_AU9_dis`, `ann_AU12_dis`, `ann_AU25_dis`, `ann_AU26_dis`, `ann_avg_dis`
+  - **Description**: ME-GraphAU uses multi-dimensional edge feature-based AU relation graphs to model relationships between facial action units for improved recognition accuracy
+  - **Note**: 
+    - BP4D dataset features: `ann_AU*_bp4d` for 12 action units (AU1, AU2, AU4, AU6, AU7, AU10, AU12, AU14, AU15, AU17, AU23, AU24)
+    - DISFA dataset features: `ann_AU*_dis` for 8 action units (AU1, AU2, AU4, AU6, AU9, AU12, AU25, AU26)
+    - `ann_avg_bp4d`: Average accuracy across all BP4D action units
+    - `ann_avg_dis`: Average accuracy across all DISFA action units
+    - Uses graph neural networks to capture AU dependencies and relationships
+  - **Website**: https://github.com/CVI-SZU/ME-GraphAU
+  - **Status**: ✅ Implemented
+
 ---
 
 ## 📊 **IMPLEMENTATION SUMMARY**
@@ -196,8 +210,8 @@ This document tracks the implementation status of all feature groups in the mult
 | **Speech Analysis** | 2 | ~296 | ✅ **Complete** |
 | **Audio Analysis** | 3 | 1,544 | ✅ **Complete** |
 | **AI/ML Analysis** | 6 | 90 | ✅ **Complete** |
-| **Computer Vision** | 4 | 45 | ✅ **Complete** |
-| **TOTAL** | **19** | **~1,979** | ✅ **Complete** |
+| **Computer Vision** | 5 | 66 | ✅ **Complete** |
+| **TOTAL** | **20** | **~2,000** | ✅ **Complete** |
 
 ---
 
@@ -234,7 +248,7 @@ Each feature group follows this JSON structure:
 
 ## ✅ **VERIFICATION STATUS**
 
-- [x] **All 19 specified feature groups implemented**
+- [x] **All 20 specified feature groups implemented**
 - [x] **Feature naming 100% compliant with specification**
 - [x] **JSON output properly structured by categories**
 - [x] **Pipeline integration complete and tested**
@@ -244,6 +258,7 @@ Each feature group follows this JSON structure:
 - [x] **ViTPose Vision Transformer pose estimation fully integrated**
 - [x] **PARE vision processing fully integrated**
 - [x] **RSN keypoint localization fully integrated**
+- [x] **ME-GraphAU facial action unit recognition fully integrated**
 
 **Overall Implementation Status**: ✅ **COMPLETE**
 

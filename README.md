@@ -166,6 +166,15 @@ The pipeline currently supports the following feature extractors across multiple
 - Uses residual steps to progressively refine keypoint predictions
 - Returns 14 comprehensive metrics for keypoint localization performance
 
+#### ME-GraphAU (Multi-dimensional Edge Feature-based AU Relation Graph)
+- Facial action unit (AU) recognition using AU relation graphs
+- Features with `ann_*` prefix for facial action analysis:
+  - **BP4D dataset**: `ann_AU1_bp4d`, `ann_AU2_bp4d`, `ann_AU4_bp4d`, `ann_AU6_bp4d`, `ann_AU7_bp4d`, `ann_AU10_bp4d`, `ann_AU12_bp4d`, `ann_AU14_bp4d`, `ann_AU15_bp4d`, `ann_AU17_bp4d`, `ann_AU23_bp4d`, `ann_AU24_bp4d`, `ann_avg_bp4d`
+  - **DISFA dataset**: `ann_AU1_dis`, `ann_AU2_dis`, `ann_AU4_dis`, `ann_AU6_dis`, `ann_AU9_dis`, `ann_AU12_dis`, `ann_AU25_dis`, `ann_AU26_dis`, `ann_avg_dis`
+- Based on Learning Multi-dimensional Edge Feature-based AU Relation Graph
+- Uses graph neural networks to model relationships between facial action units
+- Returns 21 metrics covering multiple AU recognition benchmarks
+
 ## Installation
 
 ### Prerequisites
@@ -480,24 +489,24 @@ Extract all vision features:
 
 **Linux/macOS:**
 ```bash
-./run_all.sh --features pare_vision,vitpose_vision,rsn_vision,psa_vision
+./run_all.sh --features pare_vision,vitpose_vision,rsn_vision,me_graphau_vision,psa_vision
 ```
 
 **Windows (PowerShell):**
 ```powershell
-.\run_all.ps1 -Features "pare_vision,vitpose_vision,rsn_vision,psa_vision"
+.\run_all.ps1 -Features "pare_vision,vitpose_vision,rsn_vision,me_graphau_vision,psa_vision"
 ```
 
 Extract complete multimodal features (audio, text, and vision):
 
 **Linux/macOS:**
 ```bash
-./run_all.sh --features basic_audio,whisperx_transcription,meld_emotion,pare_vision,vitpose_vision,rsn_vision,psa_vision
+./run_all.sh --features basic_audio,whisperx_transcription,meld_emotion,pare_vision,vitpose_vision,rsn_vision,me_graphau_vision,psa_vision
 ```
 
 **Windows (PowerShell):**
 ```powershell
-.\run_all.ps1 -Features "basic_audio,whisperx_transcription,meld_emotion,pare_vision,vitpose_vision,rsn_vision,psa_vision"
+.\run_all.ps1 -Features "basic_audio,whisperx_transcription,meld_emotion,pare_vision,vitpose_vision,rsn_vision,me_graphau_vision,psa_vision"
 ```
 
 Check if all dependencies are properly installed:
@@ -581,7 +590,7 @@ results = pipeline.process_video_file(video_path)
 # Process a video file with vision features (pose estimation and keypoint localization)
 vision_pipeline = MultimodalPipeline(
     output_dir='output/vision_results',
-    features=['basic_audio', 'pare_vision', 'vitpose_vision', 'rsn_vision'],
+    features=['basic_audio', 'pare_vision', 'vitpose_vision', 'rsn_vision', 'me_graphau_vision'],
     device='cpu'  # Use 'cuda' for better performance with vision models
 )
 vision_results = vision_pipeline.process_video_file(video_path)
