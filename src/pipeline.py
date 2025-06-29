@@ -62,8 +62,8 @@ class MultimodalPipeline:
             "simcse_text",      # SimCSE contrastive learning of sentence embeddings
             "albert_text",      # ALBERT language representation analysis
             "sbert_text",       # Sentence-BERT dense vector representations and reranking            "use_text",         # Universal Sentence Encoder for text classification and semantic analysis            "emotieffnet_vision", # EmotiEffNet real-time video emotion analysis and AU detection
-            "mediapipe_pose_vision", # Google MediaPipe pose estimation and tracking with 33 landmarks
-            "deep_hrnet_vision", # Deep High-Resolution Network for high-precision pose estimation
+            "mediapipe_pose_vision", # Google MediaPipe pose estimation and tracking with 33 landmarks            "deep_hrnet_vision", # Deep High-Resolution Network for high-precision pose estimation
+            "simple_baselines_vision", # Simple Baselines for human pose estimation and tracking
             "pare_vision",      # PARE 3D human body estimation and pose analysis
             "vitpose_vision",   # ViTPose Vision Transformer pose estimation
             "rsn_vision",       # RSN Residual Steps Network keypoint localization
@@ -124,10 +124,12 @@ class MultimodalPipeline:
                 self.extractors[feature_name] = EmotiEffNetAnalyzer(device=self.device)
             elif feature_name == "mediapipe_pose_vision":
                 from src.vision.mediapipe_pose_analyzer import MediaPipePoseAnalyzer
-                self.extractors[feature_name] = MediaPipePoseAnalyzer(device=self.device)
-            elif feature_name == "deep_hrnet_vision":
+                self.extractors[feature_name] = MediaPipePoseAnalyzer(device=self.device)            elif feature_name == "deep_hrnet_vision":
                 from src.vision.deep_hrnet_analyzer import DeepHRNetAnalyzer
                 self.extractors[feature_name] = DeepHRNetAnalyzer(device=self.device)
+            elif feature_name == "simple_baselines_vision":
+                from src.vision.simple_baselines_analyzer import SimpleBaselinesAnalyzer
+                self.extractors[feature_name] = SimpleBaselinesAnalyzer(device=self.device)
             elif feature_name == "pare_vision":
                 from src.vision.pare_analyzer import PAREAnalyzer
                 self.extractors[feature_name] = PAREAnalyzer(device=self.device)
@@ -410,13 +412,19 @@ class MultimodalPipeline:
             extractor = self._get_extractor("mediapipe_pose_vision")
             mediapipe_features = extractor.get_feature_dict(str(video_path))
             features.update(mediapipe_features)
-        
-        # Extract Deep HRNet pose features (video-specific)
+          # Extract Deep HRNet pose features (video-specific)
         if "deep_hrnet_vision" in self.features:
             print(f"Extracting Deep HRNet high-resolution pose estimation from {video_path}")
             extractor = self._get_extractor("deep_hrnet_vision")
             deep_hrnet_features = extractor.get_feature_dict(str(video_path))
             features.update(deep_hrnet_features)
+        
+        # Extract Simple Baselines pose features (video-specific)
+        if "simple_baselines_vision" in self.features:
+            print(f"Extracting Simple Baselines pose estimation and tracking from {video_path}")
+            extractor = self._get_extractor("simple_baselines_vision")
+            simple_baselines_features = extractor.get_feature_dict(str(video_path))
+            features.update(simple_baselines_features)
         
         # Extract PARE vision features (video-specific)
         if "pare_vision" in self.features:
@@ -649,11 +657,15 @@ class MultimodalPipeline:
                 "prefixes": ["GMP_"],
                 "exact_matches": ["total_frames", "landmarks_detected_frames", "detection_rate", "avg_landmarks_per_frame"],
                 "model_name": "Google MediaPipe"
-            },
-            "Pose estimation (high-resolution)": {
+            },            "Pose estimation (high-resolution)": {
                 "prefixes": ["DHiR_"],
                 "exact_matches": ["total_frames", "pose_detected_frames", "detection_rate", "avg_keypoints_per_frame"],
                 "model_name": "Deep High-Resolution Representation Learning for Human Pose Estimation"
+            },
+            "Pose estimation and tracking (simple baselines)": {
+                "prefixes": ["SBH_"],
+                "exact_matches": ["total_frames", "pose_detected_frames", "detection_rate", "avg_keypoints_per_frame"],
+                "model_name": "Simple Baselines for Human Pose Estimation and Tracking"
             },
             "3D Human Body Estimation and Pose Analysis": {
                 "prefixes": ["PARE_"],

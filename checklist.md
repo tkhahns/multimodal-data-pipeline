@@ -172,8 +172,22 @@ This document tracks the implementation status of all feature groups in the mult
     - `DHiR_Mean`: Average accuracy across all body parts
     - `DHiR_Meanat0.1`: Mean accuracy for parts with confidence > 0.1
     - AP metrics: Average Precision at different IoU thresholds (overall, 0.5, 0.75, medium, large)
+    - AR metrics: Average Recall at different IoU thresholds (overall, 0.5, 0.75, medium, large)  - **Website**: https://github.com/leoxiaobin/deep-high-resolution-net.pytorch
+  - **Status**: ✅ Implemented
+
+- [x] **Pose estimation and tracking (simple baselines)**
+  - **Model**: Simple Baselines for Human Pose Estimation and Tracking
+  - **Features**: 19 (body part accuracy + AP/AR metrics)
+  - **Output**: `SBH_Head`, `SBH_Shoulder`, `SBH_Elbow`, `SBH_Wrist`, `SBH_Hip`, `SBH_Knee`, `SBH_Ankle`, `SBH_Mean`, `SBH_Meanat0.1`, `SBH_AP`, `SBH_AP_5`, `SBH_AP_75`, `SBH_AP_M`, `SBH_AP_L`, `SBH_AR`, `SBH_AR_5`, `SBH_AR_75`, `SBH_AR_M`, `SBH_AR_L`
+  - **Description**: Effective baseline approach for pose estimation using ResNet backbone with deconvolution layers
+  - **Note**: 
+    - Body part accuracy: Head, Shoulder, Elbow, Wrist, Hip, Knee, Ankle confidence scores
+    - `SBH_Mean`: Average accuracy across all body parts
+    - `SBH_Meanat0.1`: Mean accuracy for parts with confidence > 0.1
+    - AP metrics: Average Precision at different IoU thresholds (overall, 0.5, 0.75, medium, large)
     - AR metrics: Average Recall at different IoU thresholds (overall, 0.5, 0.75, medium, large)
-  - **Website**: https://github.com/leoxiaobin/deep-high-resolution-net.pytorch
+    - Simplified architecture optimized for both accuracy and computational efficiency
+  - **Website**: https://github.com/Microsoft/human-pose-estimation.pytorch
   - **Status**: ✅ Implemented
 
 - [x] **3D Human Body Estimation and Pose Analysis**
@@ -264,8 +278,8 @@ This document tracks the implementation status of all feature groups in the mult
 | **Speech Analysis** | 2 | ~296 | ✅ **Complete** |
 | **Audio Analysis** | 3 | 1,544 | ✅ **Complete** |
 | **AI/ML Analysis** | 6 | 90 | ✅ **Complete** |
-| **Computer Vision** | 9 | 445+ | ✅ **Complete** |
-| **TOTAL** | **24** | **~2,479+** | ✅ **Complete** |
+| **Computer Vision** | 10 | 464+ | ✅ **Complete** |
+| **TOTAL** | **25** | **~2,498+** | ✅ **Complete** |
 
 ---
 
@@ -315,6 +329,7 @@ Each feature group follows this JSON structure:
 - [x] **ME-GraphAU facial action unit recognition fully integrated**
 - [x] **DAN emotional expression feature fully integrated**
 - [x] **Deep HRNet high-resolution pose estimation fully integrated**
+- [x] **Simple Baselines pose estimation and tracking fully integrated**
 
 **Overall Implementation Status**: ✅ **COMPLETE**
 
