@@ -61,9 +61,9 @@ class MultimodalPipeline:
             "deberta_text",     # DeBERTa text analysis with benchmark performance metrics
             "simcse_text",      # SimCSE contrastive learning of sentence embeddings
             "albert_text",      # ALBERT language representation analysis
-            "sbert_text",       # Sentence-BERT dense vector representations and reranking
-            "use_text",         # Universal Sentence Encoder for text classification and semantic analysis
+            "sbert_text",       # Sentence-BERT dense vector representations and reranking            "use_text",         # Universal Sentence Encoder for text classification and semantic analysis
             "emotieffnet_vision", # EmotiEffNet real-time video emotion analysis and AU detection
+            "mediapipe_pose_vision", # Google MediaPipe pose estimation and tracking with 33 landmarks
             "pare_vision",      # PARE 3D human body estimation and pose analysis
             "vitpose_vision",   # ViTPose Vision Transformer pose estimation
             "rsn_vision",       # RSN Residual Steps Network keypoint localization
@@ -116,13 +116,15 @@ class MultimodalPipeline:
                 self.extractors[feature_name] = ALBERTAnalyzer(device=self.device)
             elif feature_name == "sbert_text":
                 from src.text.sbert_analyzer import SBERTAnalyzer
-                self.extractors[feature_name] = SBERTAnalyzer(device=self.device)
-            elif feature_name == "use_text":
+                self.extractors[feature_name] = SBERTAnalyzer(device=self.device)            elif feature_name == "use_text":
                 from src.text.use_analyzer import USEAnalyzer
                 self.extractors[feature_name] = USEAnalyzer(device=self.device)
             elif feature_name == "emotieffnet_vision":
                 from src.vision.emotieffnet_analyzer import EmotiEffNetAnalyzer
                 self.extractors[feature_name] = EmotiEffNetAnalyzer(device=self.device)
+            elif feature_name == "mediapipe_pose_vision":
+                from src.vision.mediapipe_pose_analyzer import MediaPipePoseAnalyzer
+                self.extractors[feature_name] = MediaPipePoseAnalyzer(device=self.device)
             elif feature_name == "pare_vision":
                 from src.vision.pare_analyzer import PAREAnalyzer
                 self.extractors[feature_name] = PAREAnalyzer(device=self.device)
@@ -393,20 +395,26 @@ class MultimodalPipeline:
         )
           # Process the audio to get audio-based features
         features = self.extract_features(str(audio_path))
-        
-        # Extract EmotiEffNet vision features (video-specific)
+          # Extract EmotiEffNet vision features (video-specific)
         if "emotieffnet_vision" in self.features:
             print(f"Extracting EmotiEffNet real-time video emotion analysis and AU detection from {video_path}")
             extractor = self._get_extractor("emotieffnet_vision")
             emotieffnet_features = extractor.get_feature_dict(str(video_path))
             features.update(emotieffnet_features)
         
+        # Extract MediaPipe pose features (video-specific)
+        if "mediapipe_pose_vision" in self.features:
+            print(f"Extracting MediaPipe pose estimation and tracking from {video_path}")
+            extractor = self._get_extractor("mediapipe_pose_vision")
+            mediapipe_features = extractor.get_feature_dict(str(video_path))
+            features.update(mediapipe_features)
+        
         # Extract PARE vision features (video-specific)
         if "pare_vision" in self.features:
             print(f"Extracting PARE vision features from {video_path}")
             extractor = self._get_extractor("pare_vision")
             pare_features = extractor.get_feature_dict(str(video_path))
-            features.update(pare_features)          # Extract ViTPose vision features (video-specific)
+            features.update(pare_features)# Extract ViTPose vision features (video-specific)
         if "vitpose_vision" in self.features:
             print(f"Extracting ViTPose vision features from {video_path}")
             extractor = self._get_extractor("vitpose_vision")
@@ -624,11 +632,15 @@ class MultimodalPipeline:
                 "prefixes": ["USE_"],
                 "exact_matches": [],
                 "model_name": "Universal Sentence Encoder"
-            },
-            "Real time video emotion analysis and AU detection": {
+            },            "Real time video emotion analysis and AU detection": {
                 "prefixes": ["eln_"],
                 "exact_matches": [],
                 "model_name": "Frame-level Prediction of Facial Expressions, Valence, Arousal and Action Units for Mobile Devices"
+            },
+            "Pose estimation and tracking": {
+                "prefixes": ["GMP_"],
+                "exact_matches": ["total_frames", "landmarks_detected_frames", "detection_rate", "avg_landmarks_per_frame"],
+                "model_name": "Google MediaPipe"
             },
             "3D Human Body Estimation and Pose Analysis": {
                 "prefixes": ["PARE_"],

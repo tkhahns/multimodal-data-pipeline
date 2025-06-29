@@ -128,6 +128,18 @@ The pipeline currently supports the following feature extractors across multiple
 - Provides real-time emotion analysis with low computational overhead
 - Returns 22 features covering valence-arousal space, facial action units, and emotion classifications
 
+#### Google MediaPipe (Pose Estimation and Tracking)
+- Real-time pose landmark detection with 33 body landmarks for comprehensive pose analysis
+- Features with `GMP_*` prefix for pose estimation and tracking:
+  - **Normalized Landmarks (33×5=165)**: `GMP_land_x_1` to `GMP_land_x_33`, `GMP_land_y_1` to `GMP_land_y_33`, `GMP_land_z_1` to `GMP_land_z_33`, `GMP_land_visi_1` to `GMP_land_visi_33`, `GMP_land_presence_1` to `GMP_land_presence_33`
+  - **World Coordinates (33×5=165)**: `GMP_world_x_1` to `GMP_world_x_33`, `GMP_world_y_1` to `GMP_world_y_33`, `GMP_world_z_1` to `GMP_world_z_33`, `GMP_world_visi_1` to `GMP_world_visi_33`, `GMP_world_presence_1` to `GMP_world_presence_33`
+  - **Pose Visualization**: `GMP_SM_pic` - Base64 encoded image with pose landmarks drawn
+  - **Statistics**: Detection rate, landmarks per frame, and processing metrics
+- Based on Google MediaPipe pose solution optimized for real-time performance
+- Provides both normalized coordinates (0-1 range) and world coordinates (in meters)
+- Covers full body landmarks: face, arms, torso, and legs with visibility scores
+- Returns 330+ features including all landmark coordinates, visibility scores, and pose visualization
+
 #### PARE (3D Human Body Estimation)
 - 3D human body estimation and pose analysis from video frames
 - Features with `PARE_*` prefix for comprehensive body and pose analysis:
@@ -481,6 +493,18 @@ Extract vision features for 3D human pose analysis:
 .\run_all.ps1 -Features "pare_vision"
 ```
 
+Extract MediaPipe pose estimation and tracking:
+
+**Linux/macOS:**
+```bash
+./run_all.sh --features mediapipe_pose_vision
+```
+
+**Windows (PowerShell):**
+```powershell
+.\run_all.ps1 -Features "mediapipe_pose_vision"
+```
+
 Extract ViTPose features for pose estimation:
 
 **Linux/macOS:**
@@ -509,24 +533,24 @@ Extract all vision features:
 
 **Linux/macOS:**
 ```bash
-./run_all.sh --features pare_vision,vitpose_vision,rsn_vision,me_graphau_vision,dan_vision,psa_vision
+./run_all.sh --features pare_vision,mediapipe_pose_vision,vitpose_vision,rsn_vision,me_graphau_vision,dan_vision,psa_vision
 ```
 
 **Windows (PowerShell):**
 ```powershell
-.\run_all.ps1 -Features "pare_vision,vitpose_vision,rsn_vision,me_graphau_vision,dan_vision,psa_vision"
+.\run_all.ps1 -Features "pare_vision,mediapipe_pose_vision,vitpose_vision,rsn_vision,me_graphau_vision,dan_vision,psa_vision"
 ```
 
 Extract complete multimodal features (audio, text, and vision):
 
 **Linux/macOS:**
 ```bash
-./run_all.sh --features basic_audio,whisperx_transcription,meld_emotion,pare_vision,vitpose_vision,rsn_vision,me_graphau_vision,dan_vision,psa_vision
+./run_all.sh --features basic_audio,whisperx_transcription,meld_emotion,mediapipe_pose_vision,pare_vision,vitpose_vision,rsn_vision,me_graphau_vision,dan_vision,psa_vision
 ```
 
 **Windows (PowerShell):**
 ```powershell
-.\run_all.ps1 -Features "basic_audio,whisperx_transcription,meld_emotion,pare_vision,vitpose_vision,rsn_vision,me_graphau_vision,dan_vision,psa_vision"
+.\run_all.ps1 -Features "basic_audio,whisperx_transcription,meld_emotion,mediapipe_pose_vision,pare_vision,vitpose_vision,rsn_vision,me_graphau_vision,dan_vision,psa_vision"
 ```
 
 Check if all dependencies are properly installed:

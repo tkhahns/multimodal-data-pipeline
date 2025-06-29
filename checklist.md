@@ -149,6 +149,20 @@ This document tracks the implementation status of all feature groups in the mult
   - **Website**: https://github.com/sb-ai-lab/EmotiEffLib/tree/main/models/affectnet_emotions
   - **Status**: ✅ Implemented
 
+- [x] **Pose estimation and tracking**
+  - **Model**: Google MediaPipe
+  - **Features**: 330+ (33 landmarks × 10 attributes + visualization + statistics)
+  - **Output**: `GMP_land_x_1` ... `GMP_land_x_33`, `GMP_land_y_1` ... `GMP_land_y_33`, `GMP_land_z_1` ... `GMP_land_z_33`, `GMP_land_visi_1` ... `GMP_land_visi_33`, `GMP_land_presence_1` ... `GMP_land_presence_33`, `GMP_world_x_1` ... `GMP_world_x_33`, `GMP_world_y_1` ... `GMP_world_y_33`, `GMP_world_z_1` ... `GMP_world_z_33`, `GMP_world_visi_1` ... `GMP_world_visi_33`, `GMP_world_presence_1` ... `GMP_world_presence_33`, `GMP_SM_pic`
+  - **Description**: Real-time pose landmark detection with 33 body landmarks providing both normalized and world coordinates
+  - **Note**: 
+    - Normalized landmarks: 33 × 5 attributes (x, y, z, visibility, presence) = 165 features
+    - World coordinates: 33 × 5 attributes (x, y, z, visibility, presence) = 165 features  
+    - `GMP_SM_pic`: Base64 encoded pose visualization
+    - Statistics: total_frames, landmarks_detected_frames, detection_rate, avg_landmarks_per_frame
+    - Covers face, arms, torso, and legs with visibility scores
+  - **Website**: https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker/python
+  - **Status**: ✅ Implemented
+
 - [x] **3D Human Body Estimation and Pose Analysis**
   - **Model**: PARE (Part Attention Regressor for 3D Human Body Estimation)
   - **Features**: 25 (core features plus metadata)
@@ -237,8 +251,8 @@ This document tracks the implementation status of all feature groups in the mult
 | **Speech Analysis** | 2 | ~296 | ✅ **Complete** |
 | **Audio Analysis** | 3 | 1,544 | ✅ **Complete** |
 | **AI/ML Analysis** | 6 | 90 | ✅ **Complete** |
-| **Computer Vision** | 7 | 96 | ✅ **Complete** |
-| **TOTAL** | **22** | **~2,122** | ✅ **Complete** |
+| **Computer Vision** | 8 | 426+ | ✅ **Complete** |
+| **TOTAL** | **23** | **~2,450+** | ✅ **Complete** |
 
 ---
 
