@@ -103,12 +103,28 @@ poetry add joblib scikit-learn
 
 # WhisperX for speech transcription (handle NumPy compatibility issues)
 echo "-> Installing WhisperX (handling NumPy compatibility)..."
-# Try older WhisperX version that supports NumPy 1.x first
-poetry add "whisperx<3.3" || {
-    echo "Older WhisperX failed, trying GitHub version..."
-    poetry add git+https://github.com/m-bain/whisperX.git || {
-        echo "WhisperX installation failed - will skip for now"
-        echo "You may need to install WhisperX manually later or use a different transcription method"
+# WhisperX has complex dependency conflicts with transformers and numpy
+# Try specific compatible versions first
+poetry add "whisperx==3.1.1" || {
+    echo "WhisperX 3.1.1 failed, trying 3.1.0..."
+    poetry add "whisperx==3.1.0" || {
+        echo "WhisperX 3.1.0 failed, trying to install with relaxed constraints..."
+        # Try installing with specific compatible transformers version
+        poetry add "transformers>=4.21.0,<4.25.0" "whisperx>=3.1,<3.2" || {
+            echo "WhisperX with compatible transformers failed, trying manual approach..."
+            # Install core dependencies separately
+            poetry add "faster-whisper>=0.9.0,<1.0.0" "pyannote.audio" || {
+                echo "WhisperX installation completely failed - installing OpenAI Whisper as fallback..."
+                poetry add openai-whisper || {
+                    echo "All whisper installations failed - will skip speech transcription"
+                    echo "You may need to install transcription libraries manually later"
+                    echo "Alternatives:"
+                    echo "  - poetry add openai-whisper"
+                    echo "  - poetry add faster-whisper"
+                    echo "  - Use SpeechBrain (already installed) for basic speech processing"
+                }
+            }
+        }
     }
 }
 
@@ -173,6 +189,14 @@ critical_packages = {
     'mediapipe': 'mediapipe'
 }
 
+# Optional packages that may fail
+optional_packages = {
+    'whisperx': 'whisperx',
+    'faster-whisper': 'faster_whisper',
+    'openai-whisper': 'whisper',
+    'audiostretchy': 'audiostretchy'
+}
+
 print('Critical Package Verification:')
 print('=' * 40)
 success_count = 0
@@ -186,12 +210,39 @@ for package_name, import_name in critical_packages.items():
     except ImportError as e:
         print(f'✗ {package_name} - {e}')
 
-print(f'\\nSuccessfully installed: {success_count}/{total_count} critical packages')
+print(f'\\nCritical packages: {success_count}/{total_count} installed successfully')
+
+print('\\nOptional Package Verification:')
+print('=' * 40)
+optional_success = 0
+optional_total = len(optional_packages)
+
+for package_name, import_name in optional_packages.items():
+    try:
+        importlib.import_module(import_name)
+        print(f'✓ {package_name}')
+        optional_success += 1
+    except ImportError as e:
+        print(f'- {package_name} (optional) - not available')
+
+print(f'\\nOptional packages: {optional_success}/{optional_total} installed')
 
 if success_count == total_count:
     print('\\n🎉 All critical packages installed successfully!')
+    if optional_success < optional_total:
+        print('⚠️  Some optional packages are missing but the pipeline will still work.')
+        print('   You can install missing packages manually if needed.')
 else:
-    print('\\n⚠️  Some packages failed to install. You may need to install them manually.')
+    print('\\n⚠️  Some critical packages failed to install. The pipeline may not work correctly.')
+    print('   Please check the errors above and install missing packages manually.')
+
+# Additional guidance for common issues
+if optional_success == 0:
+    print('\\n💡 WhisperX Installation Tips:')
+    print('   If you need WhisperX for transcription, try installing manually:')
+    print('   1. poetry add openai-whisper (simpler alternative)')
+    print('   2. Or try: poetry add whisperx==3.1.1 --with transformers==4.21.0')
+    print('   3. For speech transcription, you can also use SpeechBrain which is already installed')
 "
 
 # Create necessary directories
@@ -231,4 +282,3 @@ echo "  poetry run python run_pipeline.py --check-dependencies"
 echo ""
 echo "To use the unified runner:"
 echo "  ./run_all.sh --help"
-echo "========================================================"
