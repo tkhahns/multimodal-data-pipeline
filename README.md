@@ -328,6 +328,20 @@ The pipeline currently supports the following feature extractors across multiple
 - By default displays motion visualizations; saving requires additional code integration
 - Returns comprehensive motion analysis including flow visualizations and quantitative metrics
 
+#### CrowdFlow (Optical Flow Fields, Person Trajectories, Tracking Accuracy)
+- Advanced optical flow analysis for visual crowd analysis with foreground/background separation
+- Features with `of_*` prefix for comprehensive crowd behavior analysis:
+  - **Short-term Flow Metrics**: `of_fg_static_epe_st`, `of_fg_dynamic_epe_st`, `of_bg_static_epe_st`, `of_bg_dynamic_epe_st` (End Point Error for foreground/background, static/dynamic regions)
+  - **Correlation Metrics**: `of_fg_static_r2_st`, `of_fg_dynamic_r2_st`, `of_bg_static_r2_st`, `of_bg_dynamic_r2_st` (R² correlation coefficients)
+  - **Average Metrics**: `of_fg_avg_epe_st`, `of_fg_avg_r2_st`, `of_bg_avg_epe_st`, `of_bg_avg_r2_st`, `of_avg_epe_st`, `of_avg_r2_st`
+  - **Tracking Accuracy**: `of_ta_IM01` to `of_ta_IM05` with dynamic variants (`of_ta_IM01_Dyn` to `of_ta_IM05_Dyn`) using 5 interpolation methods
+  - **Person Trajectories**: `of_pt_IM01` to `of_pt_IM05` with dynamic variants (`of_pt_IM01_Dyn` to `of_pt_IM05_Dyn`) for trajectory analysis
+  - **Summary Statistics**: `of_ta_average`, `of_pt_average`, `of_time_length_st`
+- Based on CrowdFlow: Optical Flow Dataset and Benchmark for Visual Crowd Analysis
+- Provides foreground/background separation for crowd scenes with moving objects
+- Implements 5 different interpolation methods for robust tracking accuracy assessment
+- Returns 37 comprehensive features covering short-term flow, long-term tracking, and person trajectory analysis
+
 ## Installation
 
 ### Prerequisites

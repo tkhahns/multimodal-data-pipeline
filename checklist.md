@@ -4,8 +4,14 @@ This document tracks the implementation status of all feature groups in the mult
 
 ## ✅ **IMPLEMENTED FEATURE GROUPS**
 
-### 🎵 **Audio Features (OpenCV| **Computer Vision** | 12 | 569+ | ✅ **Complete** |
-| **TOTAL** | **27** | **~2,603+** | ✅ **Complete** |*
+**Summary Table:**
+| **Category** | **Features** | **Output Columns** | **Status** |
+|--------------|--------------|-------------------|------------|
+| **Speech Analysis** | 2 | ~296 | ✅ **Complete** |
+| **Audio Analysis** | 3 | 1,544 | ✅ **Complete** |
+| **AI/ML Analysis** | 6 | 90 | ✅ **Complete** |
+| **Computer Vision** | 13 | 588+ | ✅ **Complete** |
+| **TOTAL** | **28** | **~2,622+** | ✅ **Complete** |
 
 - [x] **Audio volume**
   - **Model**: OpenCV
@@ -285,8 +291,21 @@ This document tracks the implementation status of all feature groups in the mult
     - Dense: per-pixel motion vectors with color-coded flow images
     - By default displays motion visualizations; saving requires additional code integration
     - Provides both Lucas-Kanade sparse flow and Farneback dense flow algorithms
-    - Motion metrics include magnitude, direction, consistency, and displacement analysis
-  - **Website**: https://github.com/chuanenlin/optical-flow
+    - Motion metrics include magnitude, direction, consistency, and displacement analysis  - **Website**: https://github.com/chuanenlin/optical-flow
+  - **Status**: ✅ Implemented
+
+- [x] **Optical flow fields, Person trajectories, Tracking accuracy**
+  - **Model**: CrowdFlow: Optical Flow Dataset and Benchmark for Visual Crowd Analysis
+  - **Features**: 37 (short-term flow metrics + tracking accuracy + person trajectories)
+  - **Output**: `of_fg_static_epe_st`, `of_fg_static_r2_st`, `of_bg_static_epe_st`, `of_bg_static_r2_st`, `of_fg_dynamic_epe_st`, `of_fg_dynamic_r2_st`, `of_bg_dynamic_epe_st`, `of_bg_dynamic_r2_st`, `of_fg_avg_epe_st`, `of_fg_avg_r2_st`, `of_bg_avg_epe_st`, `of_bg_avg_r2_st`, `of_avg_epe_st`, `of_avg_r2_st`, `of_time_length_st`, `of_ta_IM01`, `of_ta_IM01_Dyn`, `of_ta_IM02`, `of_ta_IM02_Dyn`, `of_ta_IM03`, `of_ta_IM03_Dyn`, `of_ta_IM04`, `of_ta_IM04_Dyn`, `of_ta_IM05`, `of_ta_IM05_Dyn`, `of_ta_average`, `of_pt_IM01`, `of_pt_IM01_Dyn`, `of_pt_IM02`, `of_pt_IM02_Dyn`, `of_pt_IM03`, `of_pt_IM03_Dyn`, `of_pt_IM04`, `of_pt_IM04_Dyn`, `of_pt_IM05`, `of_pt_IM05_Dyn`, `of_pt_average`
+  - **Description**: Advanced optical flow analysis for visual crowd analysis with foreground/background separation and comprehensive tracking metrics
+  - **Note**: 
+    - Short-term metrics: EPE (End Point Error) and R² correlation for static/dynamic regions
+    - Foreground/background separation for crowd scene analysis
+    - 5 interpolation methods (IM01-IM05) for tracking accuracy and person trajectories
+    - Dynamic variants for all tracking methods to handle motion patterns
+    - Comprehensive crowd behavior analysis with person trajectory tracking
+  - **Website**: https://github.com/tsenst/CrowdFlow
   - **Status**: ✅ Implemented
 
 - [x] **3D Human Body Estimation and Pose Analysis**
@@ -377,8 +396,8 @@ This document tracks the implementation status of all feature groups in the mult
 | **Speech Analysis** | 2 | ~296 | ✅ **Complete** |
 | **Audio Analysis** | 3 | 1,544 | ✅ **Complete** |
 | **AI/ML Analysis** | 6 | 90 | ✅ **Complete** |
-| **Computer Vision** | 12 | 551+ | ✅ **Complete** |
-| **TOTAL** | **27** | **~2,585+** | ✅ **Complete** |
+| **Computer Vision** | 13 | 588+ | ✅ **Complete** |
+| **TOTAL** | **28** | **~2,622+** | ✅ **Complete** |
 
 ---
 

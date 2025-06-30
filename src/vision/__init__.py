@@ -39,6 +39,7 @@ from .arbex_analyzer import ARBExAnalyzer, extract_arbex_features
 from .openpose_analyzer import OpenPoseAnalyzer, extract_openpose_features
 from .instadm_analyzer import InstaDMAnalyzer, extract_instadm_features
 from .optical_flow_analyzer import OpticalFlowAnalyzer, extract_optical_flow_features
+from .crowdflow_analyzer import CrowdFlowAnalyzer, extract_crowdflow_features
 
 __all__ = [
     'PAREAnalyzer',
@@ -61,9 +62,10 @@ __all__ = [
     'PyFeatAnalyzer',    'extract_pyfeat_features',    'GANimationAnalyzer',
     'extract_ganimation_features',    'ARBExAnalyzer',
     'extract_arbex_features',    'OpenPoseAnalyzer',
-    'extract_openpose_features',
-    'InstaDMAnalyzer',
+    'extract_openpose_features',    'InstaDMAnalyzer',
     'extract_instadm_features',
     'OpticalFlowAnalyzer',
-    'extract_optical_flow_features'
+    'extract_optical_flow_features',
+    'CrowdFlowAnalyzer',
+    'extract_crowdflow_features'
 ]
