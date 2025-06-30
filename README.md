@@ -182,6 +182,22 @@ The pipeline currently supports the following feature extractors across multiple
 - Supports both research-grade FACS (Facial Action Coding System) analysis and real-time applications
 - Returns 37 comprehensive features covering all aspects of facial expression and geometry
 
+#### GANimation (Continuous Manifold for Anatomical Facial Movements)
+- Continuous manifold representation for anatomical facial movements using Action Units (AUs)
+- Features with `GAN_*` prefix for discrete AU intensity estimation:
+  - **Action Unit Intensities at 4 levels (17 AUs × 4 levels = 68 features)**:
+    - **Level 0 (minimal)**: `GAN_AU1_0`, `GAN_AU2_0`, ..., `GAN_AU45_0` (baseline/neutral expressions)
+    - **Level 33 (low)**: `GAN_AU1_33`, `GAN_AU2_33`, ..., `GAN_AU45_33` (subtle movements)
+    - **Level 66 (medium)**: `GAN_AU1_66`, `GAN_AU2_66`, ..., `GAN_AU45_66` (moderate expressions)
+    - **Level 99 (high)**: `GAN_AU1_99`, `GAN_AU2_99`, ..., `GAN_AU45_99` (intense expressions)
+  - **Covered Action Units**: AU1 (Inner Brow Raiser), AU2 (Outer Brow Raiser), AU4 (Brow Lowerer), AU5 (Upper Lid Raiser), AU6 (Cheek Raiser), AU7 (Lid Tightener), AU9 (Nose Wrinkler), AU10 (Upper Lip Raiser), AU12 (Lip Corner Puller), AU14 (Dimpler), AU15 (Lip Corner Depressor), AU17 (Chin Raiser), AU20 (Lip Stretcher), AU23 (Lip Tightener), AU25 (Lips Part), AU26 (Jaw Drop), AU45 (Blink)
+  - **Summary Statistics**: `GAN_face_detected`, `GAN_total_au_activations`, `GAN_avg_au_intensity`, face detection rates, and processing metrics
+  - **Visualization**: `GAN_SM_pic` - Base64 encoded image with detected face and active AUs
+- Based on GANimation: Anatomy-aware Facial Animation from a Single Image
+- Provides continuous manifold representation of facial movements at discrete intensity levels
+- Enables precise control over anatomical facial movements for animation and analysis
+- Returns 68+ features covering all major facial action units with intensity-based quantization
+
 #### PARE (3D Human Body Estimation)
 - 3D human body estimation and pose analysis from video frames
 - Features with `PARE_*` prefix for comprehensive body and pose analysis:
