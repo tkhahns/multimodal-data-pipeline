@@ -62,9 +62,10 @@ class MultimodalPipeline:
             "simcse_text",      # SimCSE contrastive learning of sentence embeddings
             "albert_text",      # ALBERT language representation analysis
             "sbert_text",       # Sentence-BERT dense vector representations and reranking            "use_text",         # Universal Sentence Encoder for text classification and semantic analysis            "emotieffnet_vision", # EmotiEffNet real-time video emotion analysis and AU detection
-            "mediapipe_pose_vision", # Google MediaPipe pose estimation and tracking with 33 landmarks            "deep_hrnet_vision", # Deep High-Resolution Network for high-precision pose estimation            "simple_baselines_vision", # Simple Baselines for human pose estimation and tracking            "pyfeat_vision",    # Py-Feat facial expression analysis with action units and emotions            "ganimation_vision", # GANimation continuous manifold for anatomical facial movements            "arbex_vision",     # ARBEx attentive feature extraction with reliability balancing for robust facial expression learning            "openpose_vision",  # OpenPose real-time multi-person keypoint detection and pose estimation            "instadm_vision",   # Insta-DM instant dense monocular depth estimation with motion analysis
-            "optical_flow_vision", # Optical Flow movement and estimation of motion with sparse and dense analysis
+            "mediapipe_pose_vision", # Google MediaPipe pose estimation and tracking with 33 landmarks            "deep_hrnet_vision", # Deep High-Resolution Network for high-precision pose estimation            "simple_baselines_vision", # Simple Baselines for human pose estimation and tracking            "pyfeat_vision",    # Py-Feat facial expression analysis with action units and emotions            "ganimation_vision", # GANimation continuous manifold for anatomical facial movements            "arbex_vision",     # ARBEx attentive feature extraction with reliability balancing for robust facial expression learning            "openpose_vision",  # OpenPose real-time multi-person keypoint detection and pose estimation            "instadm_vision",   # Insta-DM instant dense monocular depth estimation with motion analysis            "optical_flow_vision", # Optical Flow movement and estimation of motion with sparse and dense analysis
             "crowdflow_vision", # CrowdFlow optical flow fields, person trajectories, and tracking accuracy
+            "videofinder_vision", # VideoFinder object and people localization with consistency and match metrics
+            "smoothnet_vision", # SmoothNet temporally consistent 3D and 2D human pose estimation with neural smoothing
             "pare_vision",      # PARE 3D human body estimation and pose analysis
             "vitpose_vision",   # ViTPose Vision Transformer pose estimation
             "rsn_vision",       # RSN Residual Steps Network keypoint localization
@@ -104,8 +105,9 @@ class MultimodalPipeline:
                 from src.emotion.meld_emotion_analyzer import MELDEmotionAnalyzer
                 self.extractors[feature_name] = MELDEmotionAnalyzer()
             elif feature_name == "speech_separation":
-                self.extractors[feature_name] = SpeechSeparator(device=self.device)
+                self.extractors[feature_name] = SpeechSeparator(device=self.device)            
             elif feature_name == "whisperx_transcription":
+                from src.speech.whisperx_transcriber import WhisperXTranscriber
                 self.extractors[feature_name] = WhisperXTranscriber(device=self.device)
             elif feature_name == "deberta_text":
                 self.extractors[feature_name] = DeBERTaAnalyzer(device=self.device)
@@ -123,7 +125,8 @@ class MultimodalPipeline:
                 self.extractors[feature_name] = USEAnalyzer(device=self.device)
             elif feature_name == "emotieffnet_vision":
                 from src.vision.emotieffnet_analyzer import EmotiEffNetAnalyzer
-                self.extractors[feature_name] = EmotiEffNetAnalyzer(device=self.device)            elif feature_name == "mediapipe_pose_vision":
+                self.extractors[feature_name] = EmotiEffNetAnalyzer(device=self.device)
+            elif feature_name == "mediapipe_pose_vision":
                 from src.vision.mediapipe_pose_analyzer import MediaPipePoseAnalyzer
                 self.extractors[feature_name] = MediaPipePoseAnalyzer(device=self.device)
             elif feature_name == "deep_hrnet_vision":
@@ -146,13 +149,19 @@ class MultimodalPipeline:
                 self.extractors[feature_name] = OpenPoseAnalyzer(device=self.device)
             elif feature_name == "instadm_vision":
                 from src.vision.instadm_analyzer import InstaDMAnalyzer
-                self.extractors[feature_name] = InstaDMAnalyzer(device=self.device)
+                self.extractors[feature_name] = InstaDMAnalyzer(device=self.device)            
             elif feature_name == "optical_flow_vision":
                 from src.vision.optical_flow_analyzer import OpticalFlowAnalyzer
                 self.extractors[feature_name] = OpticalFlowAnalyzer(device=self.device)
             elif feature_name == "crowdflow_vision":
                 from src.vision.crowdflow_analyzer import CrowdFlowAnalyzer
                 self.extractors[feature_name] = CrowdFlowAnalyzer(device=self.device)
+            elif feature_name == "videofinder_vision":
+                from src.vision.videofinder_analyzer import VideoFinderAnalyzer
+                self.extractors[feature_name] = VideoFinderAnalyzer(device=self.device)
+            elif feature_name == "smoothnet_vision":
+                from src.vision.smoothnet_analyzer import SmoothNetAnalyzer
+                self.extractors[feature_name] = SmoothNetAnalyzer(device=self.device)
             elif feature_name == "pare_vision":
                 from src.vision.pare_analyzer import PAREAnalyzer
                 self.extractors[feature_name] = PAREAnalyzer(device=self.device)
@@ -485,12 +494,26 @@ class MultimodalPipeline:
             extractor = self._get_extractor("optical_flow_vision")
             optical_flow_features = extractor.get_feature_dict(str(video_path))
             features.update(optical_flow_features)
-        
-        # Extract CrowdFlow optical flow fields, person trajectories, and tracking accuracy features (video-specific)
+          # Extract CrowdFlow optical flow fields, person trajectories, and tracking accuracy features (video-specific)
         if "crowdflow_vision" in self.features:
             print(f"Extracting CrowdFlow optical flow fields and person trajectories from {video_path}")
             extractor = self._get_extractor("crowdflow_vision")
             crowdflow_features = extractor.get_feature_dict(str(video_path))
+            features.update(crowdflow_features)
+        
+        # Extract VideoFinder object and people localization features (video-specific)
+        if "videofinder_vision" in self.features:
+            print(f"Extracting VideoFinder object and people localization from {video_path}")
+            extractor = self._get_extractor("videofinder_vision")
+            videofinder_features = extractor.get_feature_dict(str(video_path))
+            features.update(videofinder_features)
+        
+        # Extract SmoothNet pose estimation features (video-specific)
+        if "smoothnet_vision" in self.features:
+            print(f"Extracting SmoothNet temporally consistent pose estimation from {video_path}")
+            extractor = self._get_extractor("smoothnet_vision")
+            smoothnet_features = extractor.get_feature_dict(str(video_path))
+            features.update(smoothnet_features)
             features.update(crowdflow_features)
         
         # Extract PARE vision features (video-specific)
@@ -768,18 +791,26 @@ class MultimodalPipeline:
                 "prefixes": ["optical_flow_", "flow_"],
                 "exact_matches": ["sparse_flow_vis_.png", "sparse_points.npy", "dense_flow.npy", "dense_flow_vis_.png", "motion_detected_frames", "avg_motion_magnitude", "max_motion_magnitude", "total_displacement", "dominant_motion_direction", "motion_consistency"],
                 "model_name": "Optical Flow"
-            },
-            "Optical flow fields, Person trajectories, Tracking accuracy": {
+            },            "Optical flow fields, Person trajectories, Tracking accuracy": {
                 "prefixes": ["of_"],
                 "exact_matches": ["of_fg_static_epe_st", "of_fg_static_r2_st", "of_bg_static_epe_st", "of_bg_static_r2_st", "of_fg_dynamic_epe_st", "of_fg_dynamic_r2_st", "of_bg_dynamic_epe_st", "of_bg_dynamic_r2_st", "of_fg_avg_epe_st", "of_fg_avg_r2_st", "of_bg_avg_epe_st", "of_bg_avg_r2_st", "of_avg_epe_st", "of_avg_r2_st", "of_time_length_st", "of_ta_IM01", "of_ta_IM01_Dyn", "of_ta_IM02", "of_ta_IM02_Dyn", "of_ta_IM03", "of_ta_IM03_Dyn", "of_ta_IM04", "of_ta_IM04_Dyn", "of_ta_IM05", "of_ta_IM05_Dyn", "of_ta_average", "of_pt_IM01", "of_pt_IM01_Dyn", "of_pt_IM02", "of_pt_IM02_Dyn", "of_pt_IM03", "of_pt_IM03_Dyn", "of_pt_IM04", "of_pt_IM04_Dyn", "of_pt_IM05", "of_pt_IM05_Dyn", "of_pt_average"],
                 "model_name": "CrowdFlow: Optical Flow Dataset and Benchmark for Visual Crowd Analysis"
+            },
+            "Locate the objects and people": {
+                "prefixes": ["ViF_"],
+                "exact_matches": ["total_frames", "objects_detected_frames", "people_detected_frames", "total_detected_objects", "total_detected_people", "avg_objects_per_frame", "avg_people_per_frame", "detection_rate"],
+                "model_name": "VideoFinder"
+            },            "Pose estimation": {
+                "prefixes": ["net_"],
+                "exact_matches": ["net_3d_estimator", "net_3d_MPJPE_input_ad", "net_3d_MPJPE_output_ad", "net_3d_Accel_input_ad", "net_3d_Accel_output_ad", "net_2d_estimator", "net_2d_MPJPE_input_ad", "net_2d_MPJPE_output_ad", "net_2d_Accel_input_ad", "net_2d_Accel_output_ad", "net_SMPL_estimator", "net_SMPL_MPJPE_input_ad", "net_SMPL_MPJPE_output_ad", "net_SMPL_Accel_input_ad", "net_SMPL_Accel_output_ad"],
+                "model_name": "SmoothNet"
             },
             "3D Human Body Estimation and Pose Analysis": {
                 "prefixes": ["PARE_"],
                 "exact_matches": [],
                 "model_name": "PARE (Part Attention Regressor for 3D Human Body Estimation)"
             },
-            "Pose estimation": {
+            "Pose estimation (Vision Transformer)": {
                 "prefixes": ["vit_"],
                 "exact_matches": [],
                 "model_name": "ViTPose: Simple Vision Transformer Baselines for Human Pose Estimation"

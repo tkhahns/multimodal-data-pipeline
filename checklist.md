@@ -10,8 +10,8 @@ This document tracks the implementation status of all feature groups in the mult
 | **Speech Analysis** | 2 | ~296 | ✅ **Complete** |
 | **Audio Analysis** | 3 | 1,544 | ✅ **Complete** |
 | **AI/ML Analysis** | 6 | 90 | ✅ **Complete** |
-| **Computer Vision** | 13 | 588+ | ✅ **Complete** |
-| **TOTAL** | **28** | **~2,622+** | ✅ **Complete** |
+| **Computer Vision** | 15 | 620+ | ✅ **Complete** |
+| **TOTAL** | **30** | **~2,654+** | ✅ **Complete** |
 
 - [x] **Audio volume**
   - **Model**: OpenCV
@@ -308,6 +308,34 @@ This document tracks the implementation status of all feature groups in the mult
   - **Website**: https://github.com/tsenst/CrowdFlow
   - **Status**: ✅ Implemented
 
+- [x] **Locate the objects and people**
+  - **Model**: VideoFinder
+  - **Features**: Variable (consistency and match metrics for each detected object/person)
+  - **Output**: `ViF_consistency_1`, `ViF_match_1`, `ViF_consistency_2`, `ViF_match_2`, `ViF_consistency_3`, `ViF_match_3`, ... (variable count based on detections)
+  - **Description**: Object and people detection and localization with consistency and match analysis across video frames
+  - **Note**: 
+    - `ViF_consistency_N`: Consistency score in format "N/10" indicating tracking stability for object N
+    - `ViF_match_N`: Match result "Yes"/"No" indicating object correspondence between consecutive frames
+    - Additional metrics: `total_frames`, `objects_detected_frames`, `people_detected_frames`, `detection_rate`
+    - Statistical features: `avg_objects_per_frame`, `avg_people_per_frame`, `total_detected_objects`, `total_detected_people`
+    - Frame-by-frame localization with temporal consistency tracking for robust object identification
+  - **Website**: https://github.com/win4r/VideoFinder-Llama3.2-vision-Ollama
+  - **Status**: ✅ Implemented
+
+- [x] **Pose estimation**
+  - **Model**: SmoothNet
+  - **Features**: 15 (3D, 2D, SMPL estimation + temporal analysis)
+  - **Output**: `net_3d_estimator`, `net_3d_MPJPE_input_ad`, `net_3d_MPJPE_output_ad`, `net_3d_Accel_input_ad`, `net_3d_Accel_output_ad`, `net_2d_estimator`, `net_2d_MPJPE_input_ad`, `net_2d_MPJPE_output_ad`, `net_2d_Accel_input_ad`, `net_2d_Accel_output_ad`, `net_SMPL_estimator`, `net_SMPL_MPJPE_input_ad`, `net_SMPL_MPJPE_output_ad`, `net_SMPL_Accel_input_ad`, `net_SMPL_Accel_output_ad`
+  - **Description**: Temporally consistent 3D and 2D human pose estimation with neural network-based smoothing and SMPL body model integration
+  - **Note**: 
+    - 3D estimation: `net_3d_estimator` confidence, MPJPE (Mean Per Joint Position Error), acceleration metrics
+    - 2D estimation: `net_2d_estimator` quality, MPJPE refinement, motion acceleration analysis
+    - SMPL integration: `net_SMPL_estimator` fitting accuracy with corresponding error metrics
+    - Additional quality metrics: `net_temporal_consistency`, `net_smoothness_score`, `net_motion_coherence`
+    - Tracking metrics: `net_joint_confidence`, `net_pose_stability`, `net_tracking_accuracy`, `net_keypoint_variance`
+  - **Website**: https://github.com/cure-lab/SmoothNet
+  - **Status**: ✅ Implemented
+
 - [x] **3D Human Body Estimation and Pose Analysis**
   - **Model**: PARE (Part Attention Regressor for 3D Human Body Estimation)
   - **Features**: 25 (core features plus metadata)
@@ -396,8 +424,8 @@ This document tracks the implementation status of all feature groups in the mult
 | **Speech Analysis** | 2 | ~296 | ✅ **Complete** |
 | **Audio Analysis** | 3 | 1,544 | ✅ **Complete** |
 | **AI/ML Analysis** | 6 | 90 | ✅ **Complete** |
-| **Computer Vision** | 13 | 588+ | ✅ **Complete** |
-| **TOTAL** | **28** | **~2,622+** | ✅ **Complete** |
+| **Computer Vision** | 15 | 620+ | ✅ **Complete** |
+| **TOTAL** | **30** | **~2,654+** | ✅ **Complete** |
 
 ---
 
@@ -434,7 +462,7 @@ Each feature group follows this JSON structure:
 
 ## ✅ **VERIFICATION STATUS**
 
-- [x] **All 24 specified feature groups implemented**
+- [x] **All 30 specified feature groups implemented**
 - [x] **Feature naming 100% compliant with specification**
 - [x] **JSON output properly structured by categories**
 - [x] **Pipeline integration complete and tested**
@@ -443,6 +471,8 @@ Each feature group follows this JSON structure:
 - [x] **PARE 3D body estimation fully integrated**  
 - [x] **ViTPose Vision Transformer pose estimation fully integrated**
 - [x] **PARE vision processing fully integrated**
+- [x] **VideoFinder object and people localization fully integrated**
+- [x] **SmoothNet temporally consistent pose estimation fully integrated**
 - [x] **RSN keypoint localization fully integrated**
 - [x] **ME-GraphAU facial action unit recognition fully integrated**
 - [x] **DAN emotional expression feature fully integrated**

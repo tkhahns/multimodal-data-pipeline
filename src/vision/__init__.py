@@ -21,6 +21,9 @@ This module provides computer vision capabilities including:
 - OpenPose real-time multi-person keypoint detection and pose estimation
 - Insta-DM instant dense monocular depth estimation with motion analysis
 - Optical Flow movement and estimation of motion with sparse and dense analysis
+- CrowdFlow optical flow fields, person trajectories, and tracking accuracy for crowd analysis
+- VideoFinder object and people localization with consistency and match metrics
+- SmoothNet temporally consistent 3D and 2D human pose estimation with neural smoothing
 """
 
 from .pare_analyzer import PAREAnalyzer, create_pare_analyzer
@@ -40,6 +43,8 @@ from .openpose_analyzer import OpenPoseAnalyzer, extract_openpose_features
 from .instadm_analyzer import InstaDMAnalyzer, extract_instadm_features
 from .optical_flow_analyzer import OpticalFlowAnalyzer, extract_optical_flow_features
 from .crowdflow_analyzer import CrowdFlowAnalyzer, extract_crowdflow_features
+from .videofinder_analyzer import VideoFinderAnalyzer, extract_videofinder_features
+from .smoothnet_analyzer import SmoothNetAnalyzer, extract_smoothnet_features
 
 __all__ = [
     'PAREAnalyzer',
@@ -63,9 +68,12 @@ __all__ = [
     'extract_ganimation_features',    'ARBExAnalyzer',
     'extract_arbex_features',    'OpenPoseAnalyzer',
     'extract_openpose_features',    'InstaDMAnalyzer',
-    'extract_instadm_features',
-    'OpticalFlowAnalyzer',
+    'extract_instadm_features',    'OpticalFlowAnalyzer',
     'extract_optical_flow_features',
     'CrowdFlowAnalyzer',
-    'extract_crowdflow_features'
+    'extract_crowdflow_features',
+    'VideoFinderAnalyzer',
+    'extract_videofinder_features',
+    'SmoothNetAnalyzer',
+    'extract_smoothnet_features'
 ]

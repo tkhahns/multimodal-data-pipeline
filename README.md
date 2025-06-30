@@ -342,6 +342,31 @@ The pipeline currently supports the following feature extractors across multiple
 - Implements 5 different interpolation methods for robust tracking accuracy assessment
 - Returns 37 comprehensive features covering short-term flow, long-term tracking, and person trajectory analysis
 
+#### VideoFinder (Object and People Localization)
+- Object and people detection and localization with consistency and match analysis
+- Features with `ViF_*` prefix for comprehensive object tracking and matching:
+  - **Consistency Metrics**: `ViF_consistency_1`, `ViF_consistency_2`, `ViF_consistency_3`, etc. (format: "N/10" indicating consistency score)
+  - **Match Analysis**: `ViF_match_1`, `ViF_match_2`, `ViF_match_3`, etc. (values: "Yes"/"No" indicating object correspondence between frames)
+  - **Detection Summary**: `total_frames`, `objects_detected_frames`, `people_detected_frames`, `detection_rate`
+  - **Average Statistics**: `avg_objects_per_frame`, `avg_people_per_frame`, `total_detected_objects`, `total_detected_people`
+- Based on VideoFinder with Llama3.2-vision and Ollama integration
+- Provides frame-by-frame object and people localization with temporal consistency tracking
+- Analyzes object correspondence and matching across consecutive video frames
+- Returns consistency scores and match analysis for robust object tracking evaluation
+
+#### SmoothNet (Temporally Consistent Pose Estimation)
+- Temporally consistent 3D and 2D human pose estimation with neural network-based smoothing
+- Features with `net_*` prefix for comprehensive pose estimation and temporal analysis:
+  - **3D Pose Estimation**: `net_3d_estimator`, `net_3d_MPJPE_input_ad`, `net_3d_MPJPE_output_ad`, `net_3d_Accel_input_ad`, `net_3d_Accel_output_ad`
+  - **2D Pose Estimation**: `net_2d_estimator`, `net_2d_MPJPE_input_ad`, `net_2d_MPJPE_output_ad`, `net_2d_Accel_input_ad`, `net_2d_Accel_output_ad`
+  - **SMPL Body Model**: `net_SMPL_estimator`, `net_SMPL_MPJPE_input_ad`, `net_SMPL_MPJPE_output_ad`, `net_SMPL_Accel_input_ad`, `net_SMPL_Accel_output_ad`
+  - **Temporal Consistency**: `net_temporal_consistency`, `net_smoothness_score`, `net_motion_coherence`
+  - **Quality Metrics**: `net_joint_confidence`, `net_pose_stability`, `net_tracking_accuracy`, `net_keypoint_variance`
+- Based on SmoothNet for neural network-based pose sequence smoothing
+- Provides multi-frame pose sequence modeling with temporal coherence
+- Integrates 3D pose estimation, 2D pose refinement, and SMPL body model fitting
+- Returns comprehensive pose quality metrics and temporal consistency analysis
+
 ## Installation
 
 ### Prerequisites
