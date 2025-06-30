@@ -198,6 +198,23 @@ The pipeline currently supports the following feature extractors across multiple
 - Enables precise control over anatomical facial movements for animation and analysis
 - Returns 68+ features covering all major facial action units with intensity-based quantization
 
+#### ARBEx (Attentive Feature Extraction with Reliability Balancing)
+- Robust facial expression learning with attentive feature extraction and reliability balancing
+- Features with `arbex_*` prefix for emotional indices extraction via different feature levels:
+  - **Primary Emotion Classification**: `arbex_primary` - initial emotion recognition result
+  - **Final Emotion Classification**: `arbex_final` - emotion after reliability balancing
+  - **Emotion Categories**: Supports 8 emotions (Neutral, Anger, Disgust, Fear, Happiness, Sadness, Surprise, Others)
+  - **Primary Level Probabilities**: `arbex_primary_neutral`, `arbex_primary_anger`, `arbex_primary_disgust`, `arbex_primary_fear`, `arbex_primary_happiness`, `arbex_primary_sadness`, `arbex_primary_surprise`, `arbex_primary_others`
+  - **Final Level Probabilities**: `arbex_final_neutral`, `arbex_final_anger`, `arbex_final_disgust`, `arbex_final_fear`, `arbex_final_happiness`, `arbex_final_sadness`, `arbex_final_surprise`, `arbex_final_others`
+  - **Confidence Scores**: `arbex_confidence_primary`, `arbex_confidence_final` - classification confidence
+  - **Reliability Score**: `arbex_reliability_score` - feature consistency measure for reliability balancing
+  - **Detection Statistics**: Face detection rate, processing metrics, and visualization
+  - **Visualization**: `arbex_SM_pic` - Base64 encoded image with detected emotions and confidence scores
+- Based on ARBEx: Attentive Feature Extraction with Reliability Balancing for Robust Facial Expression Learning
+- Uses multi-level feature extraction (statistical, regional, texture) with attention mechanisms
+- Applies reliability balancing to improve classification robustness in challenging conditions
+- Returns 20+ features including primary/final classifications, probabilities, and confidence metrics
+
 #### PARE (3D Human Body Estimation)
 - 3D human body estimation and pose analysis from video frames
 - Features with `PARE_*` prefix for comprehensive body and pose analysis:

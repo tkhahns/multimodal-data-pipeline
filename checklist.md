@@ -215,8 +215,24 @@ This document tracks the implementation status of all feature groups in the mult
     - `GAN_AU*_*`: Probability/intensity scores for each AU at each discrete level
     - Summary statistics: Face detection, total AU activations, average intensity
     - `GAN_SM_pic`: Base64 encoded visualization with detected face and active AUs
-    - Enables precise control over anatomical facial movements for animation and analysis
-  - **Website**: https://github.com/albertpumarola/GANimation
+    - Enables precise control over anatomical facial movements for animation and analysis  - **Website**: https://github.com/albertpumarola/GANimation
+  - **Status**: ✅ Implemented
+
+- [x] **Extract emotional indices via different feature levels**
+  - **Model**: ARBEx: Attentive Feature Extraction with Reliability Balancing for Robust Facial Expression Learning
+  - **Features**: 20+ (primary/final emotions + 16 emotion probabilities + confidence/reliability scores)
+  - **Output**: `arbex_primary`, `arbex_final`, `arbex_primary_neutral`, `arbex_primary_anger`, `arbex_primary_disgust`, `arbex_primary_fear`, `arbex_primary_happiness`, `arbex_primary_sadness`, `arbex_primary_surprise`, `arbex_primary_others`, `arbex_final_neutral`, `arbex_final_anger`, `arbex_final_disgust`, `arbex_final_fear`, `arbex_final_happiness`, `arbex_final_sadness`, `arbex_final_surprise`, `arbex_final_others`, `arbex_confidence_primary`, `arbex_confidence_final`, `arbex_reliability_score`, `arbex_SM_pic`
+  - **Description**: Robust facial expression learning with multi-level feature extraction and reliability balancing
+  - **Note**: 
+    - Primary/Final emotions: Neutral, Anger, Disgust, Fear, Happiness, Sadness, Surprise, Others
+    - `arbex_primary`: Initial emotion classification result
+    - `arbex_final`: Emotion classification after reliability balancing
+    - Primary/Final probabilities: Individual probability scores for each emotion at both levels
+    - Confidence scores: Classification confidence for primary and final results
+    - `arbex_reliability_score`: Feature consistency measure for reliability balancing
+    - Multi-level features: Statistical, regional, and texture features with attention mechanisms
+    - `arbex_SM_pic`: Base64 encoded visualization with detected emotions and confidence scores
+  - **Website**: https://github.com/takihasan/ARBEx
   - **Status**: ✅ Implemented
 
 - [x] **3D Human Body Estimation and Pose Analysis**

@@ -17,6 +17,7 @@ This module provides computer vision capabilities including:
 - Simple Baselines for human pose estimation and tracking
 - Py-Feat facial expression analysis with action units and emotions
 - GANimation continuous manifold for anatomical facial movements
+- ARBEx attentive feature extraction with reliability balancing for robust facial expression learning
 """
 
 from .pare_analyzer import PAREAnalyzer, create_pare_analyzer
@@ -31,6 +32,7 @@ from .deep_hrnet_analyzer import DeepHRNetAnalyzer, extract_deep_hrnet_features
 from .simple_baselines_analyzer import SimpleBaselinesAnalyzer, extract_simple_baselines_features
 from .pyfeat_analyzer import PyFeatAnalyzer, extract_pyfeat_features
 from .ganimation_analyzer import GANimationAnalyzer, extract_ganimation_features
+from .arbex_analyzer import ARBExAnalyzer, extract_arbex_features
 
 __all__ = [
     'PAREAnalyzer',
@@ -50,8 +52,9 @@ __all__ = [
     'extract_mediapipe_pose_features',
     'DeepHRNetAnalyzer',    'extract_deep_hrnet_features',
     'SimpleBaselinesAnalyzer',    'extract_simple_baselines_features',
-    'PyFeatAnalyzer',
-    'extract_pyfeat_features',
+    'PyFeatAnalyzer',    'extract_pyfeat_features',
     'GANimationAnalyzer',
-    'extract_ganimation_features'
+    'extract_ganimation_features',
+    'ARBExAnalyzer',
+    'extract_arbex_features'
 ]

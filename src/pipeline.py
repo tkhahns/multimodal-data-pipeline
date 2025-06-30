@@ -64,6 +64,7 @@ class MultimodalPipeline:
             "sbert_text",       # Sentence-BERT dense vector representations and reranking            "use_text",         # Universal Sentence Encoder for text classification and semantic analysis            "emotieffnet_vision", # EmotiEffNet real-time video emotion analysis and AU detection
             "mediapipe_pose_vision", # Google MediaPipe pose estimation and tracking with 33 landmarks            "deep_hrnet_vision", # Deep High-Resolution Network for high-precision pose estimation            "simple_baselines_vision", # Simple Baselines for human pose estimation and tracking            "pyfeat_vision",    # Py-Feat facial expression analysis with action units and emotions
             "ganimation_vision", # GANimation continuous manifold for anatomical facial movements
+            "arbex_vision",     # ARBEx attentive feature extraction with reliability balancing for robust facial expression learning
             "pare_vision",      # PARE 3D human body estimation and pose analysis
             "vitpose_vision",   # ViTPose Vision Transformer pose estimation
             "rsn_vision",       # RSN Residual Steps Network keypoint localization
@@ -110,8 +111,7 @@ class MultimodalPipeline:
                 self.extractors[feature_name] = DeBERTaAnalyzer(device=self.device)
             elif feature_name == "simcse_text":
                 from src.text.simcse_analyzer import SimCSEAnalyzer
-                self.extractors[feature_name] = SimCSEAnalyzer(device=self.device)
-            elif feature_name == "albert_text":
+                self.extractors[feature_name] = SimCSEAnalyzer(device=self.device)            elif feature_name == "albert_text":
                 from src.text.albert_analyzer import ALBERTAnalyzer
                 self.extractors[feature_name] = ALBERTAnalyzer(device=self.device)
             elif feature_name == "sbert_text":
@@ -138,6 +138,9 @@ class MultimodalPipeline:
             elif feature_name == "ganimation_vision":
                 from src.vision.ganimation_analyzer import GANimationAnalyzer
                 self.extractors[feature_name] = GANimationAnalyzer(device=self.device)
+            elif feature_name == "arbex_vision":
+                from src.vision.arbex_analyzer import ARBExAnalyzer
+                self.extractors[feature_name] = ARBExAnalyzer(device=self.device)
             elif feature_name == "pare_vision":
                 from src.vision.pare_analyzer import PAREAnalyzer
                 self.extractors[feature_name] = PAREAnalyzer(device=self.device)
@@ -438,13 +441,19 @@ class MultimodalPipeline:
             extractor = self._get_extractor("pyfeat_vision")
             pyfeat_features = extractor.get_feature_dict(str(video_path))
             features.update(pyfeat_features)
-        
-        # Extract GANimation facial movement features (video-specific)
+          # Extract GANimation facial movement features (video-specific)
         if "ganimation_vision" in self.features:
             print(f"Extracting GANimation continuous manifold for anatomical facial movements from {video_path}")
             extractor = self._get_extractor("ganimation_vision")
             ganimation_features = extractor.get_feature_dict(str(video_path))
             features.update(ganimation_features)
+        
+        # Extract ARBEx emotional expression features (video-specific)
+        if "arbex_vision" in self.features:
+            print(f"Extracting ARBEx attentive feature extraction with reliability balancing from {video_path}")
+            extractor = self._get_extractor("arbex_vision")
+            arbex_features = extractor.get_feature_dict(str(video_path))
+            features.update(arbex_features)
         
         # Extract PARE vision features (video-specific)
         if "pare_vision" in self.features:
@@ -689,11 +698,15 @@ class MultimodalPipeline:
                 "prefixes": ["pf_"],
                 "exact_matches": ["total_frames", "faces_detected_frames", "face_detection_rate", "avg_face_size", "avg_face_confidence"],
                 "model_name": "Py-Feat: Python Facial Expression Analysis Toolbox"
-            },
-            "Continuous manifold for anatomical facial movements": {
+            },            "Continuous manifold for anatomical facial movements": {
                 "prefixes": ["GAN_"],
                 "exact_matches": ["total_frames", "faces_detected_frames", "face_detection_rate", "max_au_activations", "avg_au_activations_per_frame"],
                 "model_name": "GANimation: Anatomy-aware Facial Animation from a Single Image"
+            },
+            "Extract emotional indices via different feature levels": {
+                "prefixes": ["arbex_"],
+                "exact_matches": ["total_frames", "faces_detected_frames", "face_detection_rate", "avg_confidence_primary", "avg_confidence_final", "avg_reliability_score"],
+                "model_name": "ARBEx: Attentive Feature Extraction with Reliability Balancing for Robust Facial Expression Learning"
             },
             "3D Human Body Estimation and Pose Analysis": {
                 "prefixes": ["PARE_"],
