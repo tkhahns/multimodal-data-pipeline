@@ -24,6 +24,7 @@ This module provides computer vision capabilities including:
 - CrowdFlow optical flow fields, person trajectories, and tracking accuracy for crowd analysis
 - VideoFinder object and people localization with consistency and match metrics
 - SmoothNet temporally consistent 3D and 2D human pose estimation with neural smoothing
+- LaneGCN autonomous driving motion forecasting with graph convolution networks
 """
 
 from .pare_analyzer import PAREAnalyzer, create_pare_analyzer
@@ -45,6 +46,7 @@ from .optical_flow_analyzer import OpticalFlowAnalyzer, extract_optical_flow_fea
 from .crowdflow_analyzer import CrowdFlowAnalyzer, extract_crowdflow_features
 from .videofinder_analyzer import VideoFinderAnalyzer, extract_videofinder_features
 from .smoothnet_analyzer import SmoothNetAnalyzer, extract_smoothnet_features
+from .lanegcn_analyzer import LaneGCNAnalyzer, extract_lanegcn_features
 
 __all__ = [
     'PAREAnalyzer',
@@ -71,9 +73,10 @@ __all__ = [
     'extract_instadm_features',    'OpticalFlowAnalyzer',
     'extract_optical_flow_features',
     'CrowdFlowAnalyzer',
-    'extract_crowdflow_features',
-    'VideoFinderAnalyzer',
+    'extract_crowdflow_features',    'VideoFinderAnalyzer',
     'extract_videofinder_features',
     'SmoothNetAnalyzer',
-    'extract_smoothnet_features'
+    'extract_smoothnet_features',
+    'LaneGCNAnalyzer',
+    'extract_lanegcn_features'
 ]

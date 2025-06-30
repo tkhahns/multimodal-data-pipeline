@@ -367,6 +367,19 @@ The pipeline currently supports the following feature extractors across multiple
 - Integrates 3D pose estimation, 2D pose refinement, and SMPL body model fitting
 - Returns comprehensive pose quality metrics and temporal consistency analysis
 
+#### LaneGCN (Autonomous Driving Motion Forecasting)
+- Learning lane graph representations for motion forecasting in autonomous driving scenarios
+- Features with `GCN_*` prefix for autonomous driving motion prediction and trajectory analysis:
+  - **K=1 Prediction Metrics**: `GCN_min_ade_k1` (minimum Average Displacement Error), `GCN_min_fde_k1` (minimum Final Displacement Error), `GCN_MR_k1` (Miss Rate)
+  - **K=6 Prediction Metrics**: `GCN_min_ade_k6` (minimum Average Displacement Error), `GCN_min_fde_k6` (minimum Final Displacement Error), `GCN_MR_k6` (Miss Rate)
+  - **Trajectory Quality**: Multi-modal trajectory prediction with graph convolution networks
+  - **Lane Graph Analysis**: Road topology understanding and vehicle interaction modeling
+- Based on LaneGCN: Learning Lane Graph Representations for Motion Forecasting
+- Provides quantitative results for both single-mode (K=1) and multi-mode (K=6) trajectory predictions
+- Integrates lane graph representation learning with actor-lane and lane-lane interactions
+- Returns 6 comprehensive metrics for autonomous driving motion forecasting evaluation
+- GitHub: https://github.com/uber-research/LaneGCN
+
 ## Installation
 
 ### Prerequisites

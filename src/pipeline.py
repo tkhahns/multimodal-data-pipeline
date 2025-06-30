@@ -64,8 +64,8 @@ class MultimodalPipeline:
             "sbert_text",       # Sentence-BERT dense vector representations and reranking            "use_text",         # Universal Sentence Encoder for text classification and semantic analysis            "emotieffnet_vision", # EmotiEffNet real-time video emotion analysis and AU detection
             "mediapipe_pose_vision", # Google MediaPipe pose estimation and tracking with 33 landmarks            "deep_hrnet_vision", # Deep High-Resolution Network for high-precision pose estimation            "simple_baselines_vision", # Simple Baselines for human pose estimation and tracking            "pyfeat_vision",    # Py-Feat facial expression analysis with action units and emotions            "ganimation_vision", # GANimation continuous manifold for anatomical facial movements            "arbex_vision",     # ARBEx attentive feature extraction with reliability balancing for robust facial expression learning            "openpose_vision",  # OpenPose real-time multi-person keypoint detection and pose estimation            "instadm_vision",   # Insta-DM instant dense monocular depth estimation with motion analysis            "optical_flow_vision", # Optical Flow movement and estimation of motion with sparse and dense analysis
             "crowdflow_vision", # CrowdFlow optical flow fields, person trajectories, and tracking accuracy
-            "videofinder_vision", # VideoFinder object and people localization with consistency and match metrics
-            "smoothnet_vision", # SmoothNet temporally consistent 3D and 2D human pose estimation with neural smoothing
+            "videofinder_vision", # VideoFinder object and people localization with consistency and match metrics            "smoothnet_vision", # SmoothNet temporally consistent 3D and 2D human pose estimation with neural smoothing
+            "lanegcn_vision",   # LaneGCN autonomous driving motion forecasting with graph convolution networks
             "pare_vision",      # PARE 3D human body estimation and pose analysis
             "vitpose_vision",   # ViTPose Vision Transformer pose estimation
             "rsn_vision",       # RSN Residual Steps Network keypoint localization
@@ -84,7 +84,7 @@ class MultimodalPipeline:
         
         Args:
             feature_name: Name of the feature extractor
-              Returns:
+        Returns:
             Any: The feature extractor object
         """
         if feature_name not in self.extractors:
@@ -149,7 +149,7 @@ class MultimodalPipeline:
                 self.extractors[feature_name] = OpenPoseAnalyzer(device=self.device)
             elif feature_name == "instadm_vision":
                 from src.vision.instadm_analyzer import InstaDMAnalyzer
-                self.extractors[feature_name] = InstaDMAnalyzer(device=self.device)            
+                self.extractors[feature_name] = InstaDMAnalyzer(device=self.device)
             elif feature_name == "optical_flow_vision":
                 from src.vision.optical_flow_analyzer import OpticalFlowAnalyzer
                 self.extractors[feature_name] = OpticalFlowAnalyzer(device=self.device)
@@ -162,6 +162,9 @@ class MultimodalPipeline:
             elif feature_name == "smoothnet_vision":
                 from src.vision.smoothnet_analyzer import SmoothNetAnalyzer
                 self.extractors[feature_name] = SmoothNetAnalyzer(device=self.device)
+            elif feature_name == "lanegcn_vision":
+                from src.vision.lanegcn_analyzer import LaneGCNAnalyzer
+                self.extractors[feature_name] = LaneGCNAnalyzer(device=self.device)
             elif feature_name == "pare_vision":
                 from src.vision.pare_analyzer import PAREAnalyzer
                 self.extractors[feature_name] = PAREAnalyzer(device=self.device)
@@ -507,14 +510,19 @@ class MultimodalPipeline:
             extractor = self._get_extractor("videofinder_vision")
             videofinder_features = extractor.get_feature_dict(str(video_path))
             features.update(videofinder_features)
-        
-        # Extract SmoothNet pose estimation features (video-specific)
+          # Extract SmoothNet pose estimation features (video-specific)
         if "smoothnet_vision" in self.features:
             print(f"Extracting SmoothNet temporally consistent pose estimation from {video_path}")
             extractor = self._get_extractor("smoothnet_vision")
             smoothnet_features = extractor.get_feature_dict(str(video_path))
             features.update(smoothnet_features)
-            features.update(crowdflow_features)
+        
+        # Extract LaneGCN autonomous driving motion forecasting features (video-specific)
+        if "lanegcn_vision" in self.features:
+            print(f"Extracting LaneGCN autonomous driving motion forecasting from {video_path}")
+            extractor = self._get_extractor("lanegcn_vision")
+            lanegcn_features = extractor.get_feature_dict(str(video_path))
+            features.update(lanegcn_features)
         
         # Extract PARE vision features (video-specific)
         if "pare_vision" in self.features:
@@ -824,11 +832,15 @@ class MultimodalPipeline:
                 "prefixes": ["ann_"],
                 "exact_matches": [],
                 "model_name": "Learning Multi-dimensional Edge Feature-based AU Relation Graph for Facial Action Unit Recognition"
-            },
-            "Emotional expression indices": {
+            },            "Emotional expression indices": {
                 "prefixes": ["dan_"],
                 "exact_matches": ["dan_emotion_scores"],
                 "model_name": "DAN: Distract Your Attention: Multi-head Cross Attention Network for Facial Expression Recognition"
+            },
+            "Autonomous Driving motion forecasting": {
+                "prefixes": ["GCN_"],
+                "exact_matches": ["GCN_min_ade_k1", "GCN_min_fde_k1", "GCN_MR_k1", "GCN_min_ade_k6", "GCN_min_fde_k6", "GCN_MR_k6"],
+                "model_name": "LaneGCN: Learning Lane Graph Representations for Motion Forecasting"
             }
         }
         
