@@ -111,7 +111,8 @@ class MultimodalPipeline:
                 self.extractors[feature_name] = DeBERTaAnalyzer(device=self.device)
             elif feature_name == "simcse_text":
                 from src.text.simcse_analyzer import SimCSEAnalyzer
-                self.extractors[feature_name] = SimCSEAnalyzer(device=self.device)            elif feature_name == "albert_text":
+                self.extractors[feature_name] = SimCSEAnalyzer(device=self.device)            
+            elif feature_name == "albert_text":
                 from src.text.albert_analyzer import ALBERTAnalyzer
                 self.extractors[feature_name] = ALBERTAnalyzer(device=self.device)
             elif feature_name == "sbert_text":
