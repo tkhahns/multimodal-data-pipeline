@@ -19,6 +19,7 @@ This module provides computer vision capabilities including:
 - GANimation continuous manifold for anatomical facial movements
 - ARBEx attentive feature extraction with reliability balancing for robust facial expression learning
 - OpenPose real-time multi-person keypoint detection and pose estimation
+- Insta-DM instant dense monocular depth estimation with motion analysis
 """
 
 from .pare_analyzer import PAREAnalyzer, create_pare_analyzer
@@ -35,6 +36,7 @@ from .pyfeat_analyzer import PyFeatAnalyzer, extract_pyfeat_features
 from .ganimation_analyzer import GANimationAnalyzer, extract_ganimation_features
 from .arbex_analyzer import ARBExAnalyzer, extract_arbex_features
 from .openpose_analyzer import OpenPoseAnalyzer, extract_openpose_features
+from .instadm_analyzer import InstaDMAnalyzer, extract_instadm_features
 
 __all__ = [
     'PAREAnalyzer',
@@ -55,9 +57,10 @@ __all__ = [
     'DeepHRNetAnalyzer',    'extract_deep_hrnet_features',
     'SimpleBaselinesAnalyzer',    'extract_simple_baselines_features',
     'PyFeatAnalyzer',    'extract_pyfeat_features',    'GANimationAnalyzer',
-    'extract_ganimation_features',
-    'ARBExAnalyzer',
+    'extract_ganimation_features',    'ARBExAnalyzer',
     'extract_arbex_features',
     'OpenPoseAnalyzer',
-    'extract_openpose_features'
+    'extract_openpose_features',
+    'InstaDMAnalyzer',
+    'extract_instadm_features'
 ]

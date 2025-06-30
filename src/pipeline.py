@@ -62,9 +62,9 @@ class MultimodalPipeline:
             "simcse_text",      # SimCSE contrastive learning of sentence embeddings
             "albert_text",      # ALBERT language representation analysis
             "sbert_text",       # Sentence-BERT dense vector representations and reranking            "use_text",         # Universal Sentence Encoder for text classification and semantic analysis            "emotieffnet_vision", # EmotiEffNet real-time video emotion analysis and AU detection
-            "mediapipe_pose_vision", # Google MediaPipe pose estimation and tracking with 33 landmarks            "deep_hrnet_vision", # Deep High-Resolution Network for high-precision pose estimation            "simple_baselines_vision", # Simple Baselines for human pose estimation and tracking            "pyfeat_vision",    # Py-Feat facial expression analysis with action units and emotions            "ganimation_vision", # GANimation continuous manifold for anatomical facial movements
-            "arbex_vision",     # ARBEx attentive feature extraction with reliability balancing for robust facial expression learning
+            "mediapipe_pose_vision", # Google MediaPipe pose estimation and tracking with 33 landmarks            "deep_hrnet_vision", # Deep High-Resolution Network for high-precision pose estimation            "simple_baselines_vision", # Simple Baselines for human pose estimation and tracking            "pyfeat_vision",    # Py-Feat facial expression analysis with action units and emotions            "ganimation_vision", # GANimation continuous manifold for anatomical facial movements            "arbex_vision",     # ARBEx attentive feature extraction with reliability balancing for robust facial expression learning
             "openpose_vision",  # OpenPose real-time multi-person keypoint detection and pose estimation
+            "instadm_vision",   # Insta-DM instant dense monocular depth estimation with motion analysis
             "pare_vision",      # PARE 3D human body estimation and pose analysis
             "vitpose_vision",   # ViTPose Vision Transformer pose estimation
             "rsn_vision",       # RSN Residual Steps Network keypoint localization
@@ -83,8 +83,8 @@ class MultimodalPipeline:
         
         Args:
             feature_name: Name of the feature extractor
-            
-        Returns:            Any: The feature extractor object
+              Returns:
+            Any: The feature extractor object
         """
         if feature_name not in self.extractors:
             if feature_name == "basic_audio":
@@ -145,6 +145,9 @@ class MultimodalPipeline:
             elif feature_name == "openpose_vision":
                 from src.vision.openpose_analyzer import OpenPoseAnalyzer
                 self.extractors[feature_name] = OpenPoseAnalyzer(device=self.device)
+            elif feature_name == "instadm_vision":
+                from src.vision.instadm_analyzer import InstaDMAnalyzer
+                self.extractors[feature_name] = InstaDMAnalyzer(device=self.device)
             elif feature_name == "pare_vision":
                 from src.vision.pare_analyzer import PAREAnalyzer
                 self.extractors[feature_name] = PAREAnalyzer(device=self.device)
@@ -439,19 +442,20 @@ class MultimodalPipeline:
             extractor = self._get_extractor("simple_baselines_vision")
             simple_baselines_features = extractor.get_feature_dict(str(video_path))
             features.update(simple_baselines_features)
-          # Extract Py-Feat facial analysis features (video-specific)
-        if "pyfeat_vision" in self.features:
+          # Extract Py-Feat facial analysis features (video-specific)        if "pyfeat_vision" in self.features:
             print(f"Extracting Py-Feat facial expression analysis from {video_path}")
             extractor = self._get_extractor("pyfeat_vision")
             pyfeat_features = extractor.get_feature_dict(str(video_path))
             features.update(pyfeat_features)
-          # Extract GANimation facial movement features (video-specific)
+        
+        # Extract GANimation facial movement features (video-specific)
         if "ganimation_vision" in self.features:
             print(f"Extracting GANimation continuous manifold for anatomical facial movements from {video_path}")
             extractor = self._get_extractor("ganimation_vision")
             ganimation_features = extractor.get_feature_dict(str(video_path))
             features.update(ganimation_features)
-          # Extract ARBEx emotional expression features (video-specific)
+        
+        # Extract ARBEx emotional expression features (video-specific)
         if "arbex_vision" in self.features:
             print(f"Extracting ARBEx attentive feature extraction with reliability balancing from {video_path}")
             extractor = self._get_extractor("arbex_vision")
@@ -465,24 +469,35 @@ class MultimodalPipeline:
             openpose_features = extractor.get_feature_dict(str(video_path))
             features.update(openpose_features)
         
+        # Extract Insta-DM dense motion estimation features (video-specific)
+        if "instadm_vision" in self.features:
+            print(f"Extracting Insta-DM dense motion estimation and depth analysis from {video_path}")
+            extractor = self._get_extractor("instadm_vision")
+            instadm_features = extractor.get_feature_dict(str(video_path))
+            features.update(instadm_features)
+        
         # Extract PARE vision features (video-specific)
         if "pare_vision" in self.features:
             print(f"Extracting PARE vision features from {video_path}")
             extractor = self._get_extractor("pare_vision")
             pare_features = extractor.get_feature_dict(str(video_path))
-            features.update(pare_features)# Extract ViTPose vision features (video-specific)
+            features.update(pare_features)
+        
+        # Extract ViTPose vision features (video-specific)
         if "vitpose_vision" in self.features:
             print(f"Extracting ViTPose vision features from {video_path}")
             extractor = self._get_extractor("vitpose_vision")
             vitpose_features = extractor.get_feature_dict(str(video_path))
             features.update(vitpose_features)
-          # Extract RSN vision features (video-specific)
+        
+        # Extract RSN vision features (video-specific)
         if "rsn_vision" in self.features:
             print(f"Extracting RSN keypoint localization features from {video_path}")
             extractor = self._get_extractor("rsn_vision")
             rsn_features = extractor.get_feature_dict(str(video_path))
             features.update(rsn_features)
-          # Extract ME-GraphAU vision features (video-specific)
+        
+        # Extract ME-GraphAU vision features (video-specific)
         if "me_graphau_vision" in self.features:
             print(f"Extracting ME-GraphAU facial action unit features from {video_path}")
             extractor = self._get_extractor("me_graphau_vision")
@@ -682,59 +697,74 @@ class MultimodalPipeline:
             },
             "Dense Vector Representations and Reranking": {
                 "prefixes": ["BERT_"],
-                "exact_matches": [],
-                "model_name": "Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks"
-            },            "text classification + semantic similarity + semantic cluster": {
+                "exact_matches": [],                "model_name": "Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks"
+            },
+            "text classification + semantic similarity + semantic cluster": {
                 "prefixes": ["USE_"],
                 "exact_matches": [],
                 "model_name": "Universal Sentence Encoder"
-            },            "Real time video emotion analysis and AU detection": {
+            },
+            "Real time video emotion analysis and AU detection": {
                 "prefixes": ["eln_"],
                 "exact_matches": [],
                 "model_name": "Frame-level Prediction of Facial Expressions, Valence, Arousal and Action Units for Mobile Devices"
-            },            "Pose estimation and tracking": {
+            },
+            "Pose estimation and tracking": {
                 "prefixes": ["GMP_"],
                 "exact_matches": ["total_frames", "landmarks_detected_frames", "detection_rate", "avg_landmarks_per_frame"],
                 "model_name": "Google MediaPipe"
-            },            "Pose estimation (high-resolution)": {
+            },
+            "Pose estimation (high-resolution)": {
                 "prefixes": ["DHiR_"],
                 "exact_matches": ["total_frames", "pose_detected_frames", "detection_rate", "avg_keypoints_per_frame"],
                 "model_name": "Deep High-Resolution Representation Learning for Human Pose Estimation"
-            },            "Pose estimation and tracking (simple baselines)": {
+            },
+            "Pose estimation and tracking (simple baselines)": {
                 "prefixes": ["SBH_"],
                 "exact_matches": ["total_frames", "pose_detected_frames", "detection_rate", "avg_keypoints_per_frame"],
                 "model_name": "Simple Baselines for Human Pose Estimation and Tracking"
-            },            "Actional annotation, Emotion indices, Face location and angles": {
+            },
+            "Actional annotation, Emotion indices, Face location and angles": {
                 "prefixes": ["pf_"],
                 "exact_matches": ["total_frames", "faces_detected_frames", "face_detection_rate", "avg_face_size", "avg_face_confidence"],
                 "model_name": "Py-Feat: Python Facial Expression Analysis Toolbox"
-            },            "Continuous manifold for anatomical facial movements": {
+            },
+            "Continuous manifold for anatomical facial movements": {
                 "prefixes": ["GAN_"],
                 "exact_matches": ["total_frames", "faces_detected_frames", "face_detection_rate", "max_au_activations", "avg_au_activations_per_frame"],
                 "model_name": "GANimation: Anatomy-aware Facial Animation from a Single Image"
-            },            "Extract emotional indices via different feature levels": {
+            },
+            "Extract emotional indices via different feature levels": {
                 "prefixes": ["arbex_"],
                 "exact_matches": ["total_frames", "faces_detected_frames", "face_detection_rate", "avg_confidence_primary", "avg_confidence_final", "avg_reliability_score"],
                 "model_name": "ARBEx: Attentive Feature Extraction with Reliability Balancing for Robust Facial Expression Learning"
             },
-            "Pose estimation and tracking": {
+            "Real-time multi-person keypoint detection and pose estimation": {
                 "prefixes": ["openPose_"],
                 "exact_matches": ["total_frames", "pose_detected_frames", "detection_rate", "avg_keypoints_per_frame", "avg_confidence", "max_persons_detected"],
-                "model_name": "Open Pose"
+                "model_name": "OpenPose: Realtime Multi-Person 2D Pose Estimation using Part Affinity Fields"
+            },
+            "Dense Motion Estimation, Depth in dynamic scenes, interaction patterns": {
+                "prefixes": ["indm_"],
+                "exact_matches": ["indm_abs_rel", "indm_sq_rel", "indm_rmse", "indm_rmse_log", "indm_acc_1", "indm_acc_2", "indm_acc_3", "total_frames", "depth_estimated_frames", "motion_detected_frames"],
+                "model_name": "Insta-DM: Instance-aware Dynamic Module for Monocular Depth Estimation"
             },
             "3D Human Body Estimation and Pose Analysis": {
                 "prefixes": ["PARE_"],
                 "exact_matches": [],
                 "model_name": "PARE (Part Attention Regressor for 3D Human Body Estimation)"
-            },"Pose estimation": {
+            },
+            "Pose estimation": {
                 "prefixes": ["vit_"],
                 "exact_matches": [],
                 "model_name": "ViTPose: Simple Vision Transformer Baselines for Human Pose Estimation"
-            },            "Keypoint localization": {
+            },
+            "Keypoint localization": {
                 "prefixes": ["rsn_"],
                 "exact_matches": [],
                 "model_name": "Residual Steps Network (RSN)"
-            },            "Facial action, AU relation graph": {
+            },
+            "Facial action, AU relation graph": {
                 "prefixes": ["ann_"],
                 "exact_matches": [],
                 "model_name": "Learning Multi-dimensional Edge Feature-based AU Relation Graph for Facial Action Unit Recognition"

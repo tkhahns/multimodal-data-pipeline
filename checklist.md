@@ -244,8 +244,36 @@ This document tracks the implementation status of all feature groups in the mult
     - Confidence scores: Classification confidence for primary and final results
     - `arbex_reliability_score`: Feature consistency measure for reliability balancing
     - Multi-level features: Statistical, regional, and texture features with attention mechanisms
-    - `arbex_SM_pic`: Base64 encoded visualization with detected emotions and confidence scores
-  - **Website**: https://github.com/takihasan/ARBEx
+    - `arbex_SM_pic`: Base64 encoded visualization with detected emotions and confidence scores  - **Website**: https://github.com/takihasan/ARBEx
+  - **Status**: ✅ Implemented
+
+- [x] **Real-time multi-person keypoint detection and pose estimation**
+  - **Model**: OpenPose: Realtime Multi-Person 2D Pose Estimation using Part Affinity Fields
+  - **Features**: 50+ (18 keypoints × 3 coordinates + angles + measurements + detection stats)
+  - **Output**: `openPose_nose_x`, `openPose_nose_y`, `openPose_nose_confidence`, `openPose_neck_x`, `openPose_neck_y`, `openPose_neck_confidence`, `openPose_rshoulder_x`, `openPose_rshoulder_y`, `openPose_rshoulder_confidence`, (and 40+ more keypoint coordinates and metrics)
+  - **Description**: Real-time multi-person keypoint detection and pose estimation with skeleton visualization
+  - **Note**: 
+    - 18 body keypoints: Nose, Neck, Shoulders, Elbows, Wrists, Hips, Knees, Ankles, Eyes, Ears
+    - Each keypoint provides x,y coordinates and confidence score
+    - Joint angles calculated for arms, legs, and torso alignment
+    - Body measurements: shoulder width, hip width, body height
+    - Outputs annotated video and GIF with pose skeleton overlay
+    - Supports multi-person detection and tracking across frames
+  - **Website**: https://github.com/CMU-Perceptual-Computing-Lab/openpose
+  - **Status**: ✅ Implemented
+
+- [x] **Dense Motion Estimation, Depth in dynamic scenes, interaction patterns**
+  - **Model**: Insta-DM: Instance-aware Dynamic Module for Monocular Depth Estimation
+  - **Features**: 10+ (depth estimation metrics + motion analysis + frame statistics)
+  - **Output**: `indm_abs_rel`, `indm_sq_rel`, `indm_rmse`, `indm_rmse_log`, `indm_acc_1`, `indm_acc_2`, `indm_acc_3`, `total_frames`, `depth_estimated_frames`, `motion_detected_frames`
+  - **Description**: Dense monocular depth estimation with motion analysis and interaction pattern recognition in dynamic scenes
+  - **Note**: 
+    - Core metrics: `indm_abs_rel` (absolute relative error), `indm_sq_rel` (squared relative error)
+    - Depth accuracy: `indm_rmse` (root mean square error), `indm_rmse_log` (logarithmic RMSE)
+    - Accuracy thresholds: `indm_acc_1`, `indm_acc_2`, `indm_acc_3` (δ < 1.25, 1.25², 1.25³)
+    - Motion features: Dense optical flow estimation, object interaction patterns
+    - Dynamic scene analysis: Temporal consistency, depth-motion relationships
+  - **Website**: https://github.com/SeokjuLee/Insta-DM
   - **Status**: ✅ Implemented
 
 - [x] **3D Human Body Estimation and Pose Analysis**
