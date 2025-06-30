@@ -215,6 +215,22 @@ The pipeline currently supports the following feature extractors across multiple
 - Applies reliability balancing to improve classification robustness in challenging conditions
 - Returns 20+ features including primary/final classifications, probabilities, and confidence metrics
 
+#### OpenPose (Real-time Multi-Person Keypoint Detection)
+- Real-time multi-person pose estimation and tracking with 2D pose keypoints
+- Features with `openPose_*` prefix for comprehensive pose analysis and tracking:
+  - **Keypoint Coordinates**: Individual x,y coordinates for 18 body keypoints (nose, neck, shoulders, elbows, wrists, hips, knees, ankles, eyes, ears)
+  - **Keypoint Confidence**: Confidence scores for each detected keypoint
+  - **Pose Angles**: Joint angles for arms, legs, and torso alignment
+  - **Body Measurements**: Shoulder width, hip width, body height estimates
+  - **Detection Statistics**: `openPose_total_frames`, `openPose_pose_detected_frames`, `openPose_detection_rate`
+  - **Multi-Person Support**: `openPose_max_persons_detected`, average keypoints per frame
+  - **Output Media**: `openPose_pose_video_path` (annotated video), `openPose_pose_gif_path` (summary GIF)
+  - **Visualization**: `openPose_SM_pic` - Base64 encoded sample frame with pose skeleton overlay
+- Based on CMU's OpenPose: Real-time multi-person keypoint detection library
+- Provides skeleton visualization with connections between body joints
+- Supports pose tracking across video frames with temporal consistency
+- Returns 50+ features including all keypoint coordinates, angles, measurements, and detection statistics
+
 #### PARE (3D Human Body Estimation)
 - 3D human body estimation and pose analysis from video frames
 - Features with `PARE_*` prefix for comprehensive body and pose analysis:

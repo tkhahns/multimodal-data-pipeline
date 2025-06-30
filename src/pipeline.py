@@ -62,9 +62,9 @@ class MultimodalPipeline:
             "simcse_text",      # SimCSE contrastive learning of sentence embeddings
             "albert_text",      # ALBERT language representation analysis
             "sbert_text",       # Sentence-BERT dense vector representations and reranking            "use_text",         # Universal Sentence Encoder for text classification and semantic analysis            "emotieffnet_vision", # EmotiEffNet real-time video emotion analysis and AU detection
-            "mediapipe_pose_vision", # Google MediaPipe pose estimation and tracking with 33 landmarks            "deep_hrnet_vision", # Deep High-Resolution Network for high-precision pose estimation            "simple_baselines_vision", # Simple Baselines for human pose estimation and tracking            "pyfeat_vision",    # Py-Feat facial expression analysis with action units and emotions
-            "ganimation_vision", # GANimation continuous manifold for anatomical facial movements
+            "mediapipe_pose_vision", # Google MediaPipe pose estimation and tracking with 33 landmarks            "deep_hrnet_vision", # Deep High-Resolution Network for high-precision pose estimation            "simple_baselines_vision", # Simple Baselines for human pose estimation and tracking            "pyfeat_vision",    # Py-Feat facial expression analysis with action units and emotions            "ganimation_vision", # GANimation continuous manifold for anatomical facial movements
             "arbex_vision",     # ARBEx attentive feature extraction with reliability balancing for robust facial expression learning
+            "openpose_vision",  # OpenPose real-time multi-person keypoint detection and pose estimation
             "pare_vision",      # PARE 3D human body estimation and pose analysis
             "vitpose_vision",   # ViTPose Vision Transformer pose estimation
             "rsn_vision",       # RSN Residual Steps Network keypoint localization
@@ -84,8 +84,8 @@ class MultimodalPipeline:
         Args:
             feature_name: Name of the feature extractor
             
-        Returns:
-            Any: The feature extractor object        """
+        Returns:            Any: The feature extractor object
+        """
         if feature_name not in self.extractors:
             if feature_name == "basic_audio":
                 self.extractors[feature_name] = AudioFeatureExtractor()
@@ -111,7 +111,7 @@ class MultimodalPipeline:
                 self.extractors[feature_name] = DeBERTaAnalyzer(device=self.device)
             elif feature_name == "simcse_text":
                 from src.text.simcse_analyzer import SimCSEAnalyzer
-                self.extractors[feature_name] = SimCSEAnalyzer(device=self.device)            
+                self.extractors[feature_name] = SimCSEAnalyzer(device=self.device)
             elif feature_name == "albert_text":
                 from src.text.albert_analyzer import ALBERTAnalyzer
                 self.extractors[feature_name] = ALBERTAnalyzer(device=self.device)
@@ -142,6 +142,9 @@ class MultimodalPipeline:
             elif feature_name == "arbex_vision":
                 from src.vision.arbex_analyzer import ARBExAnalyzer
                 self.extractors[feature_name] = ARBExAnalyzer(device=self.device)
+            elif feature_name == "openpose_vision":
+                from src.vision.openpose_analyzer import OpenPoseAnalyzer
+                self.extractors[feature_name] = OpenPoseAnalyzer(device=self.device)
             elif feature_name == "pare_vision":
                 from src.vision.pare_analyzer import PAREAnalyzer
                 self.extractors[feature_name] = PAREAnalyzer(device=self.device)
@@ -448,13 +451,19 @@ class MultimodalPipeline:
             extractor = self._get_extractor("ganimation_vision")
             ganimation_features = extractor.get_feature_dict(str(video_path))
             features.update(ganimation_features)
-        
-        # Extract ARBEx emotional expression features (video-specific)
+          # Extract ARBEx emotional expression features (video-specific)
         if "arbex_vision" in self.features:
             print(f"Extracting ARBEx attentive feature extraction with reliability balancing from {video_path}")
             extractor = self._get_extractor("arbex_vision")
             arbex_features = extractor.get_feature_dict(str(video_path))
             features.update(arbex_features)
+        
+        # Extract OpenPose pose estimation features (video-specific)
+        if "openpose_vision" in self.features:
+            print(f"Extracting OpenPose real-time multi-person keypoint detection and pose estimation from {video_path}")
+            extractor = self._get_extractor("openpose_vision")
+            openpose_features = extractor.get_feature_dict(str(video_path))
+            features.update(openpose_features)
         
         # Extract PARE vision features (video-specific)
         if "pare_vision" in self.features:
@@ -703,11 +712,15 @@ class MultimodalPipeline:
                 "prefixes": ["GAN_"],
                 "exact_matches": ["total_frames", "faces_detected_frames", "face_detection_rate", "max_au_activations", "avg_au_activations_per_frame"],
                 "model_name": "GANimation: Anatomy-aware Facial Animation from a Single Image"
-            },
-            "Extract emotional indices via different feature levels": {
+            },            "Extract emotional indices via different feature levels": {
                 "prefixes": ["arbex_"],
                 "exact_matches": ["total_frames", "faces_detected_frames", "face_detection_rate", "avg_confidence_primary", "avg_confidence_final", "avg_reliability_score"],
                 "model_name": "ARBEx: Attentive Feature Extraction with Reliability Balancing for Robust Facial Expression Learning"
+            },
+            "Pose estimation and tracking": {
+                "prefixes": ["openPose_"],
+                "exact_matches": ["total_frames", "pose_detected_frames", "detection_rate", "avg_keypoints_per_frame", "avg_confidence", "max_persons_detected"],
+                "model_name": "Open Pose"
             },
             "3D Human Body Estimation and Pose Analysis": {
                 "prefixes": ["PARE_"],
