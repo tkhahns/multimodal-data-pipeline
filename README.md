@@ -298,6 +298,36 @@ The pipeline currently supports the following feature extractors across multiple
 - Supports both 7-class (excludes contempt) and 8-class (includes contempt) emotion models
 - Returns 8 features including individual emotion scores and combined probability array
 
+#### Insta-DM (Dense Motion Estimation and Depth in Dynamic Scenes)
+- Instance-aware dynamic monocular depth estimation with motion analysis and interaction pattern recognition
+- Features with `indm_*` prefix for comprehensive depth and motion analysis:
+  - **Depth Estimation Errors**: `indm_abs_rel` (absolute relative error), `indm_sq_rel` (squared relative error)
+  - **Depth Accuracy Metrics**: `indm_rmse` (root mean square error), `indm_rmse_log` (logarithmic RMSE)
+  - **Accuracy Thresholds**: `indm_acc_1`, `indm_acc_2`, `indm_acc_3` (δ < 1.25, 1.25², 1.25³)
+  - **Motion Analysis**: Dense optical flow estimation, object interaction patterns
+  - **Dynamic Scene Analysis**: Temporal consistency, depth-motion relationships
+  - **Frame Statistics**: `total_frames`, `depth_estimated_frames`, `motion_detected_frames`
+- Based on Insta-DM: Instance-aware Dynamic Module for Monocular Depth Estimation
+- Provides dense monocular depth estimation optimized for dynamic scenes with moving objects
+- Integrates motion estimation with depth prediction for comprehensive scene understanding
+- Returns 10+ features covering depth accuracy, motion analysis, and temporal consistency metrics
+
+#### Optical Flow (Movement and Estimation of Motion)
+- Sparse and dense optical flow analysis for movement and motion estimation
+- Features include the core output columns specified:
+  - **sparse_flow_vis_.png**: Visualization of sparse flow with arrows showing point trajectories (Base64 encoded PNG)
+  - **sparse_points.npy**: Tracked feature points data as numpy array (Base64 encoded)
+  - **dense_flow.npy**: Per-pixel motion vectors for complete motion field analysis (Base64 encoded)
+  - **dense_flow_vis_.png**: Color-coded dense flow visualization image (Base64 encoded PNG)
+  - **Motion Metrics**: `avg_motion_magnitude`, `max_motion_magnitude`, `total_displacement`
+  - **Direction Analysis**: `dominant_motion_direction`, `motion_consistency`
+  - **Detection Statistics**: `motion_detected_frames`, `motion_detection_rate`
+- Based on Lucas-Kanade sparse optical flow and Farneback dense optical flow algorithms
+- Provides both sparse point tracking and dense per-pixel motion estimation
+- Visualizations show motion as arrows (sparse) and color-coded flow fields (dense)
+- By default displays motion visualizations; saving requires additional code integration
+- Returns comprehensive motion analysis including flow visualizations and quantitative metrics
+
 ## Installation
 
 ### Prerequisites

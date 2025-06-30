@@ -20,6 +20,7 @@ This module provides computer vision capabilities including:
 - ARBEx attentive feature extraction with reliability balancing for robust facial expression learning
 - OpenPose real-time multi-person keypoint detection and pose estimation
 - Insta-DM instant dense monocular depth estimation with motion analysis
+- Optical Flow movement and estimation of motion with sparse and dense analysis
 """
 
 from .pare_analyzer import PAREAnalyzer, create_pare_analyzer
@@ -37,6 +38,7 @@ from .ganimation_analyzer import GANimationAnalyzer, extract_ganimation_features
 from .arbex_analyzer import ARBExAnalyzer, extract_arbex_features
 from .openpose_analyzer import OpenPoseAnalyzer, extract_openpose_features
 from .instadm_analyzer import InstaDMAnalyzer, extract_instadm_features
+from .optical_flow_analyzer import OpticalFlowAnalyzer, extract_optical_flow_features
 
 __all__ = [
     'PAREAnalyzer',
@@ -58,9 +60,10 @@ __all__ = [
     'SimpleBaselinesAnalyzer',    'extract_simple_baselines_features',
     'PyFeatAnalyzer',    'extract_pyfeat_features',    'GANimationAnalyzer',
     'extract_ganimation_features',    'ARBExAnalyzer',
-    'extract_arbex_features',
-    'OpenPoseAnalyzer',
+    'extract_arbex_features',    'OpenPoseAnalyzer',
     'extract_openpose_features',
     'InstaDMAnalyzer',
-    'extract_instadm_features'
+    'extract_instadm_features',
+    'OpticalFlowAnalyzer',
+    'extract_optical_flow_features'
 ]

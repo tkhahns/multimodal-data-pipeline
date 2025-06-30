@@ -62,9 +62,9 @@ class MultimodalPipeline:
             "simcse_text",      # SimCSE contrastive learning of sentence embeddings
             "albert_text",      # ALBERT language representation analysis
             "sbert_text",       # Sentence-BERT dense vector representations and reranking            "use_text",         # Universal Sentence Encoder for text classification and semantic analysis            "emotieffnet_vision", # EmotiEffNet real-time video emotion analysis and AU detection
-            "mediapipe_pose_vision", # Google MediaPipe pose estimation and tracking with 33 landmarks            "deep_hrnet_vision", # Deep High-Resolution Network for high-precision pose estimation            "simple_baselines_vision", # Simple Baselines for human pose estimation and tracking            "pyfeat_vision",    # Py-Feat facial expression analysis with action units and emotions            "ganimation_vision", # GANimation continuous manifold for anatomical facial movements            "arbex_vision",     # ARBEx attentive feature extraction with reliability balancing for robust facial expression learning
-            "openpose_vision",  # OpenPose real-time multi-person keypoint detection and pose estimation
+            "mediapipe_pose_vision", # Google MediaPipe pose estimation and tracking with 33 landmarks            "deep_hrnet_vision", # Deep High-Resolution Network for high-precision pose estimation            "simple_baselines_vision", # Simple Baselines for human pose estimation and tracking            "pyfeat_vision",    # Py-Feat facial expression analysis with action units and emotions            "ganimation_vision", # GANimation continuous manifold for anatomical facial movements            "arbex_vision",     # ARBEx attentive feature extraction with reliability balancing for robust facial expression learning            "openpose_vision",  # OpenPose real-time multi-person keypoint detection and pose estimation
             "instadm_vision",   # Insta-DM instant dense monocular depth estimation with motion analysis
+            "optical_flow_vision", # Optical Flow movement and estimation of motion with sparse and dense analysis
             "pare_vision",      # PARE 3D human body estimation and pose analysis
             "vitpose_vision",   # ViTPose Vision Transformer pose estimation
             "rsn_vision",       # RSN Residual Steps Network keypoint localization
@@ -148,6 +148,9 @@ class MultimodalPipeline:
             elif feature_name == "instadm_vision":
                 from src.vision.instadm_analyzer import InstaDMAnalyzer
                 self.extractors[feature_name] = InstaDMAnalyzer(device=self.device)
+            elif feature_name == "optical_flow_vision":
+                from src.vision.optical_flow_analyzer import OpticalFlowAnalyzer
+                self.extractors[feature_name] = OpticalFlowAnalyzer(device=self.device)
             elif feature_name == "pare_vision":
                 from src.vision.pare_analyzer import PAREAnalyzer
                 self.extractors[feature_name] = PAREAnalyzer(device=self.device)
@@ -468,13 +471,19 @@ class MultimodalPipeline:
             extractor = self._get_extractor("openpose_vision")
             openpose_features = extractor.get_feature_dict(str(video_path))
             features.update(openpose_features)
-        
-        # Extract Insta-DM dense motion estimation features (video-specific)
+          # Extract Insta-DM dense motion estimation features (video-specific)
         if "instadm_vision" in self.features:
             print(f"Extracting Insta-DM dense motion estimation and depth analysis from {video_path}")
             extractor = self._get_extractor("instadm_vision")
             instadm_features = extractor.get_feature_dict(str(video_path))
             features.update(instadm_features)
+        
+        # Extract Optical Flow movement and motion estimation features (video-specific)
+        if "optical_flow_vision" in self.features:
+            print(f"Extracting Optical Flow movement and motion estimation from {video_path}")
+            extractor = self._get_extractor("optical_flow_vision")
+            optical_flow_features = extractor.get_feature_dict(str(video_path))
+            features.update(optical_flow_features)
         
         # Extract PARE vision features (video-specific)
         if "pare_vision" in self.features:
@@ -743,11 +752,15 @@ class MultimodalPipeline:
                 "prefixes": ["openPose_"],
                 "exact_matches": ["total_frames", "pose_detected_frames", "detection_rate", "avg_keypoints_per_frame", "avg_confidence", "max_persons_detected"],
                 "model_name": "OpenPose: Realtime Multi-Person 2D Pose Estimation using Part Affinity Fields"
-            },
-            "Dense Motion Estimation, Depth in dynamic scenes, interaction patterns": {
+            },            "Dense Motion Estimation, Depth in dynamic scenes, interaction patterns": {
                 "prefixes": ["indm_"],
                 "exact_matches": ["indm_abs_rel", "indm_sq_rel", "indm_rmse", "indm_rmse_log", "indm_acc_1", "indm_acc_2", "indm_acc_3", "total_frames", "depth_estimated_frames", "motion_detected_frames"],
                 "model_name": "Insta-DM: Instance-aware Dynamic Module for Monocular Depth Estimation"
+            },
+            "Movement and estimation of motion": {
+                "prefixes": ["optical_flow_", "flow_"],
+                "exact_matches": ["sparse_flow_vis_.png", "sparse_points.npy", "dense_flow.npy", "dense_flow_vis_.png", "motion_detected_frames", "avg_motion_magnitude", "max_motion_magnitude", "total_displacement", "dominant_motion_direction", "motion_consistency"],
+                "model_name": "Optical Flow"
             },
             "3D Human Body Estimation and Pose Analysis": {
                 "prefixes": ["PARE_"],

@@ -272,8 +272,21 @@ This document tracks the implementation status of all feature groups in the mult
     - Depth accuracy: `indm_rmse` (root mean square error), `indm_rmse_log` (logarithmic RMSE)
     - Accuracy thresholds: `indm_acc_1`, `indm_acc_2`, `indm_acc_3` (δ < 1.25, 1.25², 1.25³)
     - Motion features: Dense optical flow estimation, object interaction patterns
-    - Dynamic scene analysis: Temporal consistency, depth-motion relationships
-  - **Website**: https://github.com/SeokjuLee/Insta-DM
+    - Dynamic scene analysis: Temporal consistency, depth-motion relationships  - **Website**: https://github.com/SeokjuLee/Insta-DM
+  - **Status**: ✅ Implemented
+
+- [x] **Movement and estimation of motion**
+  - **Model**: Optical Flow
+  - **Features**: 10+ (output columns + motion metrics + detection statistics)
+  - **Output**: `sparse_flow_vis_.png`, `sparse_points.npy`, `dense_flow.npy`, `dense_flow_vis_.png`, `motion_detected_frames`, `avg_motion_magnitude`, `max_motion_magnitude`, `total_displacement`, `dominant_motion_direction`, `motion_consistency`
+  - **Description**: Sparse and dense optical flow analysis for movement and motion estimation with visualization
+  - **Note**: 
+    - Sparse: tracked feature points visualized as arrows showing point trajectories
+    - Dense: per-pixel motion vectors with color-coded flow images
+    - By default displays motion visualizations; saving requires additional code integration
+    - Provides both Lucas-Kanade sparse flow and Farneback dense flow algorithms
+    - Motion metrics include magnitude, direction, consistency, and displacement analysis
+  - **Website**: https://github.com/chuanenlin/optical-flow
   - **Status**: ✅ Implemented
 
 - [x] **3D Human Body Estimation and Pose Analysis**
