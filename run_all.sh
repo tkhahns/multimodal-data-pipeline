@@ -33,25 +33,24 @@ run_setup() {
     
     print_status "Running environment setup..."
     
-    if [ ! -f "setup_env.sh" ]; then
-        print_error "setup_env.sh not found!"
+    if ! command -v poetry &> /dev/null; then
+        print_error "Poetry is required but not found."
+        print_status "Please install Poetry first: https://python-poetry.org/docs/#installation"
         exit 1
     fi
-    
-    chmod +x setup_env.sh
     
     case "$setup_type" in
         "full")
             print_status "Running full setup (including optional packages)..."
-            ./setup_env.sh
+            poetry install
             ;;
         "quick")
             print_status "Running quick setup (essential packages only)..."
-            ./setup_env.sh --quick
+            poetry install --only main
             ;;
         *)
             print_status "Running default setup..."
-            ./setup_env.sh
+            poetry install
             ;;
     esac
     
@@ -87,8 +86,67 @@ check_dependencies() {
         return 1
     fi
     
+    # Check if multimodal pipeline can be imported
+    if ! poetry run python -c "from src.pipeline import MultimodalPipeline; print('✅ Pipeline import successful')" 2>/dev/null; then
+        print_error "Could not import MultimodalPipeline."
+        print_status "Make sure dependencies are installed by running: ./run_all.sh --setup"
+        return 1
+    fi
+    
     print_success "All dependencies check passed!"
     return 0
+}
+
+# Function to list available features
+list_features() {
+    print_status "Available Features:"
+    
+    echo ""
+    echo "📢 Audio Features:"
+    echo "  • basic_audio          - Basic audio properties (duration, sample rate, channels)"
+    echo "  • librosa_spectral     - Advanced spectral features using librosa"
+    echo "  • opensmile           - OpenSMILE feature extraction"
+    echo "  • audiostretchy       - Audio stretching and time modification"
+    echo ""
+    echo "🎤 Speech & Emotion Features:"
+    echo "  • speech_emotion      - Speech emotion recognition"
+    echo "  • heinsen_sentiment   - Heinsen routing sentiment analysis"
+    echo "  • meld_emotion        - MELD emotion recognition"
+    echo "  • speech_separation   - Speech source separation"
+    echo ""
+    echo "📝 Transcription Features:"
+    echo "  • whisperx_transcription - WhisperX transcription with speaker diarization"
+    echo ""
+    echo "📄 Text Analysis Features:"
+    echo "  • deberta_text        - DeBERTa text analysis"
+    echo "  • simcse_text         - SimCSE sentence embeddings"
+    echo "  • albert_text         - ALBERT text analysis"
+    echo "  • sbert_text          - Sentence-BERT embeddings"
+    echo "  • use_text            - Universal Sentence Encoder"
+    echo ""
+    echo "👁️ Computer Vision Features:"
+    echo "  • emotieffnet_vision  - EmotiEffNet facial emotion recognition"
+    echo "  • mediapipe_pose_vision - Google MediaPipe pose estimation"
+    echo "  • deep_hrnet_vision   - Deep High-Resolution pose estimation"
+    echo "  • simple_baselines_vision - Simple Baselines pose estimation"
+    echo "  • pyfeat_vision       - Py-Feat facial expression analysis"
+    echo "  • ganimation_vision   - GANimation facial movements"
+    echo "  • arbex_vision        - ARBEx emotion extraction"
+    echo "  • openpose_vision     - OpenPose keypoint detection"
+    echo "  • instadm_vision      - Insta-DM dense motion estimation"
+    echo "  • optical_flow_vision - Optical flow movement estimation"
+    echo "  • crowdflow_vision    - CrowdFlow person trajectories"
+    echo "  • videofinder_vision  - VideoFinder object/people location"
+    echo "  • smoothnet_vision    - SmoothNet pose estimation"
+    echo "  • lanegcn_vision      - LaneGCN autonomous driving"
+    echo "  • pare_vision         - PARE 3D human body estimation"
+    echo "  • vitpose_vision      - ViTPose estimation"
+    echo "  • psa_vision          - PSA pose estimation"
+    echo "  • rsn_vision          - RSN pose estimation"
+    echo "  • me_graphau_vision   - ME-GraphAU micro-expression"
+    echo "  • dan_vision          - DAN emotion recognition"
+    echo ""
+    echo "Total: 31 feature extractors available"
 }
 
 # Function to show help
@@ -104,22 +162,30 @@ Setup Options:
 Pipeline Options:
   -d, --data-dir DIR    Directory with video/audio files (default: ./data)
   -o, --output-dir DIR  Output directory (default: ./output/YYYYMMDD_HHMMSS)
-  -f, --features LIST   Comma-separated features to extract
-                        Available: basic_audio,librosa_spectral,opensmile,
-                                  speech_emotion,heinsen_sentiment,speech_separation,
-                                  whisperx_transcription,deberta_text,simcse_text,
-                                  albert_text,sbert_text,use_text
+  -f, --features LIST   Comma-separated features to extract (default: all)
   --list-features       List available features and exit
   --is-audio            Process files as audio instead of video
   --log-file FILE       Path to log file (default: <output_dir>/pipeline.log)
   -h, --help            Show this help message
 
+Available Features (31 total):
+  Audio: basic_audio, librosa_spectral, opensmile, audiostretchy
+  Speech: speech_emotion, heinsen_sentiment, meld_emotion, speech_separation
+  Text: whisperx_transcription, deberta_text, simcse_text, albert_text, sbert_text, use_text
+  Vision: emotieffnet_vision, mediapipe_pose_vision, deep_hrnet_vision, simple_baselines_vision,
+          pyfeat_vision, ganimation_vision, arbex_vision, openpose_vision, instadm_vision,
+          optical_flow_vision, crowdflow_vision, videofinder_vision, smoothnet_vision,
+          lanegcn_vision, pare_vision, vitpose_vision, psa_vision, rsn_vision,
+          me_graphau_vision, dan_vision
+
 Examples:
   ./run_all.sh --setup                    # Set up the environment
-  ./run_all.sh                           # Run with default settings
+  ./run_all.sh                           # Run with all features
   ./run_all.sh --check-deps               # Check dependencies
+  ./run_all.sh --list-features            # Show detailed feature list
   ./run_all.sh --data-dir /path/to/videos # Process specific directory
   ./run_all.sh --features basic_audio,speech_emotion  # Extract specific features
+  ./run_all.sh --features lanegcn_vision,pyfeat_vision # Vision features only
 
 EOF
 }
@@ -127,6 +193,7 @@ EOF
 # Parse command line arguments
 SETUP_MODE=""
 CHECK_DEPS=false
+LIST_FEATURES=false
 PIPELINE_ARGS=()
 
 while [[ $# -gt 0 ]]; do
@@ -141,6 +208,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --check-deps)
             CHECK_DEPS=true
+            shift
+            ;;
+        --list-features)
+            LIST_FEATURES=true
             shift
             ;;
         -h|--help)
@@ -174,6 +245,12 @@ main() {
         fi
     fi
     
+    # Handle list features
+    if [ "$LIST_FEATURES" = true ]; then
+        list_features
+        exit 0
+    fi
+    
     # Check dependencies before running pipeline
     if ! check_dependencies; then
         print_error "Dependencies check failed!"
@@ -182,7 +259,7 @@ main() {
     fi
     
     # Make sure the script is executable
-    chmod +x run_pipeline.py
+    chmod +x run_pipeline.py 2>/dev/null || true
     
     # Execute the pipeline
     print_status "Running multimodal data pipeline..."

@@ -97,8 +97,7 @@ The pipeline currently supports the following feature extractors across multiple
 ### Text Analysis (Universal Sentence Encoder)
 - Text classification, semantic similarity, and semantic clustering
 - Features with `USE_*` prefix for embedding and semantic analysis:
-  - **Fixed-Length Embeddings**: 512-dimensional vectors for any input text length
-  - **Sentence Embeddings**: Individual embeddings for each sentence (USE_embed_sentence1, USE_embed_sentence2, etc.)
+  - **Fixed-Length Embeddings**: 512-dimensional vectors for any input text length  - **Sentence Embeddings**: Individual embeddings for each sentence (USE_embed_sentence1, USE_embed_sentence2, etc.)
   - **Semantic Similarity**: Cosine similarity metrics between sentences
   - **Clustering Metrics**: Centroid distance, spread variance, and pairwise distances
 - Utilizes Google's Universal Sentence Encoder from TensorFlow Hub
@@ -117,7 +116,122 @@ The pipeline currently supports the following feature extractors across multiple
 - Automatically processes transcribed text from WhisperX with speaker diarization
 - Returns 17 comprehensive features for social interaction emotion analysis
 
-### Computer Vision (PARE)
+### Computer Vision
+
+#### EmotiEffNet (Real-time Video Emotion Analysis and AU Detection)
+- Frame-level prediction of facial expressions, valence, arousal, and action units optimized for mobile devices
+- Features with `eln_*` prefix for comprehensive emotion and facial analysis:
+  - **Arousal and Valence**: `eln_arousal`, `eln_valence` - continuous emotion dimensions
+  - **Action Units (12)**: `eln_AU1`, `eln_AU2`, `eln_AU4`, `eln_AU6`, `eln_AU7`, `eln_AU10`, `eln_AU12`, `eln_AU15`, `eln_AU23`, `eln_AU24`, `eln_AU25`, `eln_AU26`
+  - **Emotion F1 Scores (8)**: `eln_neutral_f1`, `eln_anger_f1`, `eln_disgust_f1`, `eln_fear_f1`, `eln_happiness_f1`, `eln_sadness_f1`, `eln_surprise_f1`, `eln_other_f1`
+- Based on EmotiEffLib/AffectNet model for mobile device optimization
+- Provides real-time emotion analysis with low computational overhead
+- Returns 22 features covering valence-arousal space, facial action units, and emotion classifications
+
+#### Google MediaPipe (Pose Estimation and Tracking)
+- Real-time pose landmark detection with 33 body landmarks for comprehensive pose analysis
+- Features with `GMP_*` prefix for pose estimation and tracking:
+  - **Normalized Landmarks (33×5=165)**: `GMP_land_x_1` to `GMP_land_x_33`, `GMP_land_y_1` to `GMP_land_y_33`, `GMP_land_z_1` to `GMP_land_z_33`, `GMP_land_visi_1` to `GMP_land_visi_33`, `GMP_land_presence_1` to `GMP_land_presence_33`
+  - **World Coordinates (33×5=165)**: `GMP_world_x_1` to `GMP_world_x_33`, `GMP_world_y_1` to `GMP_world_y_33`, `GMP_world_z_1` to `GMP_world_z_33`, `GMP_world_visi_1` to `GMP_world_visi_33`, `GMP_world_presence_1` to `GMP_world_presence_33`
+  - **Pose Visualization**: `GMP_SM_pic` - Base64 encoded image with pose landmarks drawn
+  - **Statistics**: Detection rate, landmarks per frame, and processing metrics
+- Based on Google MediaPipe pose solution optimized for real-time performance
+- Provides both normalized coordinates (0-1 range) and world coordinates (in meters)
+- Covers full body landmarks: face, arms, torso, and legs with visibility scores
+- Returns 330+ features including all landmark coordinates, visibility scores, and pose visualization
+
+#### Deep HRNet (High-Resolution Pose Estimation)
+- High-precision pose estimation using Deep High-Resolution Representation Learning
+- Features with `DHiR_*` prefix for detailed body part accuracy and performance metrics:
+  - **Body Part Accuracy**: `DHiR_Head`, `DHiR_Shoulder`, `DHiR_Elbow`, `DHiR_Wrist`, `DHiR_Hip`, `DHiR_Knee`, `DHiR_Ankle`
+  - **Overall Accuracy**: `DHiR_Mean` (average across all body parts), `DHiR_Meanat0.1` (mean for parts with >0.1 confidence)
+  - **Average Precision (AP)**: `DHiR_AP` (overall), `DHiR_AP_5` (IoU=0.5), `DHiR_AP_75` (IoU=0.75), `DHiR_AP_M` (medium), `DHiR_AP_L` (large)
+  - **Average Recall (AR)**: `DHiR_AR` (overall), `DHiR_AR_5` (IoU=0.5), `DHiR_AR_75` (IoU=0.75), `DHiR_AR_M` (medium), `DHiR_AR_L` (large)
+  - **Statistics**: Detection rate, keypoints per frame, and processing metrics
+- Based on Deep High-Resolution Representation Learning for Human Pose Estimation
+- Maintains high-resolution representations throughout the network for superior pose accuracy
+- Provides COCO-style evaluation metrics (AP/AR) for research-grade pose analysis
+- Returns 19 comprehensive features focusing on accuracy and precision metrics
+
+#### Simple Baselines (Human Pose Estimation and Tracking)
+- Effective baseline approach for human pose estimation using simple yet powerful architectures
+- Features with `SBH_*` prefix for body part accuracy and performance tracking metrics:
+  - **Body Part Accuracy**: `SBH_Head`, `SBH_Shoulder`, `SBH_Elbow`, `SBH_Wrist`, `SBH_Hip`, `SBH_Knee`, `SBH_Ankle`
+  - **Overall Accuracy**: `SBH_Mean` (average across all body parts), `SBH_Meanat0.1` (mean for parts with >0.1 confidence)
+  - **Average Precision (AP)**: `SBH_AP` (overall), `SBH_AP_5` (IoU=0.5), `SBH_AP_75` (IoU=0.75), `SBH_AP_M` (medium), `SBH_AP_L` (large)
+  - **Average Recall (AR)**: `SBH_AR` (overall), `SBH_AR_5` (IoU=0.5), `SBH_AR_75` (IoU=0.75), `SBH_AR_M` (medium), `SBH_AR_L` (large)
+  - **Statistics**: Detection rate, keypoints per frame, and processing metrics
+- Based on Simple Baselines for Human Pose Estimation and Tracking
+- Uses ResNet backbone with deconvolution layers for pose heatmap generation
+- Provides reliable pose tracking with simplified architecture for practical applications
+- Returns 19 comprehensive features optimized for both accuracy and computational efficiency
+
+#### Py-Feat (Facial Expression Analysis)
+- Comprehensive facial expression analysis including action units, emotions, and face geometry
+- Features with `pf_*` prefix for complete facial behavior analysis:
+  - **Action Units (20 AUs)**: `pf_au01` to `pf_au43` (intensity scores for facial muscle movements)
+    - Upper face: Inner/Outer Brow Raiser, Brow Lowerer, Upper Lid Raiser, Cheek Raiser, Lid Tightener, Eyes Closed
+    - Lower face: Nose Wrinkler, Upper Lip Raiser, Lip Corner Puller (smile), Jaw Drop, Lip movements, etc.
+  - **Emotion Classification (7 emotions)**: `pf_anger`, `pf_disgust`, `pf_fear`, `pf_happiness`, `pf_sadness`, `pf_surprise`, `pf_neutral`
+  - **Face Detection**: `pf_facerectx`, `pf_facerecty`, `pf_facerectwidth`, `pf_facerectheight`, `pf_facescore`
+  - **Head Pose**: `pf_pitch`, `pf_roll`, `pf_yaw` (head rotation angles in degrees)
+  - **3D Position**: `pf_x`, `pf_y`, `pf_z` (face center coordinates and depth)
+  - **Statistics**: Detection rates, face size metrics, and confidence scores
+- Based on Py-Feat: Python Facial Expression Analysis Toolbox
+- Combines multiple computer vision models for comprehensive facial behavior understanding
+- Supports both research-grade FACS (Facial Action Coding System) analysis and real-time applications
+- Returns 37 comprehensive features covering all aspects of facial expression and geometry
+
+#### GANimation (Continuous Manifold for Anatomical Facial Movements)
+- Continuous manifold representation for anatomical facial movements using Action Units (AUs)
+- Features with `GAN_*` prefix for discrete AU intensity estimation:
+  - **Action Unit Intensities at 4 levels (17 AUs × 4 levels = 68 features)**:
+    - **Level 0 (minimal)**: `GAN_AU1_0`, `GAN_AU2_0`, ..., `GAN_AU45_0` (baseline/neutral expressions)
+    - **Level 33 (low)**: `GAN_AU1_33`, `GAN_AU2_33`, ..., `GAN_AU45_33` (subtle movements)
+    - **Level 66 (medium)**: `GAN_AU1_66`, `GAN_AU2_66`, ..., `GAN_AU45_66` (moderate expressions)
+    - **Level 99 (high)**: `GAN_AU1_99`, `GAN_AU2_99`, ..., `GAN_AU45_99` (intense expressions)
+  - **Covered Action Units**: AU1 (Inner Brow Raiser), AU2 (Outer Brow Raiser), AU4 (Brow Lowerer), AU5 (Upper Lid Raiser), AU6 (Cheek Raiser), AU7 (Lid Tightener), AU9 (Nose Wrinkler), AU10 (Upper Lip Raiser), AU12 (Lip Corner Puller), AU14 (Dimpler), AU15 (Lip Corner Depressor), AU17 (Chin Raiser), AU20 (Lip Stretcher), AU23 (Lip Tightener), AU25 (Lips Part), AU26 (Jaw Drop), AU45 (Blink)
+  - **Summary Statistics**: `GAN_face_detected`, `GAN_total_au_activations`, `GAN_avg_au_intensity`, face detection rates, and processing metrics
+  - **Visualization**: `GAN_SM_pic` - Base64 encoded image with detected face and active AUs
+- Based on GANimation: Anatomy-aware Facial Animation from a Single Image
+- Provides continuous manifold representation of facial movements at discrete intensity levels
+- Enables precise control over anatomical facial movements for animation and analysis
+- Returns 68+ features covering all major facial action units with intensity-based quantization
+
+#### ARBEx (Attentive Feature Extraction with Reliability Balancing)
+- Robust facial expression learning with attentive feature extraction and reliability balancing
+- Features with `arbex_*` prefix for emotional indices extraction via different feature levels:
+  - **Primary Emotion Classification**: `arbex_primary` - initial emotion recognition result
+  - **Final Emotion Classification**: `arbex_final` - emotion after reliability balancing
+  - **Emotion Categories**: Supports 8 emotions (Neutral, Anger, Disgust, Fear, Happiness, Sadness, Surprise, Others)
+  - **Primary Level Probabilities**: `arbex_primary_neutral`, `arbex_primary_anger`, `arbex_primary_disgust`, `arbex_primary_fear`, `arbex_primary_happiness`, `arbex_primary_sadness`, `arbex_primary_surprise`, `arbex_primary_others`
+  - **Final Level Probabilities**: `arbex_final_neutral`, `arbex_final_anger`, `arbex_final_disgust`, `arbex_final_fear`, `arbex_final_happiness`, `arbex_final_sadness`, `arbex_final_surprise`, `arbex_final_others`
+  - **Confidence Scores**: `arbex_confidence_primary`, `arbex_confidence_final` - classification confidence
+  - **Reliability Score**: `arbex_reliability_score` - feature consistency measure for reliability balancing
+  - **Detection Statistics**: Face detection rate, processing metrics, and visualization
+  - **Visualization**: `arbex_SM_pic` - Base64 encoded image with detected emotions and confidence scores
+- Based on ARBEx: Attentive Feature Extraction with Reliability Balancing for Robust Facial Expression Learning
+- Uses multi-level feature extraction (statistical, regional, texture) with attention mechanisms
+- Applies reliability balancing to improve classification robustness in challenging conditions
+- Returns 20+ features including primary/final classifications, probabilities, and confidence metrics
+
+#### OpenPose (Real-time Multi-Person Keypoint Detection)
+- Real-time multi-person pose estimation and tracking with 2D pose keypoints
+- Features with `openPose_*` prefix for comprehensive pose analysis and tracking:
+  - **Keypoint Coordinates**: Individual x,y coordinates for 18 body keypoints (nose, neck, shoulders, elbows, wrists, hips, knees, ankles, eyes, ears)
+  - **Keypoint Confidence**: Confidence scores for each detected keypoint
+  - **Pose Angles**: Joint angles for arms, legs, and torso alignment
+  - **Body Measurements**: Shoulder width, hip width, body height estimates
+  - **Detection Statistics**: `openPose_total_frames`, `openPose_pose_detected_frames`, `openPose_detection_rate`
+  - **Multi-Person Support**: `openPose_max_persons_detected`, average keypoints per frame
+  - **Output Media**: `openPose_pose_video_path` (annotated video), `openPose_pose_gif_path` (summary GIF)
+  - **Visualization**: `openPose_SM_pic` - Base64 encoded sample frame with pose skeleton overlay
+- Based on CMU's OpenPose: Real-time multi-person keypoint detection library
+- Provides skeleton visualization with connections between body joints
+- Supports pose tracking across video frames with temporal consistency
+- Returns 50+ features including all keypoint coordinates, angles, measurements, and detection statistics
+
+#### PARE (3D Human Body Estimation)
 - 3D human body estimation and pose analysis from video frames
 - Features with `PARE_*` prefix for comprehensive body and pose analysis:
   - **Camera Parameters**: Predicted and original camera parameters (`PARE_pred_cam`, `PARE_orig_cam`)
@@ -130,12 +244,190 @@ The pipeline currently supports the following feature extractors across multiple
 - Processes video files directly for frame-by-frame human pose estimation
 - Returns 25+ features including SMPL model parameters, 3D mesh vertices, and joint positions
 
+#### ViTPose (Vision Transformer Pose Estimation)
+- Human pose estimation using Vision Transformers
+- Features with `vit_*` prefix for pose estimation performance metrics:
+  - **vit_AR**: Average Recall - measures keypoint detection completeness
+  - **vit_AP**: Average Precision - measures keypoint detection accuracy
+  - **vit_AU**: Average Uncertainty - measures prediction confidence
+  - **vit_mean**: Overall mean performance metric combining precision, recall, and uncertainty
+- Based on ViTPose: Simple Vision Transformer Baselines for Human Pose Estimation
+- Returns 4 core performance metrics for robust pose estimation analysis
+
+#### PSA (Polarized Self-Attention)
+- Keypoint heatmap estimation and segmentation mask prediction
+- Features with `psa_*` prefix for computer vision analysis:
+  - **psa_AP**: Average Precision for keypoint detection/segmentation
+  - **psa_val_mloU**: Validation mean Intersection over Union for segmentation
+- Based on Polarized Self-Attention with enhanced self-attention mechanisms
+- Uses polarized filtering for improved feature representation in computer vision tasks
+- Returns 2 core metrics for keypoint and segmentation analysis
+
+#### RSN (Residual Steps Network)
+- Keypoint localization and human pose estimation with progressive refinement
+- Features with `rsn_*` prefix for keypoint localization analysis:
+  - **rsn_gflops**: Computational complexity in GFLOPS
+  - **rsn_ap**: Average Precision for keypoint detection
+  - **rsn_ap50**: AP at IoU=0.50
+  - **rsn_ap75**: AP at IoU=0.75
+  - **rsn_apm**: AP for medium objects
+  - **rsn_apl**: AP for large objects
+  - **rsn_ar_head**: Average Recall for head keypoints
+  - **Body part accuracy**: `rsn_shoulder`, `rsn_elbow`, `rsn_wrist`, `rsn_hip`, `rsn_knee`, `rsn_ankle`
+  - **rsn_mean**: Overall mean performance metric
+- Based on Residual Steps Network for multi-stage pose estimation
+- Uses residual steps to progressively refine keypoint predictions
+- Returns 14 comprehensive metrics for keypoint localization performance
+
+#### ME-GraphAU (Multi-dimensional Edge Feature-based AU Relation Graph)
+- Facial action unit (AU) recognition using AU relation graphs
+- Features with `ann_*` prefix for facial action analysis:
+  - **BP4D dataset**: `ann_AU1_bp4d`, `ann_AU2_bp4d`, `ann_AU4_bp4d`, `ann_AU6_bp4d`, `ann_AU7_bp4d`, `ann_AU10_bp4d`, `ann_AU12_bp4d`, `ann_AU14_bp4d`, `ann_AU15_bp4d`, `ann_AU17_bp4d`, `ann_AU23_bp4d`, `ann_AU24_bp4d`, `ann_avg_bp4d`
+  - **DISFA dataset**: `ann_AU1_dis`, `ann_AU2_dis`, `ann_AU4_dis`, `ann_AU6_dis`, `ann_AU9_dis`, `ann_AU12_dis`, `ann_AU25_dis`, `ann_AU26_dis`, `ann_avg_dis`
+- Based on Learning Multi-dimensional Edge Feature-based AU Relation Graph
+- Uses graph neural networks to model relationships between facial action units
+- Returns 21 metrics covering multiple AU recognition benchmarks
+
+#### DAN (Distract Your Attention)
+- Emotional expression recognition using multi-head cross attention networks
+- Features with `dan_*` prefix for emotion classification:
+  - **Individual emotions**: `dan_angry`, `dan_disgust`, `dan_fear`, `dan_happy`, `dan_neutral`, `dan_sad`, `dan_surprise`
+  - **dan_emotion_scores**: Array of all emotion probabilities for comprehensive analysis
+- Based on DAN: Distract Your Attention: Multi-head Cross Attention Network
+- Uses attention mechanisms to focus on relevant facial regions for emotion classification
+- Supports both 7-class (excludes contempt) and 8-class (includes contempt) emotion models
+- Returns 8 features including individual emotion scores and combined probability array
+
+#### Insta-DM (Dense Motion Estimation and Depth in Dynamic Scenes)
+- Instance-aware dynamic monocular depth estimation with motion analysis and interaction pattern recognition
+- Features with `indm_*` prefix for comprehensive depth and motion analysis:
+  - **Depth Estimation Errors**: `indm_abs_rel` (absolute relative error), `indm_sq_rel` (squared relative error)
+  - **Depth Accuracy Metrics**: `indm_rmse` (root mean square error), `indm_rmse_log` (logarithmic RMSE)
+  - **Accuracy Thresholds**: `indm_acc_1`, `indm_acc_2`, `indm_acc_3` (δ < 1.25, 1.25², 1.25³)
+  - **Motion Analysis**: Dense optical flow estimation, object interaction patterns
+  - **Dynamic Scene Analysis**: Temporal consistency, depth-motion relationships
+  - **Frame Statistics**: `total_frames`, `depth_estimated_frames`, `motion_detected_frames`
+- Based on Insta-DM: Instance-aware Dynamic Module for Monocular Depth Estimation
+- Provides dense monocular depth estimation optimized for dynamic scenes with moving objects
+- Integrates motion estimation with depth prediction for comprehensive scene understanding
+- Returns 10+ features covering depth accuracy, motion analysis, and temporal consistency metrics
+
+#### Optical Flow (Movement and Estimation of Motion)
+- Sparse and dense optical flow analysis for movement and motion estimation
+- Features include the core output columns specified:
+  - **sparse_flow_vis_.png**: Visualization of sparse flow with arrows showing point trajectories (Base64 encoded PNG)
+  - **sparse_points.npy**: Tracked feature points data as numpy array (Base64 encoded)
+  - **dense_flow.npy**: Per-pixel motion vectors for complete motion field analysis (Base64 encoded)
+  - **dense_flow_vis_.png**: Color-coded dense flow visualization image (Base64 encoded PNG)
+  - **Motion Metrics**: `avg_motion_magnitude`, `max_motion_magnitude`, `total_displacement`
+  - **Direction Analysis**: `dominant_motion_direction`, `motion_consistency`
+  - **Detection Statistics**: `motion_detected_frames`, `motion_detection_rate`
+- Based on Lucas-Kanade sparse optical flow and Farneback dense optical flow algorithms
+- Provides both sparse point tracking and dense per-pixel motion estimation
+- Visualizations show motion as arrows (sparse) and color-coded flow fields (dense)
+- By default displays motion visualizations; saving requires additional code integration
+- Returns comprehensive motion analysis including flow visualizations and quantitative metrics
+
+#### CrowdFlow (Optical Flow Fields, Person Trajectories, Tracking Accuracy)
+- Advanced optical flow analysis for visual crowd analysis with foreground/background separation
+- Features with `of_*` prefix for comprehensive crowd behavior analysis:
+  - **Short-term Flow Metrics**: `of_fg_static_epe_st`, `of_fg_dynamic_epe_st`, `of_bg_static_epe_st`, `of_bg_dynamic_epe_st` (End Point Error for foreground/background, static/dynamic regions)
+  - **Correlation Metrics**: `of_fg_static_r2_st`, `of_fg_dynamic_r2_st`, `of_bg_static_r2_st`, `of_bg_dynamic_r2_st` (R² correlation coefficients)
+  - **Average Metrics**: `of_fg_avg_epe_st`, `of_fg_avg_r2_st`, `of_bg_avg_epe_st`, `of_bg_avg_r2_st`, `of_avg_epe_st`, `of_avg_r2_st`
+  - **Tracking Accuracy**: `of_ta_IM01` to `of_ta_IM05` with dynamic variants (`of_ta_IM01_Dyn` to `of_ta_IM05_Dyn`) using 5 interpolation methods
+  - **Person Trajectories**: `of_pt_IM01` to `of_pt_IM05` with dynamic variants (`of_pt_IM01_Dyn` to `of_pt_IM05_Dyn`) for trajectory analysis
+  - **Summary Statistics**: `of_ta_average`, `of_pt_average`, `of_time_length_st`
+- Based on CrowdFlow: Optical Flow Dataset and Benchmark for Visual Crowd Analysis
+- Provides foreground/background separation for crowd scenes with moving objects
+- Implements 5 different interpolation methods for robust tracking accuracy assessment
+- Returns 37 comprehensive features covering short-term flow, long-term tracking, and person trajectory analysis
+
+#### VideoFinder (Object and People Localization)
+- Object and people detection and localization with consistency and match analysis
+- Features with `ViF_*` prefix for comprehensive object tracking and matching:
+  - **Consistency Metrics**: `ViF_consistency_1`, `ViF_consistency_2`, `ViF_consistency_3`, etc. (format: "N/10" indicating consistency score)
+  - **Match Analysis**: `ViF_match_1`, `ViF_match_2`, `ViF_match_3`, etc. (values: "Yes"/"No" indicating object correspondence between frames)
+  - **Detection Summary**: `total_frames`, `objects_detected_frames`, `people_detected_frames`, `detection_rate`
+  - **Average Statistics**: `avg_objects_per_frame`, `avg_people_per_frame`, `total_detected_objects`, `total_detected_people`
+- Based on VideoFinder with Llama3.2-vision and Ollama integration
+- Provides frame-by-frame object and people localization with temporal consistency tracking
+- Analyzes object correspondence and matching across consecutive video frames
+- Returns consistency scores and match analysis for robust object tracking evaluation
+
+#### SmoothNet (Temporally Consistent Pose Estimation)
+- Temporally consistent 3D and 2D human pose estimation with neural network-based smoothing
+- Features with `net_*` prefix for comprehensive pose estimation and temporal analysis:
+  - **3D Pose Estimation**: `net_3d_estimator`, `net_3d_MPJPE_input_ad`, `net_3d_MPJPE_output_ad`, `net_3d_Accel_input_ad`, `net_3d_Accel_output_ad`
+  - **2D Pose Estimation**: `net_2d_estimator`, `net_2d_MPJPE_input_ad`, `net_2d_MPJPE_output_ad`, `net_2d_Accel_input_ad`, `net_2d_Accel_output_ad`
+  - **SMPL Body Model**: `net_SMPL_estimator`, `net_SMPL_MPJPE_input_ad`, `net_SMPL_MPJPE_output_ad`, `net_SMPL_Accel_input_ad`, `net_SMPL_Accel_output_ad`
+  - **Temporal Consistency**: `net_temporal_consistency`, `net_smoothness_score`, `net_motion_coherence`
+  - **Quality Metrics**: `net_joint_confidence`, `net_pose_stability`, `net_tracking_accuracy`, `net_keypoint_variance`
+- Based on SmoothNet for neural network-based pose sequence smoothing
+- Provides multi-frame pose sequence modeling with temporal coherence
+- Integrates 3D pose estimation, 2D pose refinement, and SMPL body model fitting
+- Returns comprehensive pose quality metrics and temporal consistency analysis
+
+#### LaneGCN (Autonomous Driving Motion Forecasting)
+- Learning lane graph representations for motion forecasting in autonomous driving scenarios
+- Features with `GCN_*` prefix for autonomous driving motion prediction and trajectory analysis:
+  - **K=1 Prediction Metrics**: `GCN_min_ade_k1` (minimum Average Displacement Error), `GCN_min_fde_k1` (minimum Final Displacement Error), `GCN_MR_k1` (Miss Rate)
+  - **K=6 Prediction Metrics**: `GCN_min_ade_k6` (minimum Average Displacement Error), `GCN_min_fde_k6` (minimum Final Displacement Error), `GCN_MR_k6` (Miss Rate)
+  - **Trajectory Quality**: Multi-modal trajectory prediction with graph convolution networks
+  - **Lane Graph Analysis**: Road topology understanding and vehicle interaction modeling
+- Based on LaneGCN: Learning Lane Graph Representations for Motion Forecasting
+- Provides quantitative results for both single-mode (K=1) and multi-mode (K=6) trajectory predictions
+- Integrates lane graph representation learning with actor-lane and lane-lane interactions
+- Returns 6 comprehensive metrics for autonomous driving motion forecasting evaluation
+- GitHub: https://github.com/uber-research/LaneGCN
+
 ## Installation
 
 ### Prerequisites
 - Python 3.12
 - Poetry
 - Git
+- FFmpeg (for video/audio processing)
+
+### FFmpeg Installation
+
+FFmpeg is required for video and audio processing. Install it before running the setup:
+
+**Linux (Ubuntu/Debian):**
+```bash
+sudo apt update
+sudo apt install ffmpeg
+```
+
+**Linux (CentOS/RHEL/Fedora):**
+```bash
+# CentOS/RHEL
+sudo yum install ffmpeg
+# or Fedora
+sudo dnf install ffmpeg
+```
+
+**macOS:**
+```bash
+# Using Homebrew
+brew install ffmpeg
+```
+
+**Windows:**
+1. Download FFmpeg from https://ffmpeg.org/download.html
+2. Extract to a folder (e.g., `C:\ffmpeg`)
+3. Add `C:\ffmpeg\bin` to your system PATH
+4. Or use Chocolatey: `choco install ffmpeg`
+
+**WSL (Windows Subsystem for Linux):**
+```bash
+sudo apt update
+sudo apt install ffmpeg
+```
+
+Verify installation:
+```bash
+ffmpeg -version
+```
 
 ### HuggingFace Setup (Required)
 
@@ -164,18 +456,45 @@ This pipeline uses several HuggingFace models for speech processing. You'll need
    cd multimodal-data-pipeline
    ```
 
-2. Run the setup script to create the environment and install dependencies:
+2. **For WSL/Linux users**: If you encounter script execution issues, fix line endings:
+   ```bash
+   dos2unix run_all.sh
+   chmod +x run_all.sh
    ```
+
+3. Run the setup script to create the environment and install dependencies:
+
+   **Linux/macOS/WSL:**
+   ```bash
    chmod +x run_all.sh
    ./run_all.sh --setup
    ```
-   This will automatically install ffmpeg and all other required dependencies via Poetry.
 
-3. Set up HuggingFace authentication (required for speaker diarization):
+   **Windows (Native PowerShell):**
+   ```powershell
+   .\run_all.ps1 -Setup
+   ```
+
+   **Important**: Use the correct script for your environment:
+   - In WSL/Linux/macOS: Use `./run_all.sh`
+   - In Windows PowerShell: Use `.\run_all.ps1`
+
+   This will automatically install all required dependencies via Poetry.
+
+4. Set up HuggingFace authentication (required for speaker diarization):
+   
+   **Linux/macOS:**
    ```bash
    # Create a .env file with your HuggingFace token
    echo "HF_TOKEN=your_huggingface_token_here" > .env
    ```
+   
+   **Windows (PowerShell):**
+   ```powershell
+   # Create a .env file with your HuggingFace token
+   "HF_TOKEN=your_huggingface_token_here" | Out-File -FilePath .env -Encoding utf8
+   ```
+   
    Get your token from https://huggingface.co/settings/tokens and make sure you've accepted the required model licenses (see Prerequisites section above).
 
 This will:
@@ -190,6 +509,7 @@ This will:
 
 The easiest way to use the pipeline is through the unified run script:
 
+**Linux/macOS/WSL:**
 ```bash
 # Using the unified script (recommended)
 ./run_all.sh
@@ -198,10 +518,25 @@ The easiest way to use the pipeline is through the unified run script:
 poetry run python run_pipeline.py
 ```
 
+**Windows (Native PowerShell):**
+```powershell
+# Using the unified script (recommended)
+.\run_all.ps1
+
+# Or using Poetry directly
+poetry run python run_pipeline.py
+```
+
+**Important**: 
+- Use `./run_all.sh` in bash/WSL/Linux/macOS
+- Use `.\run_all.ps1` in Windows PowerShell only
+- Do not try to run `.ps1` files in bash or `.sh` files in PowerShell
+
 This will process all video files in the `data/` directory and output results to `output/`.
 
 #### Options
 
+**Linux/macOS:**
 ```
 Usage: ./run_all.sh [options]
 
@@ -214,7 +549,7 @@ Options:
   -f, --features LIST   Comma-separated features to extract
                         Available: basic_audio,librosa_spectral,opensmile,
                                   speech_emotion,heinsen_sentiment,speech_separation,
-                                  whisperx_transcription,deberta_text,simcse_text,
+                                  whisper_transcription,deberta_text,simcse_text,
                                   albert_text,sbert_text,use_text,meld_emotion,
                                   pare_vision
   --list-features       List available features and exit
@@ -223,56 +558,232 @@ Options:
   -h, --help            Show this help message
 ```
 
+**Windows (PowerShell):**
+```
+Usage: .\run_all.ps1 [options]
+
+Options:
+  -Setup                Run full environment setup
+  -SetupQuick           Run quick setup (skip optional packages)  
+  -CheckDeps            Check if dependencies are installed
+  -DataDir DIR          Directory with video/audio files (default: .\data)
+  -OutputDir DIR        Output directory (default: .\output\YYYYMMDD_HHMMSS)
+  -Features LIST        Comma-separated features to extract
+                        Available: basic_audio,librosa_spectral,opensmile,
+                                  speech_emotion,heinsen_sentiment,speech_separation,
+                                  whisper_transcription,deberta_text,simcse_text,
+                                  albert_text,sbert_text,use_text,meld_emotion,
+                                  pare_vision
+  -ListFeatures         List available features and exit
+  -IsAudio              Process files as audio instead of video
+  -LogFile FILE         Path to log file (default: <output_dir>\pipeline.log)
+  -Help                 Show this help message
+```
+
 #### Examples
 
 Process all videos with all features:
+
+**Linux/macOS:**
 ```bash
 ./run_all.sh
 ```
 
+**Windows (PowerShell):**
+```powershell
+.\run_all.ps1
+```
+
 Process videos in a specific directory:
+
+**Linux/macOS:**
 ```bash
 ./run_all.sh --data-dir /path/to/videos
 ```
 
+**Windows (PowerShell):**
+```powershell
+.\run_all.ps1 -DataDir "C:\path\to\videos"
+```
+
 Only extract basic audio and speech emotion features:
+
+**Linux/macOS:**
 ```bash
 ./run_all.sh --features basic_audio,speech_emotion
 ```
 
+**Windows (PowerShell):**
+```powershell
+.\run_all.ps1 -Features "basic_audio,speech_emotion"
+```
+
 Extract text analysis along with audio features:
+
+**Linux/macOS:**
 ```bash
 ./run_all.sh --features basic_audio,whisperx_transcription,deberta_text
 ```
 
+**Windows (PowerShell):**
+```powershell
+.\run_all.ps1 -Features "basic_audio,whisperx_transcription,deberta_text"
+```
+
 Extract MELD emotion recognition with transcription:
+
+**Linux/macOS:**
 ```bash
 ./run_all.sh --features whisperx_transcription,meld_emotion
 ```
 
+**Windows (PowerShell):**
+```powershell
+.\run_all.ps1 -Features "whisperx_transcription,meld_emotion"
+```
+
 Extract comprehensive multimodal analysis:
+
+**Linux/macOS:**
 ```bash
 ./run_all.sh --features basic_audio,whisperx_transcription,meld_emotion,deberta_text,simcse_text
 ```
 
+**Windows (PowerShell):**
+```powershell
+.\run_all.ps1 -Features "basic_audio,whisperx_transcription,meld_emotion,deberta_text,simcse_text"
+```
+
 Extract vision features for 3D human pose analysis:
+
+**Linux/macOS:**
 ```bash
 ./run_all.sh --features pare_vision
 ```
 
-Extract complete multimodal features (audio, text, and vision):
+**Windows (PowerShell):**
+```powershell
+.\run_all.ps1 -Features "pare_vision"
+```
+
+Extract MediaPipe pose estimation and tracking:
+
+**Linux/macOS:**
 ```bash
-./run_all.sh --features basic_audio,whisperx_transcription,meld_emotion,pare_vision
+./run_all.sh --features mediapipe_pose_vision
+```
+
+**Windows (PowerShell):**
+```powershell
+.\run_all.ps1 -Features "mediapipe_pose_vision"
+```
+
+Extract Deep HRNet high-resolution pose estimation:
+
+**Linux/macOS:**
+```bash
+./run_all.sh --features deep_hrnet_vision
+```
+
+**Windows (PowerShell):**
+```powershell
+.\run_all.ps1 -Features "deep_hrnet_vision"
+```
+
+Extract Simple Baselines pose estimation and tracking:
+
+**Linux/macOS:**
+```bash
+./run_all.sh --features simple_baselines_vision
+```
+
+**Windows (PowerShell):**
+```powershell
+.\run_all.ps1 -Features "simple_baselines_vision"
+```
+
+Extract Py-Feat facial expression analysis:
+
+**Linux/macOS:**
+```bash
+./run_all.sh --features pyfeat_vision
+```
+
+**Windows (PowerShell):**
+```powershell
+.\run_all.ps1 -Features "pyfeat_vision"
+```
+
+Extract ViTPose features for pose estimation:
+
+**Linux/macOS:**
+```bash
+./run_all.sh --features vitpose_vision
+```
+
+**Windows (PowerShell):**
+```powershell
+.\run_all.ps1 -Features "vitpose_vision"
+```
+
+Extract PSA features for keypoint heatmaps and segmentation:
+
+**Linux/macOS:**
+```bash
+./run_all.sh --features psa_vision
+```
+
+**Windows (PowerShell):**
+```powershell
+.\run_all.ps1 -Features "psa_vision"
+```
+
+Extract all vision features:
+
+**Linux/macOS:**
+```bash
+./run_all.sh --features pare_vision,mediapipe_pose_vision,deep_hrnet_vision,simple_baselines_vision,pyfeat_vision,vitpose_vision,rsn_vision,me_graphau_vision,dan_vision,psa_vision
+```
+
+**Windows (PowerShell):**
+```powershell
+.\run_all.ps1 -Features "pare_vision,mediapipe_pose_vision,deep_hrnet_vision,simple_baselines_vision,pyfeat_vision,vitpose_vision,rsn_vision,me_graphau_vision,dan_vision,psa_vision"
+```
+
+Extract complete multimodal features (audio, text, and vision):
+
+**Linux/macOS:**
+```bash
+./run_all.sh --features basic_audio,whisperx_transcription,meld_emotion,mediapipe_pose_vision,deep_hrnet_vision,simple_baselines_vision,pyfeat_vision,pare_vision,vitpose_vision,rsn_vision,me_graphau_vision,dan_vision,psa_vision
+```
+
+**Windows (PowerShell):**
+```powershell
+.\run_all.ps1 -Features "basic_audio,whisperx_transcription,meld_emotion,mediapipe_pose_vision,deep_hrnet_vision,simple_baselines_vision,pyfeat_vision,pare_vision,vitpose_vision,rsn_vision,me_graphau_vision,dan_vision,psa_vision"
 ```
 
 Check if all dependencies are properly installed:
+
+**Linux/macOS:**
 ```bash
 ./run_all.sh --check-deps
 ```
 
+**Windows (PowerShell):**
+```powershell
+.\run_all.ps1 -CheckDeps
+```
+
 Set up the environment:
+
+**Linux/macOS:**
 ```bash
 ./run_all.sh --setup
+```
+
+**Windows (PowerShell):**
+```powershell
+.\run_all.ps1 -Setup
 ```
 
 ### Programmatic Usage
@@ -329,6 +840,14 @@ pipeline = MultimodalPipeline(
 video_path = 'data/my_video.mp4'
 results = pipeline.process_video_file(video_path)
 
+# Process a video file with vision features (pose estimation and keypoint localization)
+vision_pipeline = MultimodalPipeline(
+    output_dir='output/vision_results',
+    features=['basic_audio', 'pare_vision', 'vitpose_vision', 'rsn_vision', 'me_graphau_vision', 'dan_vision'],
+    device='cpu'  # Use 'cuda' for better performance with vision models
+)
+vision_results = vision_pipeline.process_video_file(video_path)
+
 # Or process an audio file directly
 audio_path = 'data/my_audio.wav'
 results = pipeline.process_audio_file(audio_path)
@@ -368,6 +887,8 @@ Common error messages and solutions:
 ### Dependency Issues
 
 If you encounter import errors:
+
+**Linux/macOS:**
 ```bash
 # Check if all dependencies are installed
 ./run_all.sh --check-deps
@@ -375,6 +896,68 @@ If you encounter import errors:
 # Reinstall dependencies if needed
 ./run_all.sh --setup
 ```
+
+**Windows (PowerShell):**
+```powershell
+# Check if all dependencies are installed
+.\run_all.ps1 -CheckDeps
+
+# Reinstall dependencies if needed
+.\run_all.ps1 -Setup
+```
+
+### Line Ending Issues (WSL/Linux)
+
+If you encounter the error `/bin/bash^M: bad interpreter` when running bash scripts on WSL or Linux:
+
+```bash
+# Fix line endings for bash scripts
+dos2unix run_all.sh
+
+# Make scripts executable
+chmod +x run_all.sh
+```
+
+This happens when files are edited on Windows and have Windows line endings (`\r\n`) instead of Unix line endings (`\n`). The `dos2unix` command converts them to the correct format.
+
+### Script Compatibility Issues
+
+**Error**: `syntax error near unexpected token` when trying to run PowerShell scripts in bash
+
+**Solution**: Use the correct script for your environment:
+- **In WSL/Linux/macOS**: Use `./run_all.sh` (bash script)
+- **In Windows PowerShell**: Use `.\run_all.ps1` (PowerShell script)
+
+**Never mix**: Don't run `.ps1` files in bash or `.sh` files in PowerShell.
+
+### FFmpeg Issues
+
+**Error**: `ffmpeg is not installed or not in PATH`
+
+**Solution**: Install FFmpeg system binary (not just the Python package):
+
+**WSL/Linux:**
+```bash
+sudo apt update
+sudo apt install ffmpeg
+```
+
+**macOS:**
+```bash
+brew install ffmpeg
+```
+
+**Windows:**
+- Download from https://ffmpeg.org/download.html
+- Extract and add to PATH
+- Or use: `choco install ffmpeg`
+
+**Verify installation:**
+```bash
+ffmpeg -version
+```
+
+**Note**: The `ffmpeg` Python package is different from the FFmpeg system binary. You need both!
 
 ## Model Categories
 

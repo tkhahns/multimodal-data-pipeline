@@ -102,7 +102,7 @@ class MultimodalPipeline:
                 from src.emotion.meld_emotion_analyzer import MELDEmotionAnalyzer
                 self.extractors[feature_name] = MELDEmotionAnalyzer()
             elif feature_name == "speech_separation":
-                self.extractors[feature_name] = SpeechSeparator(device=self.device)
+                self.extractors[feature_name] = SpeechSeparator(device=self.device)            
             elif feature_name == "whisperx_transcription":
                 self.extractors[feature_name] = WhisperXTranscriber(device=self.device)
             elif feature_name == "deberta_text":
@@ -125,6 +125,9 @@ class MultimodalPipeline:
             elif feature_name == "vitpose_vision":
                 from src.vision.vitpose_analyzer import ViTPoseAnalyzer
                 self.extractors[feature_name] = ViTPoseAnalyzer(device=self.device)
+            elif feature_name == "psa_vision":
+                from src.vision.psa_analyzer import PSAAnalyzer
+                self.extractors[feature_name] = PSAAnalyzer(device=self.device)
                 
         return self.extractors.get(feature_name)
     
@@ -385,13 +388,19 @@ class MultimodalPipeline:
             extractor = self._get_extractor("pare_vision")
             pare_features = extractor.get_feature_dict(str(video_path))
             features.update(pare_features)
-        
-        # Extract ViTPose vision features (video-specific)
+          # Extract ViTPose vision features (video-specific)
         if "vitpose_vision" in self.features:
             print(f"Extracting ViTPose vision features from {video_path}")
             extractor = self._get_extractor("vitpose_vision")
             vitpose_features = extractor.get_feature_dict(str(video_path))
             features.update(vitpose_features)
+        
+        # Extract PSA vision features (video-specific)
+        if "psa_vision" in self.features:
+            print(f"Extracting PSA vision features from {video_path}")
+            extractor = self._get_extractor("psa_vision")
+            psa_features = extractor.get_feature_dict(str(video_path))
+            features.update(psa_features)
         
         return features
     
