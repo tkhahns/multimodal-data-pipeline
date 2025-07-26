@@ -458,8 +458,8 @@ This pipeline uses several HuggingFace models for speech processing. You'll need
 
 2. **For WSL/Linux users**: If you encounter script execution issues, fix line endings:
    ```bash
-   dos2unix run_all.sh
-   chmod +x run_all.sh
+   dos2unix run_all.sh setup_env.sh
+   chmod +x run_all.sh setup_env.sh
    ```
 
 3. Run the setup script to create the environment and install dependencies:
@@ -912,10 +912,10 @@ If you encounter the error `/bin/bash^M: bad interpreter` when running bash scri
 
 ```bash
 # Fix line endings for bash scripts
-dos2unix run_all.sh
+dos2unix run_all.sh setup_env.sh
 
 # Make scripts executable
-chmod +x run_all.sh
+chmod +x run_all.sh setup_env.sh
 ```
 
 This happens when files are edited on Windows and have Windows line endings (`\r\n`) instead of Unix line endings (`\n`). The `dos2unix` command converts them to the correct format.

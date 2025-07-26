@@ -57,6 +57,9 @@ whisperx = "^3.3.4"
 loguru = "^0.7.3"
 yacs = "^0.1.8"
 flatten-dict = "^0.4.2"
+mmpose = "^1.3.2"
+pare = "^0.3.2"
+meld = "^1.0.2"
 [tool.poetry.group.common]
 optional = true
 
@@ -88,8 +91,6 @@ optional = true
 [tool.poetry.group.text.dependencies]
 sentence-transformers = ">=2.2.2"
 transformers = ">=4.33.0"
-# tensorflow-hub = ">=0.13.0"
-# Git repos that need more complex setup and will be cloned separately
 
 # Vision and pose estimation
 [tool.poetry.group.vision]
@@ -98,19 +99,12 @@ optional = true
 [tool.poetry.group.vision.dependencies]
 mediapipe = ">=0.10.0"
 opencv-contrib-python = ">=4.8.0.76"
-pare = {git = "https://github.com/mkocabas/PARE.git"}
-# py-feat = ">=0.4.0"
-# tensorflow = ">=2.13.0"
 
 # Audio-visual models
 [tool.poetry.group.audiovisual]
 optional = true
 
 [tool.poetry.group.audiovisual.dependencies]
-# audiostretchy = { git = "https://github.com/twardoch/audiostretchy.git" }
-# av-hubert = { git = "https://github.com/facebookresearch/av_hubert.git" }
-# meld = { git = "https://github.com/declare-lab/MELD.git" }
-
 # Pose and facial expression models (moved to external setup)
 # [tool.poetry.group.pose]
 # optional = true
