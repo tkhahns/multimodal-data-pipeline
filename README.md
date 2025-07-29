@@ -458,8 +458,8 @@ This pipeline uses several HuggingFace models for speech processing. You'll need
 
 2. **For WSL/Linux users**: If you encounter script execution issues, fix line endings:
    ```bash
-   dos2unix run_all.sh setup_env.sh
-   chmod +x run_all.sh setup_env.sh
+   dos2unix run_all.sh
+   chmod +x run_all.sh
    ```
 
 3. Run the setup script to create the environment and install dependencies:
@@ -618,149 +618,6 @@ Only extract basic audio and speech emotion features:
 .\run_all.ps1 -Features "basic_audio,speech_emotion"
 ```
 
-Extract text analysis along with audio features:
-
-**Linux/macOS:**
-```bash
-./run_all.sh --features basic_audio,whisperx_transcription,deberta_text
-```
-
-**Windows (PowerShell):**
-```powershell
-.\run_all.ps1 -Features "basic_audio,whisperx_transcription,deberta_text"
-```
-
-Extract MELD emotion recognition with transcription:
-
-**Linux/macOS:**
-```bash
-./run_all.sh --features whisperx_transcription,meld_emotion
-```
-
-**Windows (PowerShell):**
-```powershell
-.\run_all.ps1 -Features "whisperx_transcription,meld_emotion"
-```
-
-Extract comprehensive multimodal analysis:
-
-**Linux/macOS:**
-```bash
-./run_all.sh --features basic_audio,whisperx_transcription,meld_emotion,deberta_text,simcse_text
-```
-
-**Windows (PowerShell):**
-```powershell
-.\run_all.ps1 -Features "basic_audio,whisperx_transcription,meld_emotion,deberta_text,simcse_text"
-```
-
-Extract vision features for 3D human pose analysis:
-
-**Linux/macOS:**
-```bash
-./run_all.sh --features pare_vision
-```
-
-**Windows (PowerShell):**
-```powershell
-.\run_all.ps1 -Features "pare_vision"
-```
-
-Extract MediaPipe pose estimation and tracking:
-
-**Linux/macOS:**
-```bash
-./run_all.sh --features mediapipe_pose_vision
-```
-
-**Windows (PowerShell):**
-```powershell
-.\run_all.ps1 -Features "mediapipe_pose_vision"
-```
-
-Extract Deep HRNet high-resolution pose estimation:
-
-**Linux/macOS:**
-```bash
-./run_all.sh --features deep_hrnet_vision
-```
-
-**Windows (PowerShell):**
-```powershell
-.\run_all.ps1 -Features "deep_hrnet_vision"
-```
-
-Extract Simple Baselines pose estimation and tracking:
-
-**Linux/macOS:**
-```bash
-./run_all.sh --features simple_baselines_vision
-```
-
-**Windows (PowerShell):**
-```powershell
-.\run_all.ps1 -Features "simple_baselines_vision"
-```
-
-Extract Py-Feat facial expression analysis:
-
-**Linux/macOS:**
-```bash
-./run_all.sh --features pyfeat_vision
-```
-
-**Windows (PowerShell):**
-```powershell
-.\run_all.ps1 -Features "pyfeat_vision"
-```
-
-Extract ViTPose features for pose estimation:
-
-**Linux/macOS:**
-```bash
-./run_all.sh --features vitpose_vision
-```
-
-**Windows (PowerShell):**
-```powershell
-.\run_all.ps1 -Features "vitpose_vision"
-```
-
-Extract PSA features for keypoint heatmaps and segmentation:
-
-**Linux/macOS:**
-```bash
-./run_all.sh --features psa_vision
-```
-
-**Windows (PowerShell):**
-```powershell
-.\run_all.ps1 -Features "psa_vision"
-```
-
-Extract all vision features:
-
-**Linux/macOS:**
-```bash
-./run_all.sh --features pare_vision,mediapipe_pose_vision,deep_hrnet_vision,simple_baselines_vision,pyfeat_vision,vitpose_vision,rsn_vision,me_graphau_vision,dan_vision,psa_vision
-```
-
-**Windows (PowerShell):**
-```powershell
-.\run_all.ps1 -Features "pare_vision,mediapipe_pose_vision,deep_hrnet_vision,simple_baselines_vision,pyfeat_vision,vitpose_vision,rsn_vision,me_graphau_vision,dan_vision,psa_vision"
-```
-
-Extract complete multimodal features (audio, text, and vision):
-
-**Linux/macOS:**
-```bash
-./run_all.sh --features basic_audio,whisperx_transcription,meld_emotion,mediapipe_pose_vision,deep_hrnet_vision,simple_baselines_vision,pyfeat_vision,pare_vision,vitpose_vision,rsn_vision,me_graphau_vision,dan_vision,psa_vision
-```
-
-**Windows (PowerShell):**
-```powershell
-.\run_all.ps1 -Features "basic_audio,whisperx_transcription,meld_emotion,mediapipe_pose_vision,deep_hrnet_vision,simple_baselines_vision,pyfeat_vision,pare_vision,vitpose_vision,rsn_vision,me_graphau_vision,dan_vision,psa_vision"
-```
 
 Check if all dependencies are properly installed:
 
@@ -907,16 +764,6 @@ If you encounter import errors:
 ```
 
 ### Line Ending Issues (WSL/Linux)
-
-If you encounter the error `/bin/bash^M: bad interpreter` when running bash scripts on WSL or Linux:
-
-```bash
-# Fix line endings for bash scripts
-dos2unix run_all.sh setup_env.sh
-
-# Make scripts executable
-chmod +x run_all.sh setup_env.sh
-```
 
 This happens when files are edited on Windows and have Windows line endings (`\r\n`) instead of Unix line endings (`\n`). The `dos2unix` command converts them to the correct format.
 
