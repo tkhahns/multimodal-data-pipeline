@@ -129,14 +129,13 @@ list_features() {
     echo "  • mediapipe_pose_vision - Google MediaPipe pose estimation"
     echo "  • deep_hrnet_vision   - Deep High-Resolution pose estimation"
     echo "  • simple_baselines_vision - Simple Baselines pose estimation"
-    echo "  • pyfeat_vision       - Py-Feat facial expression analysis"
     echo "  • ganimation_vision   - GANimation facial movements"
     echo "  • arbex_vision        - ARBEx emotion extraction"
     echo "  • openpose_vision     - OpenPose keypoint detection"
     echo "  • instadm_vision      - Insta-DM dense motion estimation"
     echo "  • optical_flow_vision - Optical flow movement estimation"
     echo "  • crowdflow_vision    - CrowdFlow person trajectories"
-    echo "  • videofinder_vision  - VideoFinder object/people location"
+    echo "  • videofinder_vision  - VideoFinder object/people location (requires Ollama)"
     echo "  • smoothnet_vision    - SmoothNet pose estimation"
     echo "  • lanegcn_vision      - LaneGCN autonomous driving"
     echo "  • pare_vision         - PARE 3D human body estimation"
@@ -146,7 +145,6 @@ list_features() {
     echo "  • me_graphau_vision   - ME-GraphAU micro-expression"
     echo "  • dan_vision          - DAN emotion recognition"
     echo ""
-    echo "Total: 31 feature extractors available"
 }
 
 # Function to show help
@@ -168,15 +166,19 @@ Pipeline Options:
   --log-file FILE       Path to log file (default: <output_dir>/pipeline.log)
   -h, --help            Show this help message
 
-Available Features (31 total):
+Available Features:
   Audio: basic_audio, librosa_spectral, opensmile, audiostretchy
   Speech: speech_emotion, heinsen_sentiment, meld_emotion, speech_separation
-  Text: whisperx_transcription, deberta_text, simcse_text, albert_text, sbert_text, use_text
+    Text: whisperx_transcription, deberta_text, simcse_text, albert_text, sbert_text, use_text
   Vision: emotieffnet_vision, mediapipe_pose_vision, deep_hrnet_vision, simple_baselines_vision,
-          pyfeat_vision, ganimation_vision, arbex_vision, openpose_vision, instadm_vision,
+                    ganimation_vision, arbex_vision, openpose_vision, instadm_vision,
           optical_flow_vision, crowdflow_vision, videofinder_vision, smoothnet_vision,
           lanegcn_vision, pare_vision, vitpose_vision, psa_vision, rsn_vision,
           me_graphau_vision, dan_vision
+
+Notes:
+- videofinder_vision requires Ollama to be installed and running
+- Py-Feat (pyfeat_vision) is excluded in this build
 
 Examples:
   ./run_all.sh --setup                    # Set up the environment
@@ -184,8 +186,8 @@ Examples:
   ./run_all.sh --check-deps               # Check dependencies
   ./run_all.sh --list-features            # Show detailed feature list
   ./run_all.sh --data-dir /path/to/videos # Process specific directory
-  ./run_all.sh --features basic_audio,speech_emotion  # Extract specific features
-  ./run_all.sh --features lanegcn_vision,pyfeat_vision # Vision features only
+    ./run_all.sh --features basic_audio,speech_emotion  # Extract specific features
+    ./run_all.sh --features lanegcn_vision,videofinder_vision # Vision features only
 
 EOF
 }
@@ -264,6 +266,19 @@ main() {
     # Execute the pipeline
     print_status "Running multimodal data pipeline..."
     print_status "Arguments: ${PIPELINE_ARGS[*]}"
+
+    # Optional preflight: warn if videofinder_vision selected without Ollama
+    for i in "${!PIPELINE_ARGS[@]}"; do
+        if [[ "${PIPELINE_ARGS[$i]}" == "--features" ]]; then
+            next_index=$((i+1))
+            features_arg="${PIPELINE_ARGS[$next_index]}"
+            if [[ "$features_arg" == *"videofinder_vision"* ]]; then
+                if ! command -v ollama &> /dev/null; then
+                    print_warning "videofinder_vision selected but 'ollama' not found. Please install/start Ollama."
+                fi
+            fi
+        fi
+    done
     
     poetry run python run_pipeline.py "${PIPELINE_ARGS[@]}"
     

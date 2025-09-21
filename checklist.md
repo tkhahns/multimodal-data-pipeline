@@ -1,5 +1,7 @@
 # Feature Groups Implementation Checklist
 
+Note (concise): Py-Feat (pf_*) is currently excluded/not installed. Ollama is included by default (required for VideoFinder).
+
 This document tracks the implementation status of all feature groups in the multimodal data pipeline, organized by their corresponding "Feature" categories as specified in the requirements.
 
 ## ✅ **IMPLEMENTED FEATURE GROUPS**
@@ -197,7 +199,7 @@ This document tracks the implementation status of all feature groups in the mult
   - **Status**: ✅ Implemented
 
 - [x] **Actional annotation, Emotion indices, Face location and angles**
-  - **Model**: Py-Feat: Python Facial Expression Analysis Toolbox
+  - **Model**: Py-Feat: Python Facial Expression Analysis Toolbox (Excluded in this build)
   - **Features**: 37 (20 action units + 7 emotions + 5 face geometry + 3 head pose + 3 3D position)
   - **Output**: `pf_au01`, `pf_au02`, `pf_au04`, `pf_au05`, `pf_au06`, `pf_au07`, `pf_au09`, `pf_au10`, `pf_au11`, `pf_au12`, `pf_au14`, `pf_au15`, `pf_au17`, `pf_au20`, `pf_au23`, `pf_au24`, `pf_au25`, `pf_au26`, `pf_au28`, `pf_au43`, `pf_anger`, `pf_disgust`, `pf_fear`, `pf_happiness`, `pf_sadness`, `pf_surprise`, `pf_neutral`, `pf_facerectx`, `pf_facerecty`, `pf_facerectwidth`, `pf_facerectheight`, `pf_facescore`, `pf_pitch`, `pf_roll`, `pf_yaw`, `pf_x`, `pf_y`, `pf_z`
   - **Description**: Comprehensive facial expression analysis including FACS Action Units, emotion classification, and face geometry
@@ -208,7 +210,7 @@ This document tracks the implementation status of all feature groups in the mult
     - Head pose: Pitch/roll/yaw angles in degrees for 3D head orientation
     - 3D position: Face center coordinates and estimated depth from camera
     - Supports both research-grade FACS analysis and real-time applications  - **Website**: Py-Feat
-  - **Status**: ✅ Implemented
+  - **Status**: ⛔ Excluded (not installed in this build)
 
 - [x] **Continuous manifold for anatomical facial movements**
   - **Model**: GANimation: Anatomy-aware Facial Animation from a Single Image
@@ -493,7 +495,7 @@ Each feature group follows this JSON structure:
 - [x] **DAN emotional expression feature fully integrated**
 - [x] **Deep HRNet high-resolution pose estimation fully integrated**
 - [x] **Simple Baselines pose estimation and tracking fully integrated**
-- [x] **Py-Feat facial expression analysis fully integrated**
+- [ ] Py-Feat facial expression analysis (excluded in this build)
 
 **Overall Implementation Status**: ✅ **COMPLETE**
 

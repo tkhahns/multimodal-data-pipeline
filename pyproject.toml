@@ -57,9 +57,10 @@ whisperx = "^3.3.4"
 loguru = "^0.7.3"
 yacs = "^0.1.8"
 flatten-dict = "^0.4.2"
-mmpose = "^1.3.2"
 pare = "^0.3.2"
 meld = "^1.0.2"
+pycocotools = {version = ">=2.0.7", optional = true}
+ollama = "^0.5.4"
 [tool.poetry.group.common]
 optional = true
 
@@ -99,6 +100,7 @@ optional = true
 [tool.poetry.group.vision.dependencies]
 mediapipe = ">=0.10.0"
 opencv-contrib-python = ">=4.8.0.76"
+pycocotools = ">=2.0.7"
 
 # Audio-visual models
 [tool.poetry.group.audiovisual]

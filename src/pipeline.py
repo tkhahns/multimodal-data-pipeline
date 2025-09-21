@@ -66,6 +66,25 @@ class MultimodalPipeline:
             "use_text",         # Universal Sentence Encoder for text classification and semantic analysis
             "pare_vision",      # PARE 3D human body estimation and pose analysis
             "vitpose_vision",   # ViTPose Vision Transformer pose estimation
+            # Additional vision / facial analysis feature flags
+            "emotieffnet_vision",   # EmotiEffNet facial emotion & AU
+            "mediapipe_pose_vision",# Google MediaPipe 33 landmark pose
+            "openpose_vision",      # OpenPose 2D multi-person keypoints
+            # "pyfeat_vision",        # Py-Feat facial expression / AU / geometry (excluded/commented out)
+            "me_graphau_vision",    # ME-GraphAU facial action units (ann_*)
+            "dan_vision",           # DAN facial emotion recognition (dan_*)
+            "ganimation_vision",    # GANimation AU intensities (GAN_*)
+            "arbex_vision",         # ARBEx attentive facial expression analysis (arbex_*)
+            "instadm_vision",       # Insta-DM depth & motion (indm_*)
+            "crowdflow_vision",     # CrowdFlow optical flow crowd features (of_*)
+            "deep_hrnet_vision",    # Deep HRNet pose metrics (DHiR_*)
+            "simple_baselines_vision", # Simple Baselines pose metrics (SBH_*)
+            "rsn_vision",           # RSN keypoint localization (rsn_*)
+            "optical_flow_vision",  # Optical flow sparse/dense (avg_motion_*, etc.)
+            "videofinder_vision",   # VideoFinder object/people localization (ViF_*)
+            "lanegcn_vision",       # LaneGCN motion forecasting (GCN_*)
+            "smoothnet_vision",     # SmoothNet temporal pose smoothing (net_*)
+            "psa_vision",           # Polarized Self-Attention (psa_*)
         ]
         
         # Default behavior: extract all features when none specified
@@ -128,6 +147,58 @@ class MultimodalPipeline:
             elif feature_name == "psa_vision":
                 from src.vision.psa_analyzer import PSAAnalyzer
                 self.extractors[feature_name] = PSAAnalyzer(device=self.device)
+            elif feature_name == "emotieffnet_vision":
+                from src.vision.emotieffnet_analyzer import EmotiEffNetAnalyzer
+                self.extractors[feature_name] = EmotiEffNetAnalyzer(device=self.device)
+            elif feature_name == "mediapipe_pose_vision":
+                from src.vision.mediapipe_pose_analyzer import MediaPipePoseAnalyzer
+                self.extractors[feature_name] = MediaPipePoseAnalyzer(device=self.device)
+            elif feature_name == "openpose_vision":
+                from src.vision.openpose_analyzer import OpenPoseAnalyzer
+                self.extractors[feature_name] = OpenPoseAnalyzer(device=self.device)
+            elif feature_name == "pyfeat_vision":
+                # Excluded in this build
+                print("pyfeat_vision is excluded in this build and will be skipped.")
+                self.extractors[feature_name] = None
+            elif feature_name == "me_graphau_vision":
+                from src.vision.me_graphau_analyzer import MEGraphAUAnalyzer
+                self.extractors[feature_name] = MEGraphAUAnalyzer(device=self.device)
+            elif feature_name == "dan_vision":
+                from src.vision.dan_analyzer import DANAnalyzer
+                self.extractors[feature_name] = DANAnalyzer(device=self.device)
+            elif feature_name == "ganimation_vision":
+                from src.vision.ganimation_analyzer import GANimationAnalyzer
+                self.extractors[feature_name] = GANimationAnalyzer(device=self.device)
+            elif feature_name == "arbex_vision":
+                from src.vision.arbex_analyzer import ARBExAnalyzer
+                self.extractors[feature_name] = ARBExAnalyzer(device=self.device)
+            elif feature_name == "instadm_vision":
+                from src.vision.instadm_analyzer import InstaDMAnalyzer
+                self.extractors[feature_name] = InstaDMAnalyzer(device=self.device)
+            elif feature_name == "crowdflow_vision":
+                from src.vision.crowdflow_analyzer import CrowdFlowAnalyzer
+                self.extractors[feature_name] = CrowdFlowAnalyzer(device=self.device)
+            elif feature_name == "deep_hrnet_vision":
+                from src.vision.deep_hrnet_analyzer import DeepHRNetAnalyzer
+                self.extractors[feature_name] = DeepHRNetAnalyzer(device=self.device)
+            elif feature_name == "simple_baselines_vision":
+                from src.vision.simple_baselines_analyzer import SimpleBaselinesAnalyzer
+                self.extractors[feature_name] = SimpleBaselinesAnalyzer(device=self.device)
+            elif feature_name == "rsn_vision":
+                from src.vision.rsn_analyzer import RSNAnalyzer
+                self.extractors[feature_name] = RSNAnalyzer(device=self.device)
+            elif feature_name == "optical_flow_vision":
+                from src.vision.optical_flow_analyzer import OpticalFlowAnalyzer
+                self.extractors[feature_name] = OpticalFlowAnalyzer(device=self.device)
+            elif feature_name == "videofinder_vision":
+                from src.vision.videofinder_analyzer import VideoFinderAnalyzer
+                self.extractors[feature_name] = VideoFinderAnalyzer(device=self.device)
+            elif feature_name == "lanegcn_vision":
+                from src.vision.lanegcn_analyzer import LaneGCNAnalyzer
+                self.extractors[feature_name] = LaneGCNAnalyzer(device=self.device)
+            elif feature_name == "smoothnet_vision":
+                from src.vision.smoothnet_analyzer import SmoothNetAnalyzer
+                self.extractors[feature_name] = SmoothNetAnalyzer(device=self.device)
                 
         return self.extractors.get(feature_name)
     
@@ -383,26 +454,59 @@ class MultimodalPipeline:
         features = self.extract_features(str(audio_path))
         
         # Extract PARE vision features (video-specific)
-        if "pare_vision" in self.features:
-            print(f"Extracting PARE vision features from {video_path}")
-            extractor = self._get_extractor("pare_vision")
-            pare_features = extractor.get_feature_dict(str(video_path))
-            features.update(pare_features)
-          # Extract ViTPose vision features (video-specific)
-        if "vitpose_vision" in self.features:
-            print(f"Extracting ViTPose vision features from {video_path}")
-            extractor = self._get_extractor("vitpose_vision")
-            vitpose_features = extractor.get_feature_dict(str(video_path))
-            features.update(vitpose_features)
-        
-        # Extract PSA vision features (video-specific)
-        if "psa_vision" in self.features:
-            print(f"Extracting PSA vision features from {video_path}")
-            extractor = self._get_extractor("psa_vision")
-            psa_features = extractor.get_feature_dict(str(video_path))
-            features.update(psa_features)
+        vision_feature_flags = [
+            "pare_vision","vitpose_vision","psa_vision","emotieffnet_vision","mediapipe_pose_vision",
+            "openpose_vision",
+            # "pyfeat_vision",  # excluded/commented out
+            "me_graphau_vision","dan_vision","ganimation_vision",
+            "arbex_vision","instadm_vision","crowdflow_vision","deep_hrnet_vision","simple_baselines_vision",
+            "rsn_vision","optical_flow_vision","videofinder_vision","lanegcn_vision","smoothnet_vision"
+        ]
+
+        for vf in vision_feature_flags:
+            if vf in self.features:
+                print(f"Extracting {vf} features from {video_path}")
+                extractor = self._get_extractor(vf)
+                if extractor is None:
+                    print(f"Warning: extractor for {vf} not available (possibly missing dependency)")
+                    continue
+                try:
+                    raw = extractor.get_feature_dict(str(video_path)) if hasattr(extractor, 'get_feature_dict') else extractor.analyze_video(str(video_path))
+                    flat = self._flatten_feature_output(raw)
+                    features.update(flat)
+                except Exception as e:
+                    print(f"Error extracting {vf}: {e}")
         
         return features
+
+    def _flatten_feature_output(self, raw: Any) -> Dict[str, Any]:
+        """Normalize analyzer outputs into a flat feature dict.
+
+        Acceptable raw forms:
+          1. Flat dict of feature_name->value
+          2. Dict with a top-level 'features' key
+          3. Nested dict {group: { 'features': {...}}}
+        """
+        if raw is None:
+            return {}
+        if isinstance(raw, dict):
+            # Case 2
+            if 'features' in raw and isinstance(raw['features'], dict):
+                return raw['features']
+            # Case 3
+            collected = {}
+            multi_group = True
+            for v in raw.values():
+                if isinstance(v, dict) and 'features' in v and isinstance(v['features'], dict):
+                    collected.update(v['features'])
+                else:
+                    multi_group = False
+                    break
+            if multi_group and collected:
+                return collected
+            # Fallback assume already flat
+            return raw
+        return {}
     
     def process_directory(self, directory: Union[str, Path], is_video: bool = True) -> Dict[str, Dict[str, Any]]:
         """
@@ -598,6 +702,92 @@ class MultimodalPipeline:
                 "prefixes": ["vit_"],
                 "exact_matches": [],
                 "model_name": "ViTPose: Simple Vision Transformer Baselines for Human Pose Estimation"
+            },
+            # Newly added vision/facial groups
+            "Facial Emotion & Action Units (EmotiEffNet)": {
+                "prefixes": ["eln_"],
+                "exact_matches": [],
+                "model_name": "EmotiEffNet"
+            },
+            "Facial Expression (Py-Feat)": {
+                "prefixes": ["pf_"],
+                "exact_matches": [],
+                "model_name": "Py-Feat"
+            },
+            "Pose Landmarks (MediaPipe)": {
+                "prefixes": ["GMP_"] ,
+                "exact_matches": [],
+                "model_name": "Google MediaPipe Pose"
+            },
+            "Deep HRNet Pose Metrics": {
+                "prefixes": ["DHiR_"] ,
+                "exact_matches": [],
+                "model_name": "Deep HRNet"
+            },
+            "Simple Baselines Pose Metrics": {
+                "prefixes": ["SBH_"] ,
+                "exact_matches": [],
+                "model_name": "Simple Baselines"
+            },
+            "OpenPose Keypoints": {
+                "prefixes": ["openPose_"] ,
+                "exact_matches": [],
+                "model_name": "OpenPose"
+            },
+            "ME-GraphAU Facial Action Units": {
+                "prefixes": ["ann_"] ,
+                "exact_matches": [],
+                "model_name": "ME-GraphAU"
+            },
+            "DAN Facial Emotions": {
+                "prefixes": ["dan_"] ,
+                "exact_matches": [],
+                "model_name": "DAN"
+            },
+            "GANimation AUs": {
+                "prefixes": ["GAN_"] ,
+                "exact_matches": [],
+                "model_name": "GANimation"
+            },
+            "ARBEx Facial Emotions": {
+                "prefixes": ["arbex_"] ,
+                "exact_matches": [],
+                "model_name": "ARBEx"
+            },
+            "Insta-DM Depth & Motion": {
+                "prefixes": ["indm_"] ,
+                "exact_matches": [],
+                "model_name": "Insta-DM"
+            },
+            "CrowdFlow Optical Flow": {
+                "prefixes": ["of_"] ,
+                "exact_matches": [],
+                "model_name": "CrowdFlow"
+            },
+            "VideoFinder Object/People Localization": {
+                "prefixes": ["ViF_"] ,
+                "exact_matches": [],
+                "model_name": "VideoFinder"
+            },
+            "SmoothNet Temporal Pose": {
+                "prefixes": ["net_"] ,
+                "exact_matches": [],
+                "model_name": "SmoothNet"
+            },
+            "LaneGCN Motion Forecasting": {
+                "prefixes": ["GCN_"] ,
+                "exact_matches": [],
+                "model_name": "LaneGCN"
+            },
+            "RSN Keypoint Localization": {
+                "prefixes": ["rsn_"] ,
+                "exact_matches": [],
+                "model_name": "RSN"
+            },
+            "PSA Keypoint & Segmentation": {
+                "prefixes": ["psa_"] ,
+                "exact_matches": [],
+                "model_name": "Polarized Self-Attention"
             }
         }
         
