@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "pyfeat-runner"
+version = "0.1.0"
+description = "Isolated runner for Py-Feat (facial expression/AU) on Python 3.11"
+authors = ["Your Name <your.email@example.com>"]
+packages = [{ include = "pyfeat_runner" }]
+
+[tool.poetry.dependencies]
+python = "~3.11"
+# Py-Feat main package (import name: feat)
+py-feat = "^0.5"
+# Common deps that py-feat relies on; keep flexible so resolver finds compatible builds
+numpy = ">=1.24"
+pandas = ">=2.0"
+opencv-python-headless = ">=4.8"
+
+# Torch stack often required by face-alignment backends used by py-feat
+# Leave unpinned so Poetry can resolve the right wheels for your platform; adjust if needed
+torch = "*"
+torchvision = "*"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

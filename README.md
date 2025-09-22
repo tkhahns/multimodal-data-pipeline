@@ -2,6 +2,29 @@
 
 A compact toolkit to extract multimodal features (audio, speech, text, vision) from videos and audio files. Outputs JSON/Parquet in `output/` with clear feature prefixes.
 
+## Py-Feat (Python 3.11 runner)
+
+Py-Feat isn't compatible with Python 3.12, so the repo includes an isolated subproject to run it on Python 3.11 and feed results back to the main pipeline via a subprocess.
+
+Location: `external/pyfeat_runner`
+
+Setup (in WSL):
+
+```bash
+cd external/pyfeat_runner
+poetry env use python3.11
+poetry install
+```
+
+Usage (standalone):
+
+```bash
+poetry run python -m pyfeat_runner /absolute/path/to/video.mp4
+```
+
+The main pipeline will automatically use this runner if `py-feat` cannot import in the Python 3.12 environment. No further code changes are needed; just ensure the runner environment is set up once.
+
+
 ## Features (by prefix → model)
 
 - Audio

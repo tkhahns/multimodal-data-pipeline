@@ -27,39 +27,44 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# Function to run setup
-run_setup() {
-    local setup_type="$1"
-    
-    print_status "Running environment setup..."
-    
+setup_main_env() {
+    print_status "Setting up main Poetry environment (if needed)..."
     if ! command -v poetry &> /dev/null; then
         print_error "Poetry is required but not found."
-        print_status "Please install Poetry first: https://python-poetry.org/docs/#installation"
+        print_status "Install Poetry: https://python-poetry.org/docs/#installation"
         exit 1
     fi
-    
-    case "$setup_type" in
-        "full")
-            print_status "Running full setup (including optional packages)..."
-            poetry install
-            ;;
-        "quick")
-            print_status "Running quick setup (essential packages only)..."
-            poetry install --only main
-            ;;
-        *)
-            print_status "Running default setup..."
-            poetry install
-            ;;
-    esac
-    
-    if [ $? -eq 0 ]; then
-        print_success "Setup completed successfully!"
+    # Ensure env exists, then install deps (idempotent)
+    if ! poetry env info &> /dev/null; then
+        print_status "Creating Poetry environment for main project..."
+    fi
+    poetry install
+}
+
+setup_pyfeat_runner() {
+    local runner_dir="external/pyfeat_runner"
+    if [ ! -d "$runner_dir" ]; then
+        print_warning "Py-Feat runner directory not found: $runner_dir (skipping)"
+        return 0
+    fi
+    print_status "Setting up Py-Feat runner (Python 3.11) env..."
+    pushd "$runner_dir" >/dev/null
+    if ! command -v poetry &> /dev/null; then
+        print_error "Poetry is required but not found."
+        popd >/dev/null
+        return 1
+    fi
+    # Prefer python3.11 if available
+    if command -v python3.11 &> /dev/null; then
+        poetry env use python3.11 || true
     else
-        print_error "Setup failed!"
-        exit 1
+        print_warning "python3.11 not found on PATH. If env creation fails, install Python 3.11."
+        # Attempt default python, user may have 3.11 as default
+        poetry env use python || true
     fi
+    poetry install
+    popd >/dev/null
+    print_success "Py-Feat runner environment ready."
 }
 
 # Function to check dependencies
@@ -69,7 +74,7 @@ check_dependencies() {
     # Check if Poetry is installed
     if ! command -v poetry &> /dev/null; then
         print_error "Poetry is required but not found."
-        print_status "Please run: ./run_all.sh --setup"
+        print_status "Please install Poetry first."
         return 1
     fi
     
@@ -80,11 +85,7 @@ check_dependencies() {
     fi
     
     # Check if poetry environment is set up
-    if ! poetry env info &> /dev/null; then
-        print_warning "Poetry environment not found."
-        print_status "Please run: ./run_all.sh --setup"
-        return 1
-    fi
+    poetry env info &> /dev/null || true
     
     # Check if multimodal pipeline can be imported
     if ! poetry run python -c "from src.pipeline import MultimodalPipeline; print('✅ Pipeline import successful')" 2>/dev/null; then
@@ -154,8 +155,6 @@ show_help() {
 Usage: ./run_all.sh [options]
 
 Setup Options:
-  --setup               Run full environment setup
-  --setup-quick         Run quick setup (skip optional packages)  
   --check-deps          Check if dependencies are installed
 
 Pipeline Options:
@@ -179,11 +178,10 @@ Available Features:
 
 Notes:
 - videofinder_vision requires Ollama to be installed and running
-- Py-Feat requires Python 3.11 with numpy ~=1.23.x
+- Py-Feat will be run via an isolated Python 3.11 sub-environment (external/pyfeat_runner)
 
 Examples:
-  ./run_all.sh --setup                    # Set up the environment
-  ./run_all.sh                           # Run with all features
+    ./run_all.sh                           # Auto-setup and run with all features
   ./run_all.sh --check-deps               # Check dependencies
   ./run_all.sh --list-features            # Show detailed feature list
   ./run_all.sh --data-dir /path/to/videos # Process specific directory
@@ -194,21 +192,12 @@ EOF
 }
 
 # Parse command line arguments
-SETUP_MODE=""
 CHECK_DEPS=false
 LIST_FEATURES=false
 PIPELINE_ARGS=()
 
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --setup)
-            SETUP_MODE="full"
-            shift
-            ;;
-        --setup-quick)
-            SETUP_MODE="quick"
-            shift
-            ;;
         --check-deps)
             CHECK_DEPS=true
             shift
@@ -241,12 +230,10 @@ main() {
         set +a
     fi
     
-    # Handle setup mode
-    if [ -n "$SETUP_MODE" ]; then
-        run_setup "$SETUP_MODE"
-        exit 0
-    fi
-    
+    # Always ensure environments are ready
+    setup_main_env
+    setup_pyfeat_runner
+
     # Handle dependency check
     if [ "$CHECK_DEPS" = true ]; then
         if check_dependencies; then
@@ -262,12 +249,8 @@ main() {
         exit 0
     fi
     
-    # Check dependencies before running pipeline
-    if ! check_dependencies; then
-        print_error "Dependencies check failed!"
-        print_status "Run './run_all.sh --setup' to install dependencies."
-        exit 1
-    fi
+    # Optional dependency sanity
+    check_dependencies || print_warning "Dependency check reported issues; attempting to run anyway."
     
     # Make sure the script is executable
     chmod +x run_pipeline.py 2>/dev/null || true

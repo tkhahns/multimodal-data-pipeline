@@ -2,8 +2,6 @@
 # PowerShell equivalent of run_all.sh
 
 param(
-    [switch]$Setup,
-    [switch]$SetupQuick,
     [switch]$CheckDeps,
     [string]$DataDir,
     [string]$OutputDir,
@@ -99,50 +97,49 @@ function Test-Command {
 }
 
 # Function to run setup
-function Invoke-Setup {
-    param([string]$SetupType)
-    
-    Write-Status "Running environment setup..."
-    
-    if (-not (Test-Path "poetry")) {
-        Write-Error "poetry not found!"
+function Setup-MainEnv {
+    Write-Status "Setting up main Poetry environment (if needed)..."
+    if (-not (Test-Command "poetry")) {
+        Write-Error "Poetry is required but not found. Install from https://python-poetry.org/docs/#installation"
         exit 1
     }
-    
-    switch ($SetupType) {
-        "full" {
-            Write-Status "Running full setup (including optional packages)..."
-            try {
-                poetry install
-            }
-            catch {
-                Write-Error "Setup failed: $_"
-                exit 1
-            }
-        }
-        "quick" {
-            Write-Status "Running quick setup (essential packages only)..."
-            try {
-                poetry install --only main
-            }
-            catch {
-                Write-Error "Setup failed: $_"
-                exit 1
-            }
-        }
-        default {
-            Write-Status "Running default setup..."
-            try {
-                poetry install
-            }
-            catch {
-                Write-Error "Setup failed: $_"
-                exit 1
-            }
-        }
+    try {
+        poetry env info | Out-Null
+    } catch {
+        Write-Status "Creating Poetry environment for main project..."
     }
-    
-    Write-Success "Setup completed successfully!"
+    try {
+        poetry install
+    } catch {
+        Write-Error "Main environment setup failed: $_"
+        exit 1
+    }
+}
+
+function Setup-PyfeatRunner {
+    $runnerDir = Join-Path (Get-Location) "external/pyfeat_runner"
+    if (-not (Test-Path $runnerDir)) {
+        Write-Warning "Py-Feat runner directory not found at $runnerDir (skipping)"
+        return
+    }
+    Write-Status "Setting up Py-Feat runner (Python 3.11) env..."
+    Push-Location $runnerDir
+    try {
+        if (-not (Test-Command "poetry")) { throw "Poetry not found" }
+        # Prefer python3.11 if available
+        if (Test-Command "python3.11") {
+            poetry env use python3.11 | Out-Null
+        } else {
+            Write-Warning "python3.11 not found on PATH. If env creation fails, install Python 3.11."
+            poetry env use python | Out-Null
+        }
+        poetry install | Out-Null
+        Write-Success "Py-Feat runner environment ready."
+    } catch {
+        Write-Warning "Py-Feat runner setup encountered an issue: $_"
+    } finally {
+        Pop-Location
+    }
 }
 
 # Function to check dependencies
@@ -182,8 +179,6 @@ function Show-Help {
 Usage: .\run_all.ps1 [options]
 
 Setup Options:
-  -Setup               Run full environment setup
-  -SetupQuick          Run quick setup (skip optional packages)  
   -CheckDeps           Check if dependencies are installed
 
 Pipeline Options:
@@ -197,7 +192,7 @@ Pipeline Options:
 
 Notes:
     - videofinder_vision requires Ollama to be installed and running
-    - Py-Feat (pyfeat_vision) is excluded in this build
+    - Py-Feat will be run via an isolated Python 3.11 sub-environment (external\pyfeat_runner)
 
 Examples:
   .\run_all.ps1 -Setup                           # Set up the environment
@@ -234,16 +229,9 @@ function Main {
         return
     }
     
-    # Handle setup mode
-    if ($Setup) {
-        Invoke-Setup "full"
-        return
-    }
-    
-    if ($SetupQuick) {
-        Invoke-Setup "quick"
-        return
-    }
+    # Always ensure environments are ready
+    Setup-MainEnv
+    Setup-PyfeatRunner
     
     # Handle dependency check
     if ($CheckDeps) {
@@ -260,11 +248,9 @@ function Main {
         return
     }
     
-    # Check dependencies before running pipeline
+    # Optional dependency sanity
     if (-not (Test-Dependencies)) {
-        Write-Error "Dependencies check failed!"
-        Write-Status "Run '.\run_all.ps1 -Setup' to install dependencies."
-        exit 1
+        Write-Warning "Dependency check reported issues; attempting to run anyway."
     }
     
     # Build arguments for the pipeline
