@@ -65,6 +65,7 @@ function Show-Features {
         Write-Host "  • deep_hrnet_vision    - Deep High-Resolution pose estimation"
         Write-Host "  • simple_baselines_vision - Simple Baselines pose estimation"
         Write-Host "  • ganimation_vision    - GANimation facial movements"
+    Write-Host "  • pyfeat_vision        - Py-Feat facial expression analysis"
         Write-Host "  • arbex_vision         - ARBEx emotion extraction"
         Write-Host "  • openpose_vision      - OpenPose keypoint detection"
         Write-Host "  • instadm_vision       - Insta-DM dense motion estimation"
@@ -82,7 +83,7 @@ function Show-Features {
     Write-Host ""
     Write-Host "Notes:" -ForegroundColor Blue
     Write-Host "- videofinder_vision requires Ollama to be installed and running"
-    Write-Host "- Py-Feat (pyfeat_vision) is excluded in this build"
+    Write-Host "- Py-Feat requires Python 3.11 with numpy ~=1.23.x"
 }
 
 # Function to check if a command exists
@@ -211,6 +212,21 @@ Examples:
 # Main execution logic
 function Main {
     Write-Status "Multimodal Data Pipeline - Unified Runner"
+
+    # Load environment variables from .env if present (HF tokens, etc.)
+    if (Test-Path ".env") {
+        Write-Status "Loading environment from .env"
+        Get-Content .env | ForEach-Object {
+            if ($_ -match "^\s*#") { return }
+            if ($_ -match "^\s*$") { return }
+            $parts = $_.Split("=",2)
+            if ($parts.Length -eq 2) {
+                $name = $parts[0].Trim()
+                $value = $parts[1]
+                [System.Environment]::SetEnvironmentVariable($name, $value, "Process")
+            }
+        }
+    }
     
     # Handle help
     if ($Help) {
@@ -282,6 +298,14 @@ function Main {
     if ($Features -and ($Features -like "*videofinder_vision*")) {
         if (-not (Test-Command "ollama")) {
             Write-Warning "videofinder_vision selected but 'ollama' not found. Please install/start Ollama."
+        }
+    }
+    # Optional preflight: warn if whisperx selected without HF token
+    if ($Features -and ($Features -like "*whisperx_transcription*")) {
+        $hfEnv = $env:HF_TOKEN
+        $hfHubEnv = $env:HUGGINGFACE_HUB_TOKEN
+        if (-not $hfEnv -and -not $hfHubEnv) {
+            Write-Warning "whisperx_transcription selected but no HF token found. Set HF_TOKEN or HUGGINGFACE_HUB_TOKEN or run 'huggingface-cli login'."
         }
     }
     

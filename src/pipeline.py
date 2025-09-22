@@ -70,7 +70,7 @@ class MultimodalPipeline:
             "emotieffnet_vision",   # EmotiEffNet facial emotion & AU
             "mediapipe_pose_vision",# Google MediaPipe 33 landmark pose
             "openpose_vision",      # OpenPose 2D multi-person keypoints
-            # "pyfeat_vision",        # Py-Feat facial expression / AU / geometry (excluded/commented out)
+            "pyfeat_vision",        # Py-Feat facial expression / AU / geometry
             "me_graphau_vision",    # ME-GraphAU facial action units (ann_*)
             "dan_vision",           # DAN facial emotion recognition (dan_*)
             "ganimation_vision",    # GANimation AU intensities (GAN_*)
@@ -123,7 +123,9 @@ class MultimodalPipeline:
             elif feature_name == "speech_separation":
                 self.extractors[feature_name] = SpeechSeparator(device=self.device)            
             elif feature_name == "whisperx_transcription":
-                self.extractors[feature_name] = WhisperXTranscriber(device=self.device)
+                # Pass HF token if available for gated diarization models
+                hf_token = os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_HUB_TOKEN")
+                self.extractors[feature_name] = WhisperXTranscriber(device=self.device, hf_token=hf_token)
             elif feature_name == "deberta_text":
                 self.extractors[feature_name] = DeBERTaAnalyzer(device=self.device)
             elif feature_name == "simcse_text":
@@ -157,9 +159,8 @@ class MultimodalPipeline:
                 from src.vision.openpose_analyzer import OpenPoseAnalyzer
                 self.extractors[feature_name] = OpenPoseAnalyzer(device=self.device)
             elif feature_name == "pyfeat_vision":
-                # Excluded in this build
-                print("pyfeat_vision is excluded in this build and will be skipped.")
-                self.extractors[feature_name] = None
+                from src.vision.pyfeat_analyzer import PyFeatAnalyzer
+                self.extractors[feature_name] = PyFeatAnalyzer(device=self.device)
             elif feature_name == "me_graphau_vision":
                 from src.vision.me_graphau_analyzer import MEGraphAUAnalyzer
                 self.extractors[feature_name] = MEGraphAUAnalyzer(device=self.device)
@@ -457,7 +458,7 @@ class MultimodalPipeline:
         vision_feature_flags = [
             "pare_vision","vitpose_vision","psa_vision","emotieffnet_vision","mediapipe_pose_vision",
             "openpose_vision",
-            # "pyfeat_vision",  # excluded/commented out
+            "pyfeat_vision",
             "me_graphau_vision","dan_vision","ganimation_vision",
             "arbex_vision","instadm_vision","crowdflow_vision","deep_hrnet_vision","simple_baselines_vision",
             "rsn_vision","optical_flow_vision","videofinder_vision","lanegcn_vision","smoothnet_vision"

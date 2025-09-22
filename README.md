@@ -39,13 +39,13 @@ A compact toolkit to extract multimodal features (audio, speech, text, vision) f
   - rsn_* → RSN keypoint localization
   - DHiR_* → Deep HRNet pose metrics
   - SBH_* → Simple Baselines pose metrics
-- Excluded currently
-  - pf_* → Py-Feat facial analysis (excluded in this build)
+- Facial (optional)
+  - pf_* → Py-Feat facial analysis (requires Python 3.11 + numpy ~=1.23.x)
 
 ## Installation
 
 Prerequisites
-- Python 3.12, Poetry, Git
+- Python 3.11, Poetry, Git
 - FFmpeg (system binary)
 - Ollama (required; included by default for VideoFinder)
 
@@ -148,7 +148,7 @@ Available features (names)
 
 Note
 - VideoFinder requires Ollama (included by default in setup)
-- Py-Feat (pf_*) is excluded in this build
+- Py-Feat requires Python 3.11 with numpy ~=1.23.x
 
 ## Troubleshooting (essentials)
 

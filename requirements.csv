@@ -153,4 +153,3 @@ GCN_min_ade_k1, GCN_min_fde_k1, GCN_MR_k1
 
 (2) K = 6
 GCN_min_ade_k6, GCN_min_fde_k6, GCN_MR_k6",It contains both qualitative and quantitative results. The “feature columns” in the output present only the quantitative results.,LaneGCN: Learning Lane Graph Representations for Motion Forecasting,https://github.com/uber-research/LaneGCN,motion forecasting model
-,Visual (language),compute dense vector representations for images,sentence_embedding_.npy or tensor(optional),"For each input sentence, outputs a fixed-length embedding vector (e.g., 768-dim). Used for semantic similarity, clustering, or as features for downstream models.",Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks,https://github.com/UKPLab/sentence-transformers,Text

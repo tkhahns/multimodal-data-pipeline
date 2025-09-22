@@ -130,6 +130,7 @@ list_features() {
     echo "  • deep_hrnet_vision   - Deep High-Resolution pose estimation"
     echo "  • simple_baselines_vision - Simple Baselines pose estimation"
     echo "  • ganimation_vision   - GANimation facial movements"
+    echo "  • pyfeat_vision       - Py-Feat facial expression analysis"
     echo "  • arbex_vision        - ARBEx emotion extraction"
     echo "  • openpose_vision     - OpenPose keypoint detection"
     echo "  • instadm_vision      - Insta-DM dense motion estimation"
@@ -171,14 +172,14 @@ Available Features:
   Speech: speech_emotion, heinsen_sentiment, meld_emotion, speech_separation
     Text: whisperx_transcription, deberta_text, simcse_text, albert_text, sbert_text, use_text
   Vision: emotieffnet_vision, mediapipe_pose_vision, deep_hrnet_vision, simple_baselines_vision,
-                    ganimation_vision, arbex_vision, openpose_vision, instadm_vision,
+                    ganimation_vision, pyfeat_vision, arbex_vision, openpose_vision, instadm_vision,
           optical_flow_vision, crowdflow_vision, videofinder_vision, smoothnet_vision,
           lanegcn_vision, pare_vision, vitpose_vision, psa_vision, rsn_vision,
           me_graphau_vision, dan_vision
 
 Notes:
 - videofinder_vision requires Ollama to be installed and running
-- Py-Feat (pyfeat_vision) is excluded in this build
+- Py-Feat requires Python 3.11 with numpy ~=1.23.x
 
 Examples:
   ./run_all.sh --setup                    # Set up the environment
@@ -231,6 +232,14 @@ done
 # Main execution logic
 main() {
     print_status "Multimodal Data Pipeline - Unified Runner"
+
+    # Load environment variables from .env if present (HF tokens, etc.)
+    if [ -f ".env" ]; then
+        print_status "Loading environment from .env"
+        set -a
+        . ./.env
+        set +a
+    fi
     
     # Handle setup mode
     if [ -n "$SETUP_MODE" ]; then
@@ -267,7 +276,7 @@ main() {
     print_status "Running multimodal data pipeline..."
     print_status "Arguments: ${PIPELINE_ARGS[*]}"
 
-    # Optional preflight: warn if videofinder_vision selected without Ollama
+    # Optional preflights: warn if videofinder_vision selected without Ollama; warn if whisperx without HF token
     for i in "${!PIPELINE_ARGS[@]}"; do
         if [[ "${PIPELINE_ARGS[$i]}" == "--features" ]]; then
             next_index=$((i+1))
@@ -275,6 +284,11 @@ main() {
             if [[ "$features_arg" == *"videofinder_vision"* ]]; then
                 if ! command -v ollama &> /dev/null; then
                     print_warning "videofinder_vision selected but 'ollama' not found. Please install/start Ollama."
+                fi
+            fi
+            if [[ "$features_arg" == *"whisperx_transcription"* ]]; then
+                if [[ -z "${HF_TOKEN}" && -z "${HUGGINGFACE_HUB_TOKEN}" ]]; then
+                    print_warning "whisperx_transcription selected but no HF token found. Set HF_TOKEN or HUGGINGFACE_HUB_TOKEN or run 'huggingface-cli login'."
                 fi
             fi
         fi

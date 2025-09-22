@@ -22,7 +22,7 @@ class DeepHRNetAnalyzer:
     body part accuracy metrics and AP/AR scores across different scales.
     """
     
-    def __init__(self, device='cpu', model_type='hrnet_w32', confidence_threshold=0.3):
+    def __init__(self, device='cpu', model_type='hrnet_w32', confidence_threshold=0.1):
         """
         Initialize Deep HRNet pose analyzer.
         
@@ -126,7 +126,8 @@ class DeepHRNetAnalyzer:
                 # Keypoint prediction head (17 keypoints for COCO format)
                 self.keypoint_head = nn.Sequential(
                     nn.Conv2d(256, 17, 1),
-                    nn.Upsample(scale_factor=4, mode='bilinear', align_corners=False)
+                    nn.Upsample(scale_factor=4, mode='bilinear', align_corners=False),
+                    nn.Sigmoid()  # produce [0,1] confidence-like heatmaps
                 )
                 
             def forward(self, x):
@@ -189,16 +190,11 @@ class DeepHRNetAnalyzer:
         
         for i in range(num_keypoints):
             heatmap = heatmaps_np[i]
-            
-            # Find the maximum response location
-            max_val = np.max(heatmap)
-            if max_val > self.confidence_threshold:
-                max_idx = np.unravel_index(np.argmax(heatmap), heatmap.shape)
-                keypoints[i] = [max_idx[1], max_idx[0]]  # (x, y)
-                confidences[i] = max_val
-            else:
-                keypoints[i] = [0, 0]
-                confidences[i] = 0.0
+            # Find the maximum response location (always)
+            max_idx = np.unravel_index(np.argmax(heatmap), heatmap.shape)
+            max_val = float(heatmap[max_idx])
+            keypoints[i] = [max_idx[1], max_idx[0]]  # (x, y)
+            confidences[i] = max_val
         
         return keypoints, confidences
     
@@ -376,6 +372,7 @@ class DeepHRNetAnalyzer:
             Aggregated pose analysis results
         """
         if not frame_accuracies:
+            logger.warning("Deep HRNet: no frames processed; returning default metrics")
             result = self.default_metrics.copy()
             result.update({
                 'video_path': str(video_path),
@@ -404,6 +401,8 @@ class DeepHRNetAnalyzer:
         # Add summary statistics
         pose_detected_frames = sum(1 for conf_array in all_confidences 
                                   if np.any(conf_array > self.confidence_threshold))
+        if pose_detected_frames == 0:
+            logger.warning("Deep HRNet: no detections above threshold; consider lowering confidence_threshold or verifying inputs")
         
         aggregated.update({
             'video_path': str(video_path),

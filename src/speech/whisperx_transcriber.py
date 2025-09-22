@@ -17,7 +17,7 @@ class WhisperXTranscriber:
         compute_type: str = "float32",
         language: str = "en",
         batch_size: int = 16,
-        hf_token: Optional[str] = None
+    hf_token: Optional[str] = None
     ):
         """
         Initialize the WhisperX transcriber.
@@ -39,7 +39,11 @@ class WhisperXTranscriber:
             self.compute_type = compute_type
         self.language = language
         self.batch_size = batch_size
-        self.hf_token = hf_token
+        # Prefer explicit token, otherwise pull from environment
+        if hf_token is not None:
+            self.hf_token = hf_token
+        else:
+            self.hf_token = os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_HUB_TOKEN")
         
         # Models will be loaded on-demand
         self.model = None
