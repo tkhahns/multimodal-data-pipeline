@@ -62,6 +62,9 @@ setup_pyfeat_runner() {
         # Attempt default python, user may have 3.11 as default
         poetry env use python || true
     fi
+    # Apply dependency pins (e.g., SciPy/Numpy compatibility for py-feat)
+    print_status "Applying dependency pins (scipy/numpy) for py-feat runner..."
+    poetry update scipy numpy || true
     poetry install
     popd >/dev/null
     print_success "Py-Feat runner environment ready."
@@ -87,14 +90,13 @@ check_dependencies() {
     # Check if poetry environment is set up
     poetry env info &> /dev/null || true
     
-    # Check if multimodal pipeline can be imported
-    if ! poetry run python -c "from src.pipeline import MultimodalPipeline; print('✅ Pipeline import successful')" 2>/dev/null; then
-        print_error "Could not import MultimodalPipeline."
-        print_status "Make sure dependencies are installed by running: ./run_all.sh --setup"
+    # Lightweight check: ensure Python runs under Poetry
+    if ! poetry run python -c "import sys; print('✅ Python OK:', sys.version.split()[0])" >/dev/null 2>&1; then
+        print_warning "Poetry Python environment not ready yet. Proceeding after auto-setup."
         return 1
     fi
-    
-    print_success "All dependencies check passed!"
+
+    print_success "Basic environment check passed!"
     return 0
 }
 

@@ -75,7 +75,7 @@ Prerequisites
 Quick setup (WSL/Linux/macOS)
 ```bash
 chmod +x run_all.sh
-./run_all.sh --setup
+./run_all.sh
 ```
 
 HuggingFace (required for diarization)
@@ -96,7 +96,7 @@ Notes for token and permissions
 
 Windows (PowerShell)
 ```powershell
-./run_all.ps1 -Setup
+./run_all.ps1
 "HF_TOKEN=your_huggingface_token_here" | Out-File -FilePath .env -Encoding utf8
 ```
 

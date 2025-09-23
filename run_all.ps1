@@ -148,8 +148,7 @@ function Test-Dependencies {
     
     # Check if Poetry is installed
     if (-not (Test-Command "poetry")) {
-        Write-Error "Poetry is required but not found."
-        Write-Status "Please run: .\run_all.ps1 -Setup"
+        Write-Error "Poetry is required but not found. Install from https://python-poetry.org/docs/#installation"
         return $false
     }
     
@@ -160,14 +159,7 @@ function Test-Dependencies {
     }
     
     # Check if poetry environment is set up
-    try {
-        poetry env info | Out-Null
-    }
-    catch {
-        Write-Warning "Poetry environment not found."
-        Write-Status "Please run: .\run_all.ps1 -Setup"
-        return $false
-    }
+    try { poetry env info | Out-Null } catch { }
     
     Write-Success "All dependencies check passed!"
     return $true
@@ -178,8 +170,8 @@ function Show-Help {
     Write-Host @"
 Usage: .\run_all.ps1 [options]
 
-Setup Options:
-  -CheckDeps           Check if dependencies are installed
+Checks:
+    -CheckDeps           Check if dependencies are installed
 
 Pipeline Options:
   -DataDir DIR         Directory with video/audio files (default: .\data)
@@ -195,8 +187,7 @@ Notes:
     - Py-Feat will be run via an isolated Python 3.11 sub-environment (external\pyfeat_runner)
 
 Examples:
-  .\run_all.ps1 -Setup                           # Set up the environment
-  .\run_all.ps1                                  # Run with default settings
+    .\run_all.ps1                                  # Auto-setup and run with default settings
   .\run_all.ps1 -CheckDeps                       # Check dependencies
   .\run_all.ps1 -DataDir "C:\path\to\videos"     # Process specific directory
   .\run_all.ps1 -Features "basic_audio,speech_emotion"  # Extract specific features

@@ -9,8 +9,9 @@ packages = [{ include = "pyfeat_runner" }]
 python = "~3.11"
 # Py-Feat main package (import name: feat)
 py-feat = "^0.5"
-# Common deps that py-feat relies on; keep flexible so resolver finds compatible builds
-numpy = ">=1.24"
+# Pin to versions compatible with py-feat internals
+numpy = "~=1.23"
+scipy = "<1.11"
 pandas = ">=2.0"
 opencv-python-headless = ">=4.8"
 

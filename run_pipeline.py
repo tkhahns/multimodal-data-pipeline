@@ -72,8 +72,9 @@ def main():
                     print(f"  ✗ {package_name} - MISSING")
                     
             if missing:
-                print("\nSome dependencies are missing. Please run: ./setup_env.sh")
-                print("Or install the missing packages with: poetry add " + " ".join(missing))
+                print("\nSome dependencies are missing.")
+                print("Tip: run 'poetry install' in the repo root, or use ./run_all.sh (WSL) or .\\run_all.ps1 (PowerShell) which auto-setup dependencies.")
+                print("You can also install the missing packages with: poetry add " + " ".join(missing))
                 sys.exit(1)
             else:
                 print("\nAll dependencies are installed correctly!")
@@ -87,7 +88,7 @@ def main():
         from src.pipeline import MultimodalPipeline
     except ImportError:
         print("Error: Could not import MultimodalPipeline.")
-        print("Make sure dependencies are installed by running: ./setup_env.sh")
+        print("Ensure dependencies are installed (e.g., 'poetry install'), or run via ./run_all.sh or .\\run_all.ps1 which auto-setup and run the pipeline.")
         sys.exit(1)
         
     # List features if requested

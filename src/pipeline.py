@@ -10,14 +10,6 @@ from typing import Dict, List, Any, Union
 from datetime import datetime
 
 from src.utils.audio_extraction import extract_audio_from_video, extract_audio_from_videos
-from src.audio.basic_features import AudioFeatureExtractor
-from src.audio.spectral_features import LibrosaFeatureExtractor
-from src.audio.opensmile_features import OpenSMILEFeatureExtractor
-from src.speech.emotion_recognition import SpeechEmotionRecognizer
-from src.emotion.heinsen_routing_sentiment import AudioSentimentAnalyzer
-from src.speech.speech_separator import SpeechSeparator
-from src.speech.whisperx_transcriber import WhisperXTranscriber
-from src.text.deberta_analyzer import DeBERTaAnalyzer
 
 class MultimodalPipeline:
     """Main pipeline for processing multimodal data."""
@@ -44,9 +36,8 @@ class MultimodalPipeline:
         else:
             self.output_dir = Path(output_dir)
             
-        os.makedirs(self.output_dir, exist_ok=True)
-        os.makedirs(self.output_dir / "audio", exist_ok=True)
-        os.makedirs(self.output_dir / "features", exist_ok=True)
+    os.makedirs(self.output_dir, exist_ok=True)
+    os.makedirs(self.output_dir / "audio", exist_ok=True)
         
         # Initialize feature list
         all_features = [
@@ -105,29 +96,69 @@ class MultimodalPipeline:
         """
         if feature_name not in self.extractors:
             if feature_name == "basic_audio":
-                self.extractors[feature_name] = AudioFeatureExtractor()
+                try:
+                    from src.audio.basic_features import AudioFeatureExtractor
+                    self.extractors[feature_name] = AudioFeatureExtractor()
+                except Exception as e:
+                    print(f"Warning: basic_audio unavailable: {e}")
+                    self.extractors[feature_name] = None
             elif feature_name == "librosa_spectral":
-                self.extractors[feature_name] = LibrosaFeatureExtractor()
+                try:
+                    from src.audio.spectral_features import LibrosaFeatureExtractor
+                    self.extractors[feature_name] = LibrosaFeatureExtractor()
+                except Exception as e:
+                    print(f"Warning: librosa_spectral unavailable: {e}")
+                    self.extractors[feature_name] = None
             elif feature_name == "opensmile":
-                self.extractors[feature_name] = OpenSMILEFeatureExtractor()
+                try:
+                    from src.audio.opensmile_features import OpenSMILEFeatureExtractor
+                    self.extractors[feature_name] = OpenSMILEFeatureExtractor()
+                except Exception as e:
+                    print(f"Warning: opensmile unavailable: {e}")
+                    self.extractors[feature_name] = None
             elif feature_name == "audiostretchy":
                 from src.audio.audiostretchy_features import AudioStretchyAnalyzer
                 self.extractors[feature_name] = AudioStretchyAnalyzer()
             elif feature_name == "speech_emotion":
-                self.extractors[feature_name] = SpeechEmotionRecognizer()
+                try:
+                    from src.speech.emotion_recognition import SpeechEmotionRecognizer
+                    self.extractors[feature_name] = SpeechEmotionRecognizer()
+                except Exception as e:
+                    print(f"Warning: speech_emotion unavailable: {e}")
+                    self.extractors[feature_name] = None
             elif feature_name == "heinsen_sentiment":
-                self.extractors[feature_name] = AudioSentimentAnalyzer(device=self.device)
+                try:
+                    from src.emotion.heinsen_routing_sentiment import AudioSentimentAnalyzer
+                    self.extractors[feature_name] = AudioSentimentAnalyzer(device=self.device)
+                except Exception as e:
+                    print(f"Warning: heinsen_sentiment unavailable: {e}")
+                    self.extractors[feature_name] = None
             elif feature_name == "meld_emotion":
                 from src.emotion.meld_emotion_analyzer import MELDEmotionAnalyzer
                 self.extractors[feature_name] = MELDEmotionAnalyzer()
             elif feature_name == "speech_separation":
-                self.extractors[feature_name] = SpeechSeparator(device=self.device)            
+                try:
+                    from src.speech.speech_separator import SpeechSeparator
+                    self.extractors[feature_name] = SpeechSeparator(device=self.device)
+                except Exception as e:
+                    print(f"Warning: speech_separation unavailable: {e}")
+                    self.extractors[feature_name] = None
             elif feature_name == "whisperx_transcription":
                 # Pass HF token if available for gated diarization models
-                hf_token = os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_HUB_TOKEN")
-                self.extractors[feature_name] = WhisperXTranscriber(device=self.device, hf_token=hf_token)
+                try:
+                    from src.speech.whisperx_transcriber import WhisperXTranscriber
+                    hf_token = os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_HUB_TOKEN")
+                    self.extractors[feature_name] = WhisperXTranscriber(device=self.device, hf_token=hf_token)
+                except Exception as e:
+                    print(f"Warning: whisperx_transcription unavailable: {e}")
+                    self.extractors[feature_name] = None
             elif feature_name == "deberta_text":
-                self.extractors[feature_name] = DeBERTaAnalyzer(device=self.device)
+                try:
+                    from src.text.deberta_analyzer import DeBERTaAnalyzer
+                    self.extractors[feature_name] = DeBERTaAnalyzer(device=self.device)
+                except Exception as e:
+                    print(f"Warning: deberta_text unavailable: {e}")
+                    self.extractors[feature_name] = None
             elif feature_name == "simcse_text":
                 from src.text.simcse_analyzer import SimCSEAnalyzer
                 self.extractors[feature_name] = SimCSEAnalyzer(device=self.device)
@@ -219,42 +250,60 @@ class MultimodalPipeline:
         if "basic_audio" in self.features:
             print(f"Extracting basic audio features from {audio_path}")
             extractor = self._get_extractor("basic_audio")
-            basic_features = extractor.extract_all_features(audio_path)
-            features.update(basic_features)
+            if extractor is not None:
+                basic_features = extractor.extract_all_features(audio_path)
+                features.update(basic_features)
+            else:
+                print("Warning: Skipping basic_audio (extractor unavailable)")
         
         # Extract librosa spectral features
         if "librosa_spectral" in self.features:
             print(f"Extracting librosa spectral features from {audio_path}")
             extractor = self._get_extractor("librosa_spectral")
-            spectral_features = extractor.extract_all_features(audio_path)
-            features.update(spectral_features)
+            if extractor is not None:
+                spectral_features = extractor.extract_all_features(audio_path)
+                features.update(spectral_features)
+            else:
+                print("Warning: Skipping librosa_spectral (extractor unavailable)")
         
         # Extract OpenSMILE features
         if "opensmile" in self.features:
             print(f"Extracting OpenSMILE features from {audio_path}")
             extractor = self._get_extractor("opensmile")
-            opensmile_features = extractor.get_feature_dict(audio_path)
-            features.update(opensmile_features)
+            if extractor is not None:
+                opensmile_features = extractor.get_feature_dict(audio_path)
+                features.update(opensmile_features)
+            else:
+                print("Warning: Skipping opensmile (extractor unavailable)")
         
         # Extract AudioStretchy features
         if "audiostretchy" in self.features:
             print(f"Extracting AudioStretchy time-stretching features from {audio_path}")
             extractor = self._get_extractor("audiostretchy")
-            audiostretchy_features = extractor.get_feature_dict(audio_path)
-            features.update(audiostretchy_features)
+            if extractor is not None:
+                audiostretchy_features = extractor.get_feature_dict(audio_path)
+                features.update(audiostretchy_features)
+            else:
+                print("Warning: Skipping audiostretchy (extractor unavailable)")
         
         # Extract speech emotion features
         if "speech_emotion" in self.features:
             print(f"Extracting speech emotion features from {audio_path}")
             extractor = self._get_extractor("speech_emotion")
-            emotion_features = extractor.predict(audio_path)
-            features.update(emotion_features)
+            if extractor is not None:
+                emotion_features = extractor.predict(audio_path)
+                features.update(emotion_features)
+            else:
+                print("Warning: Skipping speech_emotion (extractor unavailable)")
          # Extract Heinsen routing sentiment features
         if "heinsen_sentiment" in self.features:
             print(f"Extracting Heinsen routing sentiment features from {audio_path}")
             extractor = self._get_extractor("heinsen_sentiment")
-            sentiment_features = extractor.get_feature_dict(features)
-            features.update(sentiment_features)
+            if extractor is not None:
+                sentiment_features = extractor.get_feature_dict(features)
+                features.update(sentiment_features)
+            else:
+                print("Warning: Skipping heinsen_sentiment (extractor unavailable)")
 
         # Extract speech separation features
         if "speech_separation" in self.features:
@@ -262,19 +311,25 @@ class MultimodalPipeline:
             extractor = self._get_extractor("speech_separation")
             sep_out_dir = self.output_dir / "audio" / "separated"
             os.makedirs(sep_out_dir, exist_ok=True)
-            separation_features = extractor.get_feature_dict(audio_path, sep_out_dir)
-            # Don't add the raw audio to features dict, just paths
-            for key, val in separation_features.items():
-                if "_path" in key:
-                    features[key] = val
+            if extractor is not None:
+                separation_features = extractor.get_feature_dict(audio_path, sep_out_dir)
+                # Don't add the raw audio to features dict, just paths
+                for key, val in separation_features.items():
+                    if "_path" in key:
+                        features[key] = val
+            else:
+                print("Warning: Skipping speech_separation (extractor unavailable)")
 
         # Extract WhisperX features
         if "whisperx_transcription" in self.features:
             print(f"Extracting WhisperX transcription features from {audio_path}")
             extractor = self._get_extractor("whisperx_transcription")
-            # Limit maximum number of speakers to 3
-            whisperx_features = extractor.get_feature_dict(audio_path, max_speakers=3)
-            features.update(whisperx_features)
+            if extractor is not None:
+                # Limit maximum number of speakers to 3
+                whisperx_features = extractor.get_feature_dict(audio_path, max_speakers=3)
+                features.update(whisperx_features)
+            else:
+                print("Warning: Skipping whisperx_transcription (extractor unavailable)")
 
         # Extract MELD emotion features (after WhisperX to access transcription)
         if "meld_emotion" in self.features:
@@ -282,8 +337,11 @@ class MultimodalPipeline:
             extractor = self._get_extractor("meld_emotion")
             # Pass the entire feature dictionary to MELD analyzer 
             # It will look for transcribed text from WhisperX or other sources
-            meld_features = extractor.get_feature_dict(features)
-            features.update(meld_features)
+            if extractor is not None:
+                meld_features = extractor.get_feature_dict(features)
+                features.update(meld_features)
+            else:
+                print("Warning: Skipping meld_emotion (extractor unavailable)")
 
         # Extract DeBERTa text analysis features
         if "deberta_text" in self.features:
@@ -291,8 +349,11 @@ class MultimodalPipeline:
             extractor = self._get_extractor("deberta_text")
             # Pass the entire feature dictionary to DeBERTa analyzer 
             # It will look for transcribed text from WhisperX or other sources
-            deberta_features = extractor.get_feature_dict(features)
-            features.update(deberta_features)
+            if extractor is not None:
+                deberta_features = extractor.get_feature_dict(features)
+                features.update(deberta_features)
+            else:
+                print("Warning: Skipping deberta_text (extractor unavailable)")
 
         # Extract SimCSE text analysis features
         if "simcse_text" in self.features:
@@ -300,8 +361,11 @@ class MultimodalPipeline:
             extractor = self._get_extractor("simcse_text")
             # Pass the entire feature dictionary to SimCSE analyzer 
             # It will look for transcribed text from WhisperX or other sources
-            simcse_features = extractor.get_feature_dict(features)
-            features.update(simcse_features)
+            if extractor is not None:
+                simcse_features = extractor.get_feature_dict(features)
+                features.update(simcse_features)
+            else:
+                print("Warning: Skipping simcse_text (extractor unavailable)")
 
         # Extract ALBERT text analysis features
         if "albert_text" in self.features:
@@ -309,8 +373,11 @@ class MultimodalPipeline:
             extractor = self._get_extractor("albert_text")
             # Pass the entire feature dictionary to ALBERT analyzer 
             # It will look for transcribed text from WhisperX or other sources
-            albert_features = extractor.get_feature_dict(features)
-            features.update(albert_features)
+            if extractor is not None:
+                albert_features = extractor.get_feature_dict(features)
+                features.update(albert_features)
+            else:
+                print("Warning: Skipping albert_text (extractor unavailable)")
 
         # Extract Sentence-BERT text analysis features
         if "sbert_text" in self.features:
@@ -318,8 +385,11 @@ class MultimodalPipeline:
             extractor = self._get_extractor("sbert_text")
             # Pass the entire feature dictionary to Sentence-BERT analyzer 
             # It will look for transcribed text from WhisperX or other sources
-            sbert_features = extractor.get_feature_dict(features)
-            features.update(sbert_features)
+            if extractor is not None:
+                sbert_features = extractor.get_feature_dict(features)
+                features.update(sbert_features)
+            else:
+                print("Warning: Skipping sbert_text (extractor unavailable)")
 
         # Extract Universal Sentence Encoder text analysis features
         if "use_text" in self.features:
@@ -327,8 +397,11 @@ class MultimodalPipeline:
             extractor = self._get_extractor("use_text")
             # Pass the entire feature dictionary to USE analyzer 
             # It will look for transcribed text from WhisperX or other sources
-            use_features = extractor.get_feature_dict(features)
-            features.update(use_features)
+            if extractor is not None:
+                use_features = extractor.get_feature_dict(features)
+                features.update(use_features)
+            else:
+                print("Warning: Skipping use_text (extractor unavailable)")
 
         return features
     
@@ -356,7 +429,8 @@ class MultimodalPipeline:
         
         # Save features as JSON and/or parquet
         base_name = audio_path.stem
-        feature_file_json = self.output_dir / "features" / f"{base_name}.json"
+    feature_dir = self.output_dir / "features"
+    feature_file_json = feature_dir / f"{base_name}.json"
         
         # Create a JSON structure with the file name as the first key
         json_features = {base_name: {}}
@@ -420,6 +494,8 @@ class MultimodalPipeline:
                     # Other Python native types go directly to JSON
                     json_features[base_name][group_name]["features"][key] = value
         
+        # Ensure features directory exists only when actually writing
+        os.makedirs(feature_dir, exist_ok=True)
         # Save a single JSON file
         with open(feature_file_json, "w") as f:
             json.dump(json_features, f, indent=2)
