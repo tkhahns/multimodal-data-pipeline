@@ -36,8 +36,8 @@ class MultimodalPipeline:
         else:
             self.output_dir = Path(output_dir)
             
-    os.makedirs(self.output_dir, exist_ok=True)
-    os.makedirs(self.output_dir / "audio", exist_ok=True)
+        os.makedirs(self.output_dir, exist_ok=True)
+        os.makedirs(self.output_dir / "audio", exist_ok=True)
         
         # Initialize feature list
         all_features = [
