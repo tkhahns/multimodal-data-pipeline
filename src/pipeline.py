@@ -173,10 +173,14 @@ class MultimodalPipeline:
                 self.extractors[feature_name] = USEAnalyzer(device=self.device)
             elif feature_name == "pare_vision":
                 from src.vision.pare_analyzer import PAREAnalyzer
-                self.extractors[feature_name] = PAREAnalyzer(device=self.device)
+                # Optional: provide checkpoint via env var PARE_CHECKPOINT
+                pare_ckpt = os.getenv("PARE_CHECKPOINT")
+                self.extractors[feature_name] = PAREAnalyzer(device=self.device, model_path=pare_ckpt)
             elif feature_name == "vitpose_vision":
                 from src.vision.vitpose_analyzer import ViTPoseAnalyzer
-                self.extractors[feature_name] = ViTPoseAnalyzer(device=self.device)
+                # Optional: provide checkpoint via env var VITPOSE_CHECKPOINT
+                vitpose_ckpt = os.getenv("VITPOSE_CHECKPOINT")
+                self.extractors[feature_name] = ViTPoseAnalyzer(device=self.device, model_path=vitpose_ckpt)
             elif feature_name == "psa_vision":
                 from src.vision.psa_analyzer import PSAAnalyzer
                 self.extractors[feature_name] = PSAAnalyzer(device=self.device)
@@ -429,8 +433,6 @@ class MultimodalPipeline:
         
         # Save features as JSON and/or parquet
         base_name = audio_path.stem
-    feature_dir = self.output_dir / "features"
-    feature_file_json = feature_dir / f"{base_name}.json"
         
         # Create a JSON structure with the file name as the first key
         json_features = {base_name: {}}
@@ -494,12 +496,16 @@ class MultimodalPipeline:
                     # Other Python native types go directly to JSON
                     json_features[base_name][group_name]["features"][key] = value
         
+        # Prepare output paths for per-file JSON
+        feature_dir = self.output_dir / "features"
+        feature_file_json = feature_dir / f"{base_name}_features.json"
+
         # Ensure features directory exists only when actually writing
         os.makedirs(feature_dir, exist_ok=True)
         # Save a single JSON file
         with open(feature_file_json, "w") as f:
             json.dump(json_features, f, indent=2)
-            
+        
         return features
     
     def process_video_file(self, video_path: str) -> Dict[str, Any]:
