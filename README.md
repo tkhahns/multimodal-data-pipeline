@@ -1,6 +1,53 @@
 # Multimodal Data Pipeline
-
 A compact toolkit to extract multimodal features (audio, speech, text, vision) from videos and audio files. Outputs JSON/Parquet in `output/` with clear feature prefixes.
+```
+multimodal-data-pipeline/
+├── pyproject.toml          # Orchestrator project (installs the pipeline)
+├── run_pipeline.py         # CLI entrypoint (adds packages/ to sys.path)
+├── packages/
+│   ├── core_pipeline/      # Runtime pipeline code and shared utilities
+│   ├── audio_models/       # Audio + speech dependency sandbox
+│   ├── cv_models/          # Vision dependency sandbox
+│   └── nlp_models/         # Text/NLP dependency sandbox
+├── tests/                  # Smoke tests and integration checks
+├── run_all.sh              # WSL/Linux/macOS convenience wrapper
+└── run_all.ps1             # Windows PowerShell convenience wrapper
+```
+
+- Each subfolder inside `packages/` has its own `pyproject.toml`, lock file and
+  Poetry environment. Activate only the stacks you need while working on a
+  modality to avoid dependency clashes (for example, TensorFlow vs. PyTorch).
+- `packages/core_pipeline` now houses the orchestrator (`MultimodalPipeline`,
+  `MultimodalFeatureExtractor`, CLI helpers, etc.).
+- `packages/nlp_models` ships TensorFlow as an optional extra named
+  `tensorflow-stack`; the root project enables it automatically so the
+  Universal Sentence Encoder continues to work out-of-the-box.
+- The root project lists the three subprojects as editable path dependencies so
+  `poetry install` at the repository root provides an "everything" environment.
+- You can still work inside a smaller environment by navigating into
+  `packages/audio_models`, `packages/cv_models`, or `packages/nlp_models` and
+  running `poetry install` there.
+
+Common workflows
+
+```bash
+# Full environment (all modalities)
+poetry install
+
+# Only audio + speech stack
+cd packages/audio_models
+poetry install
+
+# Only computer vision stack
+cd packages/cv_models
+poetry install
+
+# Only NLP stack
+cd packages/nlp_models
+poetry install
+```
+The runtime code now imports directly from these packages; the legacy `src`
+layout has been fully retired.
 
 ## Py-Feat (Python 3.11 runner)
 
@@ -135,7 +182,7 @@ PowerShell: use `./run_all.ps1` with equivalent flags.
 
 Programmatic
 ```python
-from src.feature_extractor import MultimodalFeatureExtractor
+from core_pipeline import MultimodalFeatureExtractor
 
 extractor = MultimodalFeatureExtractor(
     features=["basic_audio", "whisperx_transcription", "deberta_text"],

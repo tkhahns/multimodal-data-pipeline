@@ -1,129 +1,39 @@
 [tool.poetry]
 name = "multimodal-data-pipeline"
 version = "0.1.0"
-description = "Multimodal data processing pipeline for speech, vision, and text analysis"
-authors = ["Your Name <your.email@example.com>"]
+description = "Orchestrator project for the multimodal feature extraction pipeline."
+authors = ["Multimodal Pipeline Maintainers <ml-pipeline@example.com>"]
 readme = "README.md"
-packages = [{include = "src"}]
+license = "MIT"
+packages = [
+    { include = "core_pipeline", from = "packages/core_pipeline" }
+]
 
 [tool.poetry.dependencies]
-python = "~3.12"
-numpy = ">=2.0.0"
-pip = ">=23.0.0"  # Ensure latest pip for better Git support
-setuptools = ">=65.0.0"  # Required by many Git packages
-
-# Common multimedia processing dependencies
-speechbrain = "^1.0.3"
-opensmile = "^2.5.1"
-opencv-python = "^4.11.0.86"
-pandas = "^2.3.0"
-matplotlib = "^3.10.3"
-seaborn = "^0.13.2"
-scikit-learn = "^1.7.0"
-jupyter = "^1.1.1"
-notebook = "^7.4.3"
-ipython = "^9.3.0"
-pillow = "^11.2.1"
-torch = "^2.7.1"
-torchvision = "^0.22.1"
-torchaudio = "^2.7.1"
-transformers = "^4.52.4"
-sentence-transformers = "^4.1.0"
-datasets = "^3.6.0"
-accelerate = "^1.7.0"
+python = ">=3.10,<3.13"
+numpy = "^1.26"
+pandas = "^2.2"
+scikit-learn = "^1.4.2"
+tqdm = "^4.66"
+audio-models = { path = "packages/audio_models", develop = true }
+cv-models = { path = "packages/cv_models", develop = true }
+nlp-models = { path = "packages/nlp_models", develop = true, extras = ["tensorflow-stack"] }
 ffmpeg-python = "^0.2.0"
-moviepy = "^2.2.1"
-tqdm = "^4.67.1"
-requests = "^2.32.3"
-pathlib2 = "^2.3.7.post1"
-python-dotenv = "^1.1.0"
-audiostretchy = {extras = ["all"], version = "^1.3.5"}
-tensorflow = "^2.19.0"
-tensorflow-hub = "^0.16.1"
-# mediapipe = "^0.10.21"
-timm = "^1.0.15"
-efficientnet-pytorch = "^0.7.1"
-h5py = "^3.13.0"
-pyarrow = "^20.0.0"
-librosa = "^0.11.0"
-soundfile = "^0.13.1"
-pydub = "^0.25.1"
-dlib = "^20.0.0"
-face-recognition = "^1.3.0"
-joblib = "^1.5.1"
-ffmpeg = "^1.4"
-whisperx = "^3.3.4"
-loguru = "^0.7.3"
-yacs = "^0.1.8"
-flatten-dict = "^0.4.2"
-pare = "^0.3.2"
-meld = "^1.0.2"
-pycocotools = {version = ">=2.0.7", optional = true}
-ollama = "^0.5.4"
-[tool.poetry.group.common]
-optional = true
 
-[tool.poetry.group.common.dependencies]
-torch = ">=2.7.0"
-torchaudio = ">=2.1.0"
-opencv-python = ">=4.8.0.76"
-# Data processing
-pandas = ">=2.0.0"
-pyarrow = ">=14.0.0"
-# Audio processing
-ffmpeg-python = ">=0.2.0" 
-soundfile = ">=0.12.1"
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.1"
+ruff = "^0.4.4"
+pre-commit = "^3.7"
 
-# Speech processing dependencies
-[tool.poetry.group.speech]
-optional = true
+[tool.poetry.scripts]
+run-pipeline = "core_pipeline.example:main"
 
-[tool.poetry.group.speech.dependencies]
-librosa = ">=0.10.0"
-speechbrain = ">=1.0.0"
-transformers = ">=4.33.0"
-opensmile = ">=2.4.0"
-
-# Text processing dependencies
-[tool.poetry.group.text]
-optional = true
-
-[tool.poetry.group.text.dependencies]
-sentence-transformers = ">=2.2.2"
-transformers = ">=4.33.0"
-
-# Vision and pose estimation
-[tool.poetry.group.vision]
-optional = true
-
-[tool.poetry.group.vision.dependencies]
-mediapipe = ">=0.10.0"
-opencv-contrib-python = ">=4.8.0.76"
-pycocotools = ">=2.0.7"
-
-# Audio-visual models
-[tool.poetry.group.audiovisual]
-optional = true
-
-[tool.poetry.group.audiovisual.dependencies]
-# Pose and facial expression models (moved to external setup)
-# [tool.poetry.group.pose]
-# optional = true
-# [tool.poetry.group.pose.dependencies]
-# These require complex setup and will be managed separately
-
-# Facial expression models (moved to external setup)
-# [tool.poetry.group.face] 
-# optional = true
-# [tool.poetry.group.face.dependencies]
-# These require complex setup and will be managed separately
-
-# Video and motion models (moved to external setup)
-# [tool.poetry.group.video]
-# optional = true
-# [tool.poetry.group.video.dependencies] 
-# These require complex setup and will be managed separately
+[tool.poetry.extras]
+audio = ["audio-models"]
+vision = ["cv-models"]
+nlp = ["nlp-models"]
+all = ["audio-models", "cv-models", "nlp-models"]
 
 [build-system]
-requires = ["poetry-core>=1.0.0", "wheel>=0.38.0", "setuptools>=65.0.0"]
+requires = ["poetry-core>=1.8.0"]
 build-backend = "poetry.core.masonry.api"
