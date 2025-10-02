@@ -2,7 +2,6 @@
 
 from .heinsen_routing_sentiment import (
     AudioSentimentAnalyzer,
-    HeinsenRoutingSentimentAnalyzer,
     create_demo_sentiment_analyzer,
 )
 from .meld_emotion_analyzer import (
@@ -17,7 +16,6 @@ from .simple_emotion_recognition import (
 
 __all__ = [
     "AudioSentimentAnalyzer",
-    "HeinsenRoutingSentimentAnalyzer",
     "create_demo_sentiment_analyzer",
     "MELDEmotionAnalyzer",
     "create_meld_analyzer",

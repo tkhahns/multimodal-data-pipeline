@@ -1,60 +1,74 @@
-"""
-MELD Emotion Recognition Analyzer
+"""MELD-style conversational emotion features via pretrained transformers."""
 
-This module implements emotion recognition during social interactions using
-patterns and features inspired by the MELD dataset (Multimodal Multi-Party 
-Dataset for Emotion Recognition in Conversation).
+from __future__ import annotations
 
-MELD focuses on:
-- Multi-party conversations
-- Emotion recognition in dialogues
-- Speaker-specific emotion patterns
-- Emotion transitions and shifts
-- Conversational context analysis
-"""
+import logging
+import re
+from collections import Counter
+from typing import Any, Dict, List, Optional
 
 import numpy as np
-import re
-from typing import Dict, List, Tuple, Any
-from collections import Counter, defaultdict
-import logging
+from transformers import pipeline
 
 logger = logging.getLogger(__name__)
 
+
 class MELDEmotionAnalyzer:
-    """
-    Analyzer for emotion recognition during social interactions based on MELD patterns.
-    
-    MELD (Multimodal Multi-Party Dataset for Emotion Recognition in Conversation)
-    focuses on analyzing emotions in conversational contexts with multiple speakers.
-    """
-    
-    def __init__(self):
-        """Initialize the MELD emotion analyzer."""
-        # MELD emotion categories
+    """Infer dialogue-level MELD statistics using a text emotion classifier."""
+
+    def __init__(
+        self,
+        model_name: str = "j-hartmann/emotion-english-distilroberta-base",
+        *,
+        device: Optional[str] = None,
+        cache_dir: Optional[str] = None,
+    ) -> None:
         self.emotion_categories = [
-            'anger', 'disgust', 'fear', 'joy', 'neutral', 'sadness', 'surprise'
+            "anger",
+            "disgust",
+            "fear",
+            "joy",
+            "neutral",
+            "sadness",
+            "surprise",
         ]
-        
-        # Emotional keywords and patterns for each category
-        self.emotion_keywords = {
-            'anger': ['angry', 'mad', 'furious', 'rage', 'hate', 'damn', 'shit', 'annoyed', 'irritated'],
-            'disgust': ['disgusting', 'gross', 'yuck', 'eww', 'disgusted', 'revolting', 'nasty'],
-            'fear': ['scared', 'afraid', 'terrified', 'worried', 'anxious', 'nervous', 'panic'],
-            'joy': ['happy', 'excited', 'great', 'awesome', 'wonderful', 'amazing', 'fantastic', 'love'],
-            'neutral': ['okay', 'fine', 'alright', 'sure', 'yes', 'no', 'maybe', 'well'],
-            'sadness': ['sad', 'depressed', 'upset', 'crying', 'tears', 'heartbroken', 'disappointed'],
-            'surprise': ['wow', 'really', 'omg', 'amazing', 'incredible', 'unbelievable', 'shocking']
-        }
-        
-        # Emotional intensity modifiers
-        self.intensity_modifiers = {
-            'high': ['very', 'extremely', 'incredibly', 'absolutely', 'totally', 'completely'],
-            'medium': ['quite', 'rather', 'pretty', 'fairly', 'somewhat'],
-            'low': ['slightly', 'a bit', 'kind of', 'sort of', 'little']
-        }
-    
-    def analyze_conversation_emotions(self, transcript: str, speaker_info: Dict = None) -> Dict[str, Any]:
+        resolved_device = self._resolve_device(device)
+        try:
+            self._classifier = pipeline(
+                task="text-classification",
+                model=model_name,
+                device=resolved_device,
+                cache_dir=cache_dir,
+                return_all_scores=True,
+            )
+        except Exception as exc:  # pragma: no cover - defensive path
+            logger.error("Failed to load MELD emotion classifier %s: %s", model_name, exc)
+            self._classifier = None
+
+    @staticmethod
+    def _resolve_device(device: Optional[str]) -> int:
+        if device is None:
+            from torch import cuda
+
+            return 0 if cuda.is_available() else -1
+        if isinstance(device, str) and device.lower().startswith("cuda"):
+            from torch import cuda
+
+            if not cuda.is_available():
+                return -1
+            if ":" in device:
+                return int(device.split(":", maxsplit=1)[1])
+            return 0
+        if isinstance(device, str) and device.lower() == "cpu":
+            return -1
+        try:
+            return int(device)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            return -1
+
+    def analyze_conversation_emotions(
+        self, transcript: str, speaker_info: Optional[Dict] = None
+    ) -> Dict[str, Any]:
         """
         Analyze emotions in conversational transcript using MELD-inspired features.
         
@@ -66,7 +80,7 @@ class MELDEmotionAnalyzer:
             Dictionary containing MELD-style emotion analysis features
         """
         features = {}
-        
+
         # Parse transcript into utterances and speakers
         utterances = self._parse_transcript(transcript, speaker_info)
         
@@ -159,101 +173,37 @@ class MELDEmotionAnalyzer:
                     'word_count': len(sentence.split())
                 })
         
-        # Add emotion analysis to each utterance
-        for utterance in utterances:
-            utterance['emotions'] = self._detect_emotions_in_text(utterance['text'])
-            utterance['dominant_emotion'] = self._get_dominant_emotion(utterance['emotions'])
-            utterance['emotion_intensity'] = self._calculate_emotion_intensity(utterance['text'])
+        # Add emotion analysis to each utterance via pretrained classifier
+        self._annotate_emotions(utterances)
         
         return utterances
-    
-    def _detect_emotions_in_text(self, text: str) -> Dict[str, float]:
-        """
-        Detect emotions in text using keyword matching and patterns.
-        
-        Args:
-            text: Input text to analyze
-            
-        Returns:
-            Dictionary of emotion scores
-        """
-        text_lower = text.lower()
-        word_tokens = re.findall(r'\b\w+\b', text_lower)
-        
-        emotion_scores = {emotion: 0.0 for emotion in self.emotion_categories}
-        
-        # Count emotion keywords
-        for emotion, keywords in self.emotion_keywords.items():
-            for keyword in keywords:
-                if keyword in text_lower:
-                    emotion_scores[emotion] += 1.0
-        
-        # Apply intensity modifiers
-        for intensity, modifiers in self.intensity_modifiers.items():
-            multiplier = {'high': 2.0, 'medium': 1.5, 'low': 0.5}[intensity]
-            for modifier in modifiers:
-                if modifier in text_lower:
-                    # Boost all detected emotions
-                    for emotion in emotion_scores:
-                        if emotion_scores[emotion] > 0:
-                            emotion_scores[emotion] *= multiplier
-                    break
-        
-        # Normalize scores
-        total_score = sum(emotion_scores.values())
-        if total_score > 0:
-            emotion_scores = {k: v / total_score for k, v in emotion_scores.items()}
+
+    def _annotate_emotions(self, utterances: List[Dict[str, Any]]) -> None:
+        if not utterances:
+            return
+
+        texts = [utterance["text"] for utterance in utterances]
+        if self._classifier is None:
+            model_outputs = [[{"label": "neutral", "score": 1.0}] for _ in texts]
         else:
-            # Default to neutral if no emotions detected
-            emotion_scores['neutral'] = 1.0
-        
-        return emotion_scores
-    
-    def _get_dominant_emotion(self, emotion_scores: Dict[str, float]) -> str:
-        """Get the dominant emotion from scores."""
-        return max(emotion_scores.items(), key=lambda x: x[1])[0]
-    
-    def _calculate_emotion_intensity(self, text: str) -> float:
-        """
-        Calculate overall emotional intensity of text.
-        
-        Args:
-            text: Input text
-            
-        Returns:
-            Emotion intensity score (0-1)
-        """
-        text_lower = text.lower()
-        
-        # Count emotional words
-        emotional_word_count = 0
-        for keywords in self.emotion_keywords.values():
-            for keyword in keywords:
-                emotional_word_count += text_lower.count(keyword)
-        
-        # Count intensity modifiers
-        intensity_count = 0
-        for modifiers in self.intensity_modifiers.values():
-            for modifier in modifiers:
-                intensity_count += text_lower.count(modifier)
-        
-        # Count exclamation marks and caps
-        exclamation_count = text.count('!')
-        caps_ratio = sum(1 for c in text if c.isupper()) / max(len(text), 1)
-        
-        # Calculate intensity score
-        word_count = len(text.split())
-        if word_count == 0:
-            return 0.0
-        
-        intensity = (
-            (emotional_word_count * 0.4) +
-            (intensity_count * 0.3) +
-            (exclamation_count * 0.2) +
-            (caps_ratio * 0.1)
-        ) / word_count
-        
-        return min(intensity, 1.0)
+            try:
+                model_outputs = self._classifier(texts, truncation=True)
+            except Exception as exc:  # pragma: no cover - defensive path
+                logger.error("MELD classifier failed: %s", exc)
+                model_outputs = [[{"label": "neutral", "score": 1.0}] for _ in texts]
+
+        for utterance, predictions in zip(utterances, model_outputs):
+            distribution = {entry["label"].lower(): float(entry["score"]) for entry in predictions}
+            normalized = {emotion: distribution.get(emotion, 0.0) for emotion in self.emotion_categories}
+            total = sum(normalized.values())
+            if total > 0:
+                normalized = {k: v / total for k, v in normalized.items()}
+            else:
+                normalized = {emotion: 1.0 / len(self.emotion_categories) for emotion in self.emotion_categories}
+
+            utterance["emotions"] = normalized
+            utterance["dominant_emotion"] = max(normalized, key=normalized.get)
+            utterance["emotion_intensity"] = float(max(normalized.values()))
     
     def _calculate_basic_stats(self, utterances: List[Dict], transcript: str) -> Dict[str, Any]:
         """Calculate basic conversation statistics."""
@@ -327,7 +277,7 @@ class MELDEmotionAnalyzer:
         """Analyze speaker-specific patterns."""
         features = {}
         
-        # Count unique speakers
+    # Count unique speakers
         speakers = set(utterance['speaker'] for utterance in utterances)
         features['MELD_num_speakers'] = len(speakers)
         
@@ -353,8 +303,8 @@ class MELDEmotionAnalyzer:
         
         # Calculate average emotions per dialogue segment
         if utterances:
-            total_emotions = sum(1 for u in utterances if u['dominant_emotion'] != 'neutral')
-            features['MELD_avg_num_emotions_per_dialogue'] = total_emotions / max(features.get('MELD_num_dialogues', 1), 1)
+            non_neutral = [u for u in utterances if u.get('dominant_emotion') != 'neutral']
+            features['MELD_avg_num_emotions_per_dialogue'] = len(non_neutral) / max(features.get('MELD_num_dialogues', 1), 1)
         else:
             features['MELD_avg_num_emotions_per_dialogue'] = 0.0
         

@@ -9,7 +9,6 @@ from .text import (
 )
 from .emotion import (
     AudioSentimentAnalyzer,
-    HeinsenRoutingSentimentAnalyzer,
     MELDEmotionAnalyzer,
     SimpleEmotionRecognizer,
     analyze_emotion,
@@ -24,7 +23,6 @@ __all__ = [
     "SimCSEAnalyzer",
     "USEAnalyzer",
     "AudioSentimentAnalyzer",
-    "HeinsenRoutingSentimentAnalyzer",
     "MELDEmotionAnalyzer",
     "SimpleEmotionRecognizer",
     "analyze_emotion",
