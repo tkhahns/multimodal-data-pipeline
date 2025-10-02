@@ -58,8 +58,12 @@ class OpticalFlowAnalyzer:
             blockSize=7
         )
         
-        # Colors for visualization
-        self.colors = np.random.randint(0, 255, (100, 3))
+        # Colors for visualization (deterministic palette)
+        indices = np.arange(100, dtype=np.uint8)
+        self.colors = np.stack(
+            ((indices * 37) % 255, (indices * 67) % 255, (indices * 97) % 255),
+            axis=1,
+        ).astype(np.uint8)
         
         # Default metrics
         self.default_metrics = {
