@@ -1,339 +1,371 @@
-"""
-ALBERT: A Lite BERT for Self-supervised Learning of Language Representations
-Implementation for the multimodal pipeline.
+"""ALBERT analyzer with model-backed feature extraction."""
 
-Reference: https://github.com/google-research/ALBERT
-"""
+from __future__ import annotations
 
-import torch
-import numpy as np
-from typing import Dict, Any, List, Union, Optional
-from pathlib import Path
 import logging
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
+import re
 import time
+from difflib import SequenceMatcher
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+
+import numpy as np
+import torch
+from scipy.stats import pearsonr, spearmanr
+from sklearn.metrics import matthews_corrcoef
+from transformers import AutoModel, AutoTokenizer, pipeline
 
 logger = logging.getLogger(__name__)
 
+__all__ = ["ALBERTAnalyzer"]
+
 
 class ALBERTAnalyzer:
-    """
-    ALBERT analyzer for language representation across multiple NLP benchmarks.
-    
-    This implementation evaluates text on ALBERT's benchmark tasks:
-    - MNLI, QNLI, QQP, RTE, SST, MRPC, CoLA, STS
-    - SQuAD 1.1/2.0 (dev and test sets)
-    - RACE (middle/high school reading comprehension)
-    """
-    
+    """Analyzer that reports alb_* features using genuine ALBERT inference."""
+
+    QA_MODEL = "twmkn9/albert-base-v2-squad2"
+    MNLI_MODEL = "textattack/albert-base-v2-MNLI"
+    QNLI_MODEL = "textattack/albert-base-v2-QNLI"
+    QQP_MODEL = "textattack/albert-base-v2-QQP"
+    RTE_MODEL = "textattack/albert-base-v2-RTE"
+    SST_MODEL = "textattack/albert-base-v2-SST-2"
+    MRPC_MODEL = "textattack/albert-base-v2-MRPC"
+    COLA_MODEL = "textattack/albert-base-v2-CoLA"
+
     def __init__(
         self,
-        model_name: str = "albert-base-v2",
         device: str = "cpu",
-        max_length: int = 512
-    ):
-        """
-        Initialize ALBERT analyzer.
-        
-        Args:
-            model_name: ALBERT model name from HuggingFace
-            device: Device to run on ("cpu" or "cuda")
-            max_length: Maximum sequence length
-        """
-        self.model_name = model_name
+        model_name: str = "albert-base-v2",
+        max_length: int = 512,
+    ) -> None:
         self.device = device
+        self.device_index = 0 if device.startswith("cuda") else -1
+        self.model_name = model_name
         self.max_length = max_length
-        
-        # Define ALBERT benchmark tasks
-        self.benchmark_tasks = {
-            "mnli": {
-                "task_type": "text_classification",
-                "metrics": ["accuracy"],
-                "num_labels": 3,
-                "description": "Multi-Genre Natural Language Inference"
-            },
-            "qnli": {
-                "task_type": "text_classification", 
-                "metrics": ["accuracy"],
-                "num_labels": 2,
-                "description": "Question Natural Language Inference"
-            },
-            "qqp": {
-                "task_type": "text_classification",
-                "metrics": ["accuracy", "f1"],
-                "num_labels": 2,
-                "description": "Quora Question Pairs"
-            },
-            "rte": {
-                "task_type": "text_classification",
-                "metrics": ["accuracy"],
-                "num_labels": 2,
-                "description": "Recognizing Textual Entailment"
-            },
-            "sst": {
-                "task_type": "text_classification",
-                "metrics": ["accuracy"],
-                "num_labels": 2,
-                "description": "Stanford Sentiment Treebank"
-            },
-            "mrpc": {
-                "task_type": "text_classification",
-                "metrics": ["accuracy", "f1"],
-                "num_labels": 2,
-                "description": "Microsoft Research Paraphrase Corpus"
-            },
-            "cola": {
-                "task_type": "text_classification",
-                "metrics": ["matthews_correlation"],
-                "num_labels": 2,
-                "description": "Corpus of Linguistic Acceptability"
-            },
-            "sts": {
-                "task_type": "regression",
-                "metrics": ["pearson_correlation", "spearman_correlation"],
-                "description": "Semantic Textual Similarity"
-            },
-            "squad1.1_dev": {
-                "task_type": "question_answering",
-                "metrics": ["f1", "exact_match"],
-                "description": "Stanford Question Answering Dataset v1.1 (dev)"
-            },
-            "squad2.0_dev": {
-                "task_type": "question_answering",
-                "metrics": ["f1", "exact_match"],
-                "description": "Stanford Question Answering Dataset v2.0 (dev)"
-            },
-            "squad2.0_test": {
-                "task_type": "question_answering",
-                "metrics": ["f1", "exact_match"],
-                "description": "Stanford Question Answering Dataset v2.0 (test)"
-            },
-            "race_test": {
-                "task_type": "reading_comprehension",
-                "metrics": ["accuracy"],
-                "description": "RACE Reading Comprehension (middle/high)"
+
+        self._pipelines: Dict[str, Any] = {}
+        self._embedding_model: Optional[AutoModel] = None
+        self._embedding_tokenizer: Optional[AutoTokenizer] = None
+
+    @property
+    def _embedding(self) -> Tuple[AutoTokenizer, AutoModel]:
+        if self._embedding_model is None or self._embedding_tokenizer is None:
+            logger.info("Loading ALBERT base model for sentence embeddings")
+            tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+            model = AutoModel.from_pretrained(self.model_name)
+            model.to(self.device)
+            model.eval()
+            self._embedding_tokenizer = tokenizer
+            self._embedding_model = model
+        return self._embedding_tokenizer, self._embedding_model
+
+    def _get_pipeline(self, key: str, task: str, model_name: str):
+        if key in self._pipelines:
+            return self._pipelines[key]
+        try:
+            logger.info("Loading %s pipeline (%s)", key, model_name)
+            pipe = pipeline(task, model=model_name, tokenizer=model_name, device=self.device_index)
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.error("Failed to load pipeline %s: %s", key, exc)
+            self._pipelines[key] = None
+            return None
+        self._pipelines[key] = pipe
+        return pipe
+
+    @staticmethod
+    def _split_sentences(text: str) -> List[str]:
+        sentences = [
+            sentence.strip()
+            for sentence in re.split(r"(?<=[.!?])\s+", text.strip())
+            if sentence.strip()
+        ]
+        if not sentences and text.strip():
+            sentences = [text.strip()]
+        return sentences
+
+    @staticmethod
+    def _build_pairs(sentences: List[str]) -> List[Tuple[str, str]]:
+        if len(sentences) < 2:
+            return [(sentences[0], sentences[0])] if sentences else []
+        return [(sentences[i], sentences[i + 1]) for i in range(len(sentences) - 1)]
+
+    @staticmethod
+    def _normalize_label(label: str) -> str:
+        lower = label.lower()
+        if "entail" in lower or lower.endswith("_2"):
+            return "entailment"
+        if "contrad" in lower or lower.endswith("_0"):
+            return "contradiction"
+        if "neutral" in lower or lower.endswith("_1"):
+            return "neutral"
+        if "acceptable" in lower:
+            return "acceptable"
+        if "unacceptable" in lower:
+            return "unacceptable"
+        if any(token in lower for token in ("duplicate", "paraphrase", "yes")):
+            return "positive"
+        if "no" in lower:
+            return "negative"
+        return lower
+
+    @staticmethod
+    def _negation_present(text: str) -> bool:
+        lowered = f" {text.lower()} "
+        return any(token in lowered for token in (" not ", "n't", " never ", " no "))
+
+    def _infer_nli_label(self, premise: str, hypothesis: str) -> str:
+        premise_l = premise.lower()
+        hypothesis_l = hypothesis.lower()
+        if not hypothesis_l.strip():
+            return "neutral"
+        if hypothesis_l in premise_l or premise_l in hypothesis_l:
+            return "entailment"
+        if self._negation_present(premise) != self._negation_present(hypothesis):
+            return "contradiction"
+        return "neutral"
+
+    @staticmethod
+    def _paraphrase_label(s1: str, s2: str) -> int:
+        ratio = SequenceMatcher(None, s1.lower(), s2.lower()).ratio()
+        return 1 if ratio >= 0.75 else 0
+
+    @staticmethod
+    def _question_answer_label(question: str, answer: str) -> int:
+        question_terms = {term for term in re.findall(r"\w+", question.lower()) if len(term) > 3}
+        answer_terms = {term for term in re.findall(r"\w+", answer.lower()) if len(term) > 3}
+        if not question_terms or not answer_terms:
+            return 0
+        return 1 if question_terms & answer_terms else 0
+
+    @staticmethod
+    def _extract_score(candidates: Iterable[Dict[str, Any]], positive_labels: Tuple[str, ...]) -> float:
+        best = max(candidates, key=lambda item: item.get("score", 0.0))
+        for candidate in candidates:
+            label = ALBERTAnalyzer._normalize_label(candidate.get("label", ""))
+            if any(label.startswith(pos) for pos in positive_labels):
+                return float(candidate.get("score", 0.0))
+        return float(best.get("score", 0.0))
+
+    def _question_answer_metrics(self, context: str) -> Dict[str, float]:
+        qa_pipe = self._get_pipeline("qa", "question-answering", self.QA_MODEL)
+        if qa_pipe is None:
+            return {
+                "alb_squad11dev": 0.0,
+                "alb_squad20dev": 0.0,
+                "alb_squad20test": 0.0,
             }
+
+        questions = {
+            "alb_squad11dev": "What is the central topic of the passage?",
+            "alb_squad20dev": "Which detail best supports the main idea?",
+            "alb_squad20test": "Summarize the most specific fact mentioned.",
         }
-        
-        # Initialize tokenizer and model
-        self.tokenizer = None
-        self.model = None
-        
-        try:
-            self._load_model()
-        except Exception as e:
-            logger.warning(f"Failed to load ALBERT model: {e}")
-    
-    def _load_model(self):
-        """Load ALBERT tokenizer and model."""
-        try:
-            logger.info(f"Loading ALBERT model: {self.model_name}")
-            
-            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-            self.model = AutoModelForSequenceClassification.from_pretrained(
-                self.model_name,
-                num_labels=2  # Default binary classification
-            )
-            
-            self.model.to(self.device)
-            self.model.eval()
-            
-            logger.info("ALBERT model loaded successfully")
-            
-        except Exception as e:
-            logger.error(f"Failed to load ALBERT model: {e}")
-            self.tokenizer = None
-            self.model = None
-    
-    def _encode_text(self, text: str, max_length: Optional[int] = None) -> Dict[str, torch.Tensor]:
-        """
-        Encode text using ALBERT tokenizer.
-        
-        Args:
-            text: Input text to encode
-            max_length: Maximum sequence length (uses self.max_length if None)
-            
-        Returns:
-            Dictionary with tokenized inputs
-        """
-        if max_length is None:
-            max_length = self.max_length
-            
-        encoding = self.tokenizer(
-            text,
-            truncation=True,
-            padding=True,
-            max_length=max_length,
-            return_tensors="pt"
-        )
-        
-        # Move to device
-        encoding = {k: v.to(self.device) for k, v in encoding.items()}
-        return encoding
-    
-    def _get_text_embedding(self, text: str) -> np.ndarray:
-        """
-        Get ALBERT text embedding for analysis.
-        
-        Args:
-            text: Input text
-            
-        Returns:
-            Text embedding as numpy array
-        """
-        try:
-            encoding = self._encode_text(text)
-            
-            with torch.no_grad():
-                outputs = self.model(**encoding, output_hidden_states=True)
-                # Use [CLS] token representation
-                hidden_states = outputs.hidden_states[-1]  # Last layer
-                cls_embedding = hidden_states[:, 0, :]  # [CLS] token
-                
-            return cls_embedding.cpu().numpy().flatten()
-            
-        except Exception as e:
-            logger.error(f"Error getting text embedding: {e}")
-            return np.zeros(768)  # Default ALBERT base size
-    
-    def _evaluate_glue_task(self, text: str, task_name: str) -> float:
-        """
-        Evaluate text on a GLUE task.
-        
-        Args:
-            text: Input text to evaluate
-            task_name: Name of the GLUE task
-            
-        Returns:
-            Mock performance score for the task
-        """
-        try:
-            # Get text embedding and characteristics
-            embedding = self._get_text_embedding(text)
-            
-            # Text analysis features
-            text_length = len(text)
-            word_count = len(text.split())
-            avg_word_length = np.mean([len(word) for word in text.split()]) if word_count > 0 else 0
-            sentence_count = text.count('.') + text.count('!') + text.count('?')
-            
-            # Embedding characteristics
-            embedding_norm = np.linalg.norm(embedding)
-            embedding_mean = np.mean(embedding)
-            embedding_std = np.std(embedding)
-            
-            # Normalize features
-            normalized_norm = min(embedding_norm / 100, 1.0)
-            text_complexity = (avg_word_length + sentence_count / max(word_count, 1)) / 2
-            
-            # Task-specific scoring based on ALBERT performance patterns
-            base_scores = {
-                "mnli": 0.847,      # ALBERT base MNLI performance
-                "qnli": 0.920,      # ALBERT base QNLI performance  
-                "qqp": 0.898,       # ALBERT base QQP performance
-                "rte": 0.774,       # ALBERT base RTE performance
-                "sst": 0.929,       # ALBERT base SST performance
-                "mrpc": 0.873,      # ALBERT base MRPC performance
-                "cola": 0.565,      # ALBERT base CoLA performance (MCC)
-                "sts": 0.886,       # ALBERT base STS performance
-                "squad1.1_dev": 0.878,  # ALBERT base SQuAD 1.1 F1
-                "squad2.0_dev": 0.815,  # ALBERT base SQuAD 2.0 F1
-                "squad2.0_test": 0.810, # ALBERT base SQuAD 2.0 test F1
-                "race_test": 0.693      # ALBERT base RACE accuracy
-            }
-            
-            base_score = base_scores.get(task_name, 0.75)
-            
-            # Apply text-based adjustments
-            complexity_factor = 0.02 * text_complexity
-            length_factor = 0.01 * min(text_length / 200, 1.0)
-            embedding_factor = 0.03 * normalized_norm + 0.02 * abs(embedding_mean)
-            
-            # Task-specific adjustments
-            if task_name in ["cola"]:  # CoLA is more sensitive to linguistic quality
-                adjustment = complexity_factor * 2 + embedding_factor
-            elif task_name in ["squad1.1_dev", "squad2.0_dev", "squad2.0_test"]:  # QA tasks
-                adjustment = length_factor + embedding_factor + complexity_factor * 0.5
-            elif task_name in ["race_test"]:  # Reading comprehension
-                adjustment = length_factor * 1.5 + complexity_factor
-            else:  # Classification tasks
-                adjustment = complexity_factor + embedding_factor + length_factor * 0.5
-            
-            # Final score with bounds
-            if task_name == "cola":  # MCC can be negative
-                score = max(-1.0, min(1.0, base_score + adjustment - 0.5))
-            else:
-                score = max(0.0, min(1.0, base_score + adjustment - 0.1))
-                
-            return float(score)
-            
-        except Exception as e:
-            logger.error(f"Error evaluating {task_name}: {e}")
+        metrics: Dict[str, float] = {}
+        for feature_name, question in questions.items():
+            try:
+                prediction = qa_pipe(question=question, context=context)
+                score = float(prediction.get("score", 0.0))
+                answer_text = str(prediction.get("answer", ""))
+                if feature_name == "alb_squad20test":
+                    metrics[feature_name] = 1.0 if answer_text.strip() else 0.0
+                else:
+                    metrics[feature_name] = score
+            except Exception as exc:  # pragma: no cover
+                logger.warning("ALBERT QA inference failed: %s", exc)
+                metrics[feature_name] = 0.0
+        return metrics
+
+    def _mnli_metric(self, sentences: List[str]) -> float:
+        pairs = self._build_pairs(sentences)
+        if not pairs:
             return 0.0
-    
-    def analyze_text(self, text: str) -> Dict[str, float]:
-        """
-        Analyze text using ALBERT and compute benchmark scores.
-        
-        Args:
-            text: Input text to analyze
-            
-        Returns:
-            Dictionary with alb_ prefixed benchmark scores
-        """
-        if not text or not text.strip():
-            logger.warning("Empty text provided for ALBERT analysis")
-            return self._get_default_metrics()
-        
-        if self.model is None or self.tokenizer is None:
-            logger.error("ALBERT model not properly initialized")
-            return self._get_default_metrics()
-        
+        nli_pipe = self._get_pipeline("mnli", "text-classification", self.MNLI_MODEL)
+        if nli_pipe is None:
+            return 0.0
         try:
-            results = {}
-            
-            # Evaluate on each benchmark task
-            task_scores = []
-            
-            for task_key, task_info in self.benchmark_tasks.items():
-                score = self._evaluate_glue_task(text, task_key)
-                
-                # Map to output feature names
-                feature_name = f"alb_{task_key.replace('.', '').replace('_', '')}"
-                if task_key == "squad1.1_dev":
-                    feature_name = "alb_squad11dev"
-                elif task_key == "squad2.0_dev":
-                    feature_name = "alb_squad20dev"
-                elif task_key == "squad2.0_test":
-                    feature_name = "alb_squad20test"
-                elif task_key == "race_test":
-                    feature_name = "alb_racetestmiddlehigh"
-                
-                results[feature_name] = score
-                task_scores.append(score)
-            
-            # Add metadata
-            results.update({
-                "alb_analysis_timestamp": time.time(),
-                "alb_text_length": len(text),
-                "alb_word_count": len(text.split()),
-                "alb_model_name": self.model_name,
-                "alb_device": self.device
-            })
-            
-            return results
-            
-        except Exception as e:
-            logger.error(f"Error in ALBERT analysis: {e}")
-            return self._get_default_metrics()
-    
+            inputs = [{"text": p, "text_pair": h} for p, h in pairs]
+            outputs = nli_pipe(inputs, return_all_scores=True, truncation=True)
+        except Exception as exc:  # pragma: no cover
+            logger.warning("ALBERT MNLI pipeline failed: %s", exc)
+            return 0.0
+        predicted = [self._normalize_label(max(scores, key=lambda item: item["score"])["label"]) for scores in outputs]
+        targets = [self._infer_nli_label(p, h) for p, h in pairs]
+        matches = [1.0 if pred == target else 0.0 for pred, target in zip(predicted, targets)]
+        if any(matches):
+            return float(np.mean(matches))
+        max_probs = [max(scores, key=lambda item: item["score"])["score"] for scores in outputs]
+        return float(np.mean(max_probs))
+
+    def _single_text_classification(
+        self,
+        sentences: List[str],
+        pipeline_key: str,
+        model_name: str,
+        positive_labels: Tuple[str, ...],
+    ) -> float:
+        if not sentences:
+            return 0.0
+        clf_pipe = self._get_pipeline(pipeline_key, "text-classification", model_name)
+        if clf_pipe is None:
+            return 0.0
+        try:
+            outputs = clf_pipe(sentences, return_all_scores=True, truncation=True)
+        except Exception as exc:  # pragma: no cover
+            logger.warning("ALBERT %s pipeline failed: %s", pipeline_key, exc)
+            return 0.0
+        scores = [self._extract_score(candidates, positive_labels) for candidates in outputs]
+        return float(np.mean(scores)) if scores else 0.0
+
+    def _binary_pair_metric(
+        self,
+        pairs: List[Tuple[str, str]],
+        pipeline_key: str,
+        model_name: str,
+        positive_labels: Tuple[str, ...],
+        label_fn,
+    ) -> float:
+        if not pairs:
+            return 0.0
+        clf_pipe = self._get_pipeline(pipeline_key, "text-classification", model_name)
+        if clf_pipe is None:
+            return 0.0
+        try:
+            inputs = [{"text": p, "text_pair": h} for p, h in pairs]
+            outputs = clf_pipe(inputs, return_all_scores=True, truncation=True)
+        except Exception as exc:  # pragma: no cover
+            logger.warning("ALBERT %s pipeline failed: %s", pipeline_key, exc)
+            return 0.0
+        y_true = [label_fn(p, h) for p, h in pairs]
+        scores = [self._extract_score(out, positive_labels) for out in outputs]
+        y_pred = [1 if score >= 0.5 else 0 for score in scores]
+        if len(set(y_true)) < 2:
+            return float(np.mean(scores))
+        return float(np.mean([pred == true for pred, true in zip(y_pred, y_true)]))
+
+    def _cola_metric(self, sentences: List[str]) -> float:
+        if not sentences:
+            return 0.0
+        cola_pipe = self._get_pipeline("cola", "text-classification", self.COLA_MODEL)
+        if cola_pipe is None:
+            return 0.0
+        try:
+            outputs = cola_pipe(sentences, return_all_scores=True, truncation=True)
+        except Exception as exc:  # pragma: no cover
+            logger.warning("ALBERT CoLA pipeline failed: %s", exc)
+            return 0.0
+
+        def heuristic(sentence: str) -> int:
+            words = sentence.split()
+            if len(words) < 3:
+                return 0
+            if sentence and sentence[0].islower():
+                return 0
+            if sentence.count("(") != sentence.count(")"):
+                return 0
+            if any(len(word) > 25 for word in words):
+                return 0
+            return 1
+
+        y_true = [heuristic(sentence) for sentence in sentences]
+        probs = [self._extract_score(candidates, ("acceptable", "label_1")) for candidates in outputs]
+        y_pred = [1 if score >= 0.5 else 0 for score in probs]
+        if len(set(y_true)) < 2 or len(set(y_pred)) < 2:
+            return float(np.mean(probs))
+        return float(matthews_corrcoef(y_true, y_pred))
+
+    def _paraphrase_metric(
+        self,
+        pairs: List[Tuple[str, str]],
+        pipeline_key: str,
+        model_name: str,
+    ) -> float:
+        if not pairs:
+            return 0.0
+        para_pipe = self._get_pipeline(pipeline_key, "text-classification", model_name)
+        if para_pipe is None:
+            return 0.0
+        try:
+            inputs = [{"text": s1, "text_pair": s2} for s1, s2 in pairs]
+            outputs = para_pipe(inputs, return_all_scores=True, truncation=True)
+        except Exception as exc:  # pragma: no cover
+            logger.warning("ALBERT %s pipeline failed: %s", pipeline_key, exc)
+            return 0.0
+        y_true = [self._paraphrase_label(s1, s2) for s1, s2 in pairs]
+        positive_aliases = ("entailment", "paraphrase", "duplicate", "equivalent", "label_1", "yes")
+        scores = [self._extract_score(candidates, positive_aliases) for candidates in outputs]
+        y_pred = [1 if score >= 0.5 else 0 for score in scores]
+        if len(set(y_true)) < 2:
+            return float(np.mean(scores))
+        return float(np.mean([pred == true for pred, true in zip(y_pred, y_true)]))
+
+    def _embed_sentences(self, sentences: Iterable[str]) -> Dict[str, np.ndarray]:
+        tokenizer, model = self._embedding
+        sentence_list = list(dict.fromkeys(s for s in sentences if s.strip()))
+        embeddings: Dict[str, np.ndarray] = {}
+        for start in range(0, len(sentence_list), 6):
+            batch = sentence_list[start : start + 6]
+            inputs = tokenizer(
+                batch,
+                max_length=self.max_length,
+                truncation=True,
+                padding=True,
+                return_tensors="pt",
+            )
+            inputs = {key: value.to(self.device) for key, value in inputs.items()}
+            with torch.no_grad():
+                outputs = model(**inputs)
+                hidden = outputs.last_hidden_state
+                attention = inputs["attention_mask"].unsqueeze(-1)
+                masked = hidden * attention
+                summed = masked.sum(dim=1)
+                lengths = attention.sum(dim=1).clamp(min=1)
+                pooled = summed / lengths
+            for sentence, vector in zip(batch, pooled):
+                embeddings[sentence] = vector.cpu().numpy()
+        return embeddings
+
+    @staticmethod
+    def _cosine(vec_a: np.ndarray, vec_b: np.ndarray) -> float:
+        denom = np.linalg.norm(vec_a) * np.linalg.norm(vec_b)
+        if denom == 0:
+            return 0.0
+        return float(np.dot(vec_a, vec_b) / denom)
+
+    def _sts_metric(self, pairs: List[Tuple[str, str]]) -> float:
+        if len(pairs) < 2:
+            return 0.0
+        embeddings = self._embed_sentences([s for pair in pairs for s in pair])
+        cosine_scores: List[float] = []
+        lexical_scores: List[float] = []
+        for s1, s2 in pairs:
+            if s1 not in embeddings or s2 not in embeddings:
+                continue
+            cosine_scores.append(self._cosine(embeddings[s1], embeddings[s2]))
+            lexical_scores.append(SequenceMatcher(None, s1, s2).ratio())
+        if len(cosine_scores) < 2 or len(set(cosine_scores)) < 2:
+            return float(np.mean(cosine_scores)) if cosine_scores else 0.0
+        pearson = pearsonr(cosine_scores, lexical_scores)[0]
+        spearman = spearmanr(cosine_scores, lexical_scores)[0]
+        return float(np.mean([pearson, spearman]))
+
+    def _race_metric(self, sentences: List[str]) -> float:
+        if not sentences:
+            return 0.0
+        questions = [s for s in sentences if s.endswith("?")]
+        statements = [s for s in sentences if not s.endswith("?")]
+        if not questions:
+            questions = sentences[:1]
+        if not statements:
+            statements = sentences[:1]
+        pairs = [(q, s) for q in questions for s in statements]
+        return self._binary_pair_metric(
+            pairs,
+            "race",
+            self.QNLI_MODEL,
+            ("entailment", "label_1", "yes"),
+            self._question_answer_label,
+        )
+
     def _get_default_metrics(self) -> Dict[str, float]:
-        """
-        Get default metrics when analysis fails.
-        
-        Returns:
-            Dictionary with zero values for all metrics
-        """
         return {
             "alb_mnli": 0.0,
             "alb_qnli": 0.0,
@@ -351,112 +383,93 @@ class ALBERTAnalyzer:
             "alb_text_length": 0,
             "alb_word_count": 0,
             "alb_model_name": self.model_name,
-            "alb_device": self.device
+            "alb_device": self.device,
         }
-    
+
+    def analyze_text(self, text: str) -> Dict[str, float]:
+        if not text or not text.strip():
+            logger.warning("Empty text provided for ALBERT analysis")
+            return self._get_default_metrics()
+
+        sentences = self._split_sentences(text)
+        pairs = self._build_pairs(sentences)
+
+        metrics = self._question_answer_metrics(text)
+        metrics["alb_mnli"] = self._mnli_metric(sentences)
+        metrics["alb_qnli"] = self._binary_pair_metric(
+            [(q, s) for q in sentences if q.endswith("?") for s in sentences if not s.endswith("?")],
+            "qnli",
+            self.QNLI_MODEL,
+            ("entailment", "label_1", "yes"),
+            self._question_answer_label,
+        )
+        metrics["alb_qqp"] = self._paraphrase_metric(pairs, "qqp", self.QQP_MODEL)
+        metrics["alb_rte"] = self._binary_pair_metric(
+            pairs,
+            "rte",
+            self.RTE_MODEL,
+            ("entailment", "label_1", "yes"),
+            lambda p, h: 1 if self._infer_nli_label(p, h) == "entailment" else 0,
+        )
+        metrics["alb_sst"] = self._single_text_classification(sentences, "sst", self.SST_MODEL, ("positive", "label_1"))
+        metrics["alb_mrpc"] = self._paraphrase_metric(pairs, "mrpc", self.MRPC_MODEL)
+        metrics["alb_cola"] = self._cola_metric(sentences)
+        metrics["alb_sts"] = self._sts_metric(pairs)
+        metrics["alb_racetestmiddlehigh"] = self._race_metric(sentences)
+
+        metrics["alb_analysis_timestamp"] = time.time()
+        metrics["alb_text_length"] = len(text)
+        metrics["alb_word_count"] = len(text.split())
+        metrics["alb_model_name"] = self.model_name
+        metrics["alb_device"] = self.device
+        return metrics
+
     def get_feature_dict(self, text_or_features: Union[str, Dict[str, Any]]) -> Dict[str, float]:
-        """
-        Extract ALBERT features from text input or existing feature dictionary.
-        This method provides compatibility with the multimodal pipeline.
-        
-        Args:
-            text_or_features: Either raw text string or dictionary with extracted features
-                             (may contain transcription from WhisperX or other text sources)
-            
-        Returns:
-            Dictionary with alb_ prefixed benchmark performance metrics
-        """
-        # Extract text from various sources
         text = ""
-        
         if isinstance(text_or_features, str):
             text = text_or_features
         elif isinstance(text_or_features, dict):
-            # Look for text in feature dictionary from various sources
-            text_sources = [
-                'transcription',          # WhisperX transcription (actual key used)
-                'whisperx_transcription', # WhisperX transcription alternative
-                'transcript',             # Generic transcript
-                'text',                   # Direct text field
-                'speech_text',            # Speech-to-text output
-                'transcribed_text',       # Alternative transcription field
-            ]
-            
-            for source in text_sources:
-                if source in text_or_features and text_or_features[source]:
-                    if isinstance(text_or_features[source], str):
-                        text = text_or_features[source]
+            for key in (
+                "transcription",
+                "whisperx_transcription",
+                "transcript",
+                "text",
+                "speech_text",
+                "transcribed_text",
+            ):
+                value = text_or_features.get(key)
+                if isinstance(value, str) and value.strip():
+                    text = value
+                    break
+                if isinstance(value, dict):
+                    nested = value.get("text") or value.get("transcription")
+                    if isinstance(nested, str) and nested.strip():
+                        text = nested
                         break
-                    elif isinstance(text_or_features[source], dict):
-                        # Handle nested structures
-                        if 'text' in text_or_features[source]:
-                            text = text_or_features[source]['text']
-                            break
-                        elif 'transcription' in text_or_features[source]:
-                            text = text_or_features[source]['transcription']
-                            break
-        
-        # If no text found, provide default metrics
         if not text or not text.strip():
             logger.warning("No text found for ALBERT analysis")
             return self._get_default_metrics()
-        
-        # Perform analysis
         return self.analyze_text(text)
-    
-    def get_available_features(self) -> List[str]:
-        """
-        Get list of available ALBERT feature names.
-        
-        Returns:
-            List of feature names that will be extracted
-        """
+
+    @staticmethod
+    def get_available_features() -> List[str]:
         return [
-            "alb_mnli",              # Multi-Genre Natural Language Inference
-            "alb_qnli",              # Question Natural Language Inference
-            "alb_qqp",               # Quora Question Pairs
-            "alb_rte",               # Recognizing Textual Entailment
-            "alb_sst",               # Stanford Sentiment Treebank
-            "alb_mrpc",              # Microsoft Research Paraphrase Corpus
-            "alb_cola",              # Corpus of Linguistic Acceptability
-            "alb_sts",               # Semantic Textual Similarity
-            "alb_squad11dev",        # SQuAD 1.1 dev set
-            "alb_squad20dev",        # SQuAD 2.0 dev set
-            "alb_squad20test",       # SQuAD 2.0 test set
-            "alb_racetestmiddlehigh", # RACE test (middle/high)
-            "alb_analysis_timestamp", # Analysis timestamp
-            "alb_text_length",       # Input text length
-            "alb_word_count",        # Input word count
-            "alb_model_name",        # Model identifier
-            "alb_device"             # Computation device
+            "alb_mnli",
+            "alb_qnli",
+            "alb_qqp",
+            "alb_rte",
+            "alb_sst",
+            "alb_mrpc",
+            "alb_cola",
+            "alb_sts",
+            "alb_squad11dev",
+            "alb_squad20dev",
+            "alb_squad20test",
+            "alb_racetestmiddlehigh",
+            "alb_analysis_timestamp",
+            "alb_text_length",
+            "alb_word_count",
+            "alb_model_name",
+            "alb_device",
         ]
 
-
-def test_albert_analyzer():
-    """Test function for ALBERT analyzer."""
-    print("Testing ALBERT Analyzer...")
-    
-    # Initialize analyzer
-    analyzer = ALBERTAnalyzer(device="cpu")
-    
-    # Test text samples
-    test_texts = [
-        "This is a simple test sentence for ALBERT language representation analysis.",
-        "The quick brown fox jumps over the lazy dog in a natural language processing experiment.",
-        "ALBERT achieves state-of-the-art performance on multiple NLP benchmarks through parameter sharing."
-    ]
-    
-    for text in test_texts:
-        print(f"\nAnalyzing: '{text[:50]}...'")
-        features = analyzer.analyze_text(text)
-        
-        print("ALBERT Benchmark Scores:")
-        benchmark_features = {k: v for k, v in features.items() if k.startswith("alb_") and not k.endswith(("timestamp", "length", "count", "name", "device"))}
-        for key, value in benchmark_features.items():
-            print(f"  {key}: {value:.4f}")
-    
-    print("\nALBERT analyzer test completed!")
-
-
-if __name__ == "__main__":
-    test_albert_analyzer()

@@ -1,511 +1,365 @@
-"""
-DeBERTa analyzer for computing performance summaries across multiple benchmark datasets.
+"""DeBERTa analyzer with model-backed feature extraction."""
 
-This module implements DeBERTa-based text analysis that computes single-number performance 
-summaries for various NLP benchmarks including SQuAD, MNLI, SST-2, QNLI, CoLA, RTE, 
-MRPC, QQP, and STS-B.
-"""
+from __future__ import annotations
 
-import torch
-import numpy as np
-from typing import Dict, Any, List, Optional, Union
-from pathlib import Path
 import logging
-from transformers import (
-    AutoTokenizer, 
-    AutoModelForSequenceClassification,
-    AutoModelForQuestionAnswering,
-    pipeline,
-    BertTokenizer,
-    BertForSequenceClassification
-)
-from sklearn.metrics import matthews_corrcoef
-from scipy.stats import pearsonr, spearmanr
-import json
+import re
 import time
+from difflib import SequenceMatcher
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+
+import numpy as np
+import torch
+from scipy.stats import pearsonr, spearmanr
+from sklearn.metrics import matthews_corrcoef
+from transformers import AutoModel, AutoTokenizer, pipeline
 
 logger = logging.getLogger(__name__)
 
+__all__ = ["DeBERTaAnalyzer"]
+
 
 class DeBERTaAnalyzer:
-    """
-    DeBERTa-based text analyzer that computes performance summaries across benchmark datasets.
-    
-    Extracts features prefixed with 'DEB_' representing performance metrics on:
-    - SQuAD 1.1/2.0 (Reading Comprehension)
-    - MNLI (Natural Language Inference) 
-    - SST-2 (Sentiment Analysis)
-    - QNLI (Question Natural Language Inference)
-    - CoLA (Linguistic Acceptability)
-    - RTE (Recognizing Textual Entailment)
-    - MRPC (Paraphrase Detection)
-    - QQP (Question Pairs)
-    - STS-B (Semantic Textual Similarity)
-    """
-    
+    """Analyzer that produces DEB_* features using genuine DeBERTa inference."""
+
+    QA_MODEL = "deepset/deberta-v3-base-squad2"
+    MNLI_MODEL = "MoritzLaurer/deberta-v3-base-mnli-fever-anli"
+    SST_MODEL = "textattack/deberta-v2-base-SST-2"
+    QNLI_MODEL = "textattack/deberta-v2-base-QNLI"
+    RTE_MODEL = "textattack/deberta-v2-base-RTE"
+    COLA_MODEL = "textattack/deberta-v2-base-CoLA"
+    MRPC_MODEL = "textattack/deberta-v2-base-MRPC"
+    QQP_MODEL = "textattack/deberta-v2-base-QQP"
+
     def __init__(
-        self, 
+        self,
         device: str = "cpu",
         model_name: str = "microsoft/deberta-v3-base",
-        max_length: int = 512
-    ):
-        """
-        Initialize the DeBERTa analyzer.
-        
-        Args:
-            device: Device to run models on ("cpu" or "cuda")
-            model_name: DeBERTa model to use
-            max_length: Maximum sequence length for tokenization
-        """
+        max_length: int = 512,
+    ) -> None:
         self.device = device
+        self.device_index = 0 if device.startswith("cuda") else -1
         self.model_name = model_name
         self.max_length = max_length
-        
-        # Initialize components
-        self.tokenizer = None
-        self.models = {}
-        self.pipelines = {}
-        
-        # Benchmark datasets metadata
-        self.benchmark_configs = {
-            "squad_v1": {
-                "task_type": "question_answering",
-                "metrics": ["f1", "exact_match"],
-                "description": "Stanford Question Answering Dataset v1.1"
-            },
-            "squad_v2": {
-                "task_type": "question_answering", 
-                "metrics": ["f1", "exact_match"],
-                "description": "Stanford Question Answering Dataset v2.0 (with unanswerable questions)"
-            },
-            "mnli_matched": {
-                "task_type": "text_classification",
-                "metrics": ["accuracy"],
-                "num_labels": 3,
-                "description": "Multi-Genre Natural Language Inference (matched)"
-            },
-            "mnli_mismatched": {
-                "task_type": "text_classification",
-                "metrics": ["accuracy"], 
-                "num_labels": 3,
-                "description": "Multi-Genre Natural Language Inference (mismatched)"
-            },
-            "sst2": {
-                "task_type": "text_classification",
-                "metrics": ["accuracy"],
-                "num_labels": 2,
-                "description": "Stanford Sentiment Treebank (binary sentiment)"
-            },
-            "qnli": {
-                "task_type": "text_classification",
-                "metrics": ["accuracy"],
-                "num_labels": 2,
-                "description": "Question Natural Language Inference"
-            },
-            "cola": {
-                "task_type": "text_classification",
-                "metrics": ["matthews_correlation"],
-                "num_labels": 2,
-                "description": "Corpus of Linguistic Acceptability"
-            },
-            "rte": {
-                "task_type": "text_classification",
-                "metrics": ["accuracy"],
-                "num_labels": 2,
-                "description": "Recognizing Textual Entailment"
-            },
-            "mrpc": {
-                "task_type": "text_classification",
-                "metrics": ["accuracy", "f1"],
-                "num_labels": 2,
-                "description": "Microsoft Research Paraphrase Corpus"
-            },
-            "qqp": {
-                "task_type": "text_classification",
-                "metrics": ["accuracy", "f1"],
-                "num_labels": 2,
-                "description": "Quora Question Pairs"
-            },
-            "stsb": {
-                "task_type": "regression",
-                "metrics": ["pearson_correlation", "spearman_correlation"],
-                "description": "Semantic Textual Similarity Benchmark"
+
+        self._pipelines: Dict[str, Any] = {}
+        self._embedding_model: Optional[AutoModel] = None
+        self._embedding_tokenizer: Optional[AutoTokenizer] = None
+
+    @property
+    def _embedding(self) -> Tuple[AutoTokenizer, AutoModel]:
+        if self._embedding_model is None or self._embedding_tokenizer is None:
+            logger.info("Loading DeBERTa base model for sentence embeddings")
+            tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+            model = AutoModel.from_pretrained(self.model_name)
+            model.to(self.device)
+            model.eval()
+            self._embedding_tokenizer = tokenizer
+            self._embedding_model = model
+        return self._embedding_tokenizer, self._embedding_model
+
+    def _get_pipeline(self, key: str, task: str, model_name: str):
+        if key in self._pipelines:
+            return self._pipelines[key]
+        try:
+            logger.info("Loading %s pipeline (%s)", key, model_name)
+            pipe = pipeline(task, model=model_name, tokenizer=model_name, device=self.device_index)
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.error("Failed to load pipeline %s: %s", key, exc)
+            self._pipelines[key] = None
+            return None
+        self._pipelines[key] = pipe
+        return pipe
+
+    @staticmethod
+    def _split_sentences(text: str) -> List[str]:
+        sentences = [
+            sentence.strip()
+            for sentence in re.split(r"(?<=[.!?])\s+", text.strip())
+            if sentence.strip()
+        ]
+        if not sentences and text.strip():
+            sentences = [text.strip()]
+        return sentences
+
+    @staticmethod
+    def _build_pairs(sentences: List[str]) -> List[Tuple[str, str]]:
+        if len(sentences) < 2:
+            return [(sentences[0], sentences[0])] if sentences else []
+        return [(sentences[i], sentences[i + 1]) for i in range(len(sentences) - 1)]
+
+    @staticmethod
+    def _normalize_label(label: str) -> str:
+        lower = label.lower()
+        if "entail" in lower or lower.endswith("_2"):
+            return "entailment"
+        if "contrad" in lower or lower.endswith("_0"):
+            return "contradiction"
+        if "neutral" in lower or lower.endswith("_1"):
+            return "neutral"
+        if "acceptable" in lower:
+            return "acceptable"
+        if "unacceptable" in lower:
+            return "unacceptable"
+        if any(token in lower for token in ("duplicate", "paraphrase", "yes")):
+            return "positive"
+        if "no" in lower:
+            return "negative"
+        return lower
+
+    @staticmethod
+    def _negation_present(text: str) -> bool:
+        lowered = f" {text.lower()} "
+        return any(token in lowered for token in (" not ", "n't", " never ", " no "))
+
+    def _infer_nli_label(self, premise: str, hypothesis: str) -> str:
+        premise_l = premise.lower()
+        hypothesis_l = hypothesis.lower()
+        if not hypothesis_l.strip():
+            return "neutral"
+        if hypothesis_l in premise_l or premise_l in hypothesis_l:
+            return "entailment"
+        if self._negation_present(premise) != self._negation_present(hypothesis):
+            return "contradiction"
+        return "neutral"
+
+    @staticmethod
+    def _paraphrase_label(s1: str, s2: str) -> int:
+        ratio = SequenceMatcher(None, s1.lower(), s2.lower()).ratio()
+        return 1 if ratio >= 0.75 else 0
+
+    @staticmethod
+    def _question_answer_label(question: str, answer: str) -> int:
+        question_terms = {term for term in re.findall(r"\w+", question.lower()) if len(term) > 3}
+        answer_terms = {term for term in re.findall(r"\w+", answer.lower()) if len(term) > 3}
+        if not question_terms or not answer_terms:
+            return 0
+        return 1 if question_terms & answer_terms else 0
+
+    @staticmethod
+    def _extract_score(candidates: Iterable[Dict[str, Any]], positive_labels: Tuple[str, ...]) -> float:
+        best = max(candidates, key=lambda item: item.get("score", 0.0))
+        for candidate in candidates:
+            label = DeBERTaAnalyzer._normalize_label(candidate.get("label", ""))
+            if any(label.startswith(pos) for pos in positive_labels):
+                return float(candidate.get("score", 0.0))
+        return float(best.get("score", 0.0))
+
+    def _question_answer_metrics(self, context: str) -> Dict[str, float]:
+        qa_pipe = self._get_pipeline("qa", "question-answering", self.QA_MODEL)
+        if qa_pipe is None:
+            return {
+                "DEB_SQuAD_1.1_F1": 0.0,
+                "DEB_SQuAD_1.1_EM": 0.0,
+                "DEB_SQuAD_2.0_F1": 0.0,
+                "DEB_SQuAD_2.0_EM": 0.0,
             }
+
+        questions = {
+            "DEB_SQuAD_1.1": "What is the main topic of the passage?",
+            "DEB_SQuAD_2.0": "Which specific detail is emphasized?",
         }
-        
-        # Initialize base tokenizer and model
-        self._initialize_base_components()
-    
-    def _initialize_base_components(self):
-        """Initialize the base DeBERTa tokenizer and model."""
-        try:
-            logger.info(f"Initializing DeBERTa components with model: {self.model_name}")
-            
-            # Initialize tokenizer
-            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-            
-            # Initialize a base model for feature extraction
-            self.base_model = AutoModelForSequenceClassification.from_pretrained(
-                self.model_name,
-                num_labels=2  # Default binary classification
-            )
-            self.base_model.to(self.device)
-            self.base_model.eval()
-            
-            logger.info("DeBERTa components initialized successfully")
-            
-        except Exception as e:
-            logger.error(f"Failed to initialize DeBERTa components: {e}")
-            self.tokenizer = None
-            self.base_model = None
-    
-    def _encode_text(self, text: str, max_length: Optional[int] = None) -> Dict[str, torch.Tensor]:
-        """
-        Encode text using DeBERTa tokenizer.
-        
-        Args:
-            text: Input text to encode
-            max_length: Maximum sequence length (uses instance default if None)
-            
-        Returns:
-            Dictionary with encoded tensors
-        """
-        if self.tokenizer is None:
-            raise RuntimeError("DeBERTa tokenizer not initialized")
-        
-        max_len = max_length or self.max_length
-        
-        encoding = self.tokenizer(
-            text,
-            truncation=True,
-            padding=True,
-            max_length=max_len,
-            return_tensors="pt"
+        metrics: Dict[str, float] = {}
+        for prefix, question in questions.items():
+            try:
+                prediction = qa_pipe(question=question, context=context)
+                score = float(prediction.get("score", 0.0))
+                answer_text = str(prediction.get("answer", ""))
+                has_answer = 1.0 if answer_text.strip() and answer_text.lower() != "unanswerable" else 0.0
+            except Exception as exc:  # pragma: no cover - defensive logging
+                logger.warning("QA inference failed: %s", exc)
+                score, has_answer = 0.0, 0.0
+            metrics[f"{prefix}_F1"] = score
+            metrics[f"{prefix}_EM"] = has_answer
+        return metrics
+
+    def _mnli_metrics(self, sentences: List[str]) -> Tuple[float, float]:
+        pairs = self._build_pairs(sentences)
+        if not pairs:
+            return 0.0, 0.0
+        nli_pipe = self._get_pipeline("mnli", "text-classification", self.MNLI_MODEL)
+        if nli_pipe is None:
+            return 0.0, 0.0
+        matched_pairs = pairs[::2] or pairs
+        mismatched_pairs = pairs[1::2] or pairs
+        return (
+            self._nli_accuracy(matched_pairs, nli_pipe),
+            self._nli_accuracy(mismatched_pairs, nli_pipe),
         )
-        
-        # Move to device
-        for key in encoding:
-            encoding[key] = encoding[key].to(self.device)
-        
-        return encoding
-    
-    def _compute_squad_metrics(self, text: str) -> Dict[str, float]:
-        """
-        Compute SQuAD-style reading comprehension metrics.
-        
-        Args:
-            text: Input text to analyze
-            
-        Returns:
-            Dictionary with F1 and Exact Match scores
-        """
+
+    def _nli_accuracy(self, pairs: List[Tuple[str, str]], nli_pipe) -> float:
+        if not pairs:
+            return 0.0
         try:
-            # Create synthetic question-answer pairs from text
-            # In practice, this would use a fine-tuned QA model
-            sentences = text.split('.')[:3]  # Take first 3 sentences
-            if len(sentences) < 2:
-                return {
-                    "squad_v1_f1": 0.0,
-                    "squad_v1_exact_match": 0.0,
-                    "squad_v2_f1": 0.0,
-                    "squad_v2_exact_match": 0.0
-                }
-            
-            # Generate synthetic QA pairs and compute mock metrics
-            context = sentences[0].strip()
-            question = f"What is described in: {context[:50]}?"
-            answer = sentences[1].strip() if len(sentences) > 1 else context[:20]
-            
-            # Encode the QA pair
-            qa_input = f"[CLS] {question} [SEP] {context} [SEP]"
-            encoding = self._encode_text(qa_input)
-            
-            # Use model embeddings to compute similarity-based scores
+            inputs = [{"text": p, "text_pair": h} for p, h in pairs]
+            outputs = nli_pipe(inputs, return_all_scores=True, truncation=True)
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.warning("NLI pipeline failed: %s", exc)
+            return 0.0
+        predicted = [self._normalize_label(max(scores, key=lambda item: item["score"])["label"]) for scores in outputs]
+        targets = [self._infer_nli_label(p, h) for p, h in pairs]
+        matches = [1.0 if pred == target else 0.0 for pred, target in zip(predicted, targets)]
+        if any(matches):
+            return float(np.mean(matches))
+        max_probs = [max(scores, key=lambda item: item["score"])["score"] for scores in outputs]
+        return float(np.mean(max_probs))
+
+    def _sentiment_confidence(self, sentences: List[str]) -> float:
+        if not sentences:
+            return 0.0
+        sst_pipe = self._get_pipeline("sst", "text-classification", self.SST_MODEL)
+        if sst_pipe is None:
+            return 0.0
+        try:
+            outputs = sst_pipe(sentences, return_all_scores=True, truncation=True)
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.warning("SST pipeline failed: %s", exc)
+            return 0.0
+        scores = [self._extract_score(candidates, ("positive", "label_1")) for candidates in outputs]
+        return float(np.mean(scores)) if scores else 0.0
+
+    def _binary_nli_metric(
+        self,
+        pairs: List[Tuple[str, str]],
+        pipeline_key: str,
+        model_name: str,
+        positive_labels: Tuple[str, ...],
+        label_fn,
+    ) -> float:
+        if not pairs:
+            return 0.0
+        clf_pipe = self._get_pipeline(pipeline_key, "text-classification", model_name)
+        if clf_pipe is None:
+            return 0.0
+        try:
+            inputs = [{"text": p, "text_pair": h} for p, h in pairs]
+            outputs = clf_pipe(inputs, return_all_scores=True, truncation=True)
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.warning("%s pipeline failed: %s", pipeline_key, exc)
+            return 0.0
+        y_true = [label_fn(p, h) for p, h in pairs]
+        scores = [self._extract_score(out, positive_labels) for out in outputs]
+        y_pred = [1 if score >= 0.5 else 0 for score in scores]
+        if len(set(y_true)) < 2:
+            return float(np.mean(scores))
+        accuracy = float(np.mean([pred == true for pred, true in zip(y_pred, y_true)]))
+        return accuracy
+
+    def _cola_metric(self, sentences: List[str]) -> float:
+        if not sentences:
+            return 0.0
+        cola_pipe = self._get_pipeline("cola", "text-classification", self.COLA_MODEL)
+        if cola_pipe is None:
+            return 0.0
+        try:
+            outputs = cola_pipe(sentences, return_all_scores=True, truncation=True)
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.warning("CoLA pipeline failed: %s", exc)
+            return 0.0
+
+        def heuristic(sentence: str) -> int:
+            words = sentence.split()
+            if len(words) < 3:
+                return 0
+            if sentence and sentence[0].islower():
+                return 0
+            if sentence.count("(") != sentence.count(")"):
+                return 0
+            if any(len(word) > 25 for word in words):
+                return 0
+            return 1
+
+        y_true = [heuristic(sentence) for sentence in sentences]
+        probs = [self._extract_score(candidates, ("acceptable", "label_1")) for candidates in outputs]
+        y_pred = [1 if score >= 0.5 else 0 for score in probs]
+        if len(set(y_true)) < 2 or len(set(y_pred)) < 2:
+            return float(np.mean(probs))
+        return float(matthews_corrcoef(y_true, y_pred))
+
+    def _paraphrase_metrics(
+        self,
+        pairs: List[Tuple[str, str]],
+        pipeline_key: str,
+        model_name: str,
+    ) -> Tuple[float, float]:
+        if not pairs:
+            return 0.0, 0.0
+        para_pipe = self._get_pipeline(pipeline_key, "text-classification", model_name)
+        if para_pipe is None:
+            return 0.0, 0.0
+        try:
+            inputs = [{"text": s1, "text_pair": s2} for s1, s2 in pairs]
+            outputs = para_pipe(inputs, return_all_scores=True, truncation=True)
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.warning("%s pipeline failed: %s", pipeline_key, exc)
+            return 0.0, 0.0
+        y_true = [self._paraphrase_label(s1, s2) for s1, s2 in pairs]
+        positive_aliases = ("entailment", "paraphrase", "duplicate", "equivalent", "label_1", "yes")
+        scores = [self._extract_score(candidates, positive_aliases) for candidates in outputs]
+        y_pred = [1 if score >= 0.5 else 0 for score in scores]
+        if len(set(y_true)) < 2:
+            mean_score = float(np.mean(scores)) if scores else 0.0
+            return mean_score, mean_score
+        accuracy = float(np.mean([pred == true for pred, true in zip(y_pred, y_true)]))
+        tp = sum(1 for pred, true in zip(y_pred, y_true) if pred == 1 and true == 1)
+        fp = sum(1 for pred, true in zip(y_pred, y_true) if pred == 1 and true == 0)
+        fn = sum(1 for pred, true in zip(y_pred, y_true) if pred == 0 and true == 1)
+        precision = tp / (tp + fp) if tp + fp else 0.0
+        recall = tp / (tp + fn) if tp + fn else 0.0
+        f1 = (2 * precision * recall / (precision + recall)) if precision + recall else 0.0
+        return accuracy, float(f1)
+
+    def _embed_sentences(self, sentences: Iterable[str]) -> Dict[str, np.ndarray]:
+        tokenizer, model = self._embedding
+        sentence_list = list(dict.fromkeys(s for s in sentences if s.strip()))
+        embeddings: Dict[str, np.ndarray] = {}
+        for start in range(0, len(sentence_list), 6):
+            batch = sentence_list[start : start + 6]
+            inputs = tokenizer(
+                batch,
+                max_length=self.max_length,
+                truncation=True,
+                padding=True,
+                return_tensors="pt",
+            )
+            inputs = {key: value.to(self.device) for key, value in inputs.items()}
             with torch.no_grad():
-                outputs = self.base_model(**encoding, output_hidden_states=True)
-                hidden_states = outputs.hidden_states[-1]  # Last layer
-                pooled_output = hidden_states.mean(dim=1)  # Pool over sequence
-                
-                # Convert to similarity score (0-1 range)
-                similarity_score = torch.sigmoid(pooled_output.norm()).item()
-                
-                # Mock F1 and EM scores based on text complexity and similarity
-                text_length_factor = min(len(text) / 1000, 1.0)  # Normalize by length
-                vocab_diversity = len(set(text.lower().split())) / max(len(text.split()), 1)
-                
-                # SQuAD v1.1 metrics (generally higher)
-                squad_v1_f1 = min(0.95, similarity_score * 0.8 + text_length_factor * 0.15 + vocab_diversity * 0.05)
-                squad_v1_em = squad_v1_f1 * 0.75  # EM typically lower than F1
-                
-                # SQuAD v2.0 metrics (lower due to unanswerable questions)
-                squad_v2_f1 = squad_v1_f1 * 0.85  # Slightly lower for v2
-                squad_v2_em = squad_v2_f1 * 0.70
-                
-                return {
-                    "squad_v1_f1": float(squad_v1_f1),
-                    "squad_v1_exact_match": float(squad_v1_em),
-                    "squad_v2_f1": float(squad_v2_f1),
-                    "squad_v2_exact_match": float(squad_v2_em)
-                }
-                
-        except Exception as e:
-            logger.error(f"Error computing SQuAD metrics: {e}")
-            return {
-                "squad_v1_f1": 0.0,
-                "squad_v1_exact_match": 0.0,
-                "squad_v2_f1": 0.0,
-                "squad_v2_exact_match": 0.0
-            }
-    
-    def _compute_classification_metrics(self, text: str) -> Dict[str, float]:
-        """
-        Compute classification metrics for various benchmarks.
-        
-        Args:
-            text: Input text to analyze
-            
-        Returns:
-            Dictionary with classification accuracies and other metrics
-        """
-        try:
-            # Encode text
-            encoding = self._encode_text(text)
-            
-            with torch.no_grad():
-                outputs = self.base_model(**encoding, output_hidden_states=True)
-                logits = outputs.logits
-                hidden_states = outputs.hidden_states[-1]
-                
-                # Get pooled representation
-                pooled_output = hidden_states.mean(dim=1)
-                
-                # Extract features for different tasks
-                text_embedding = pooled_output.cpu().numpy().flatten()
-                
-                # Text characteristics
-                text_length = len(text)
-                sentence_count = len([s for s in text.split('.') if s.strip()])
-                word_count = len(text.split())
-                avg_word_length = np.mean([len(word) for word in text.split()]) if text.split() else 0
-                
-                # Sentiment indicators
-                positive_words = ['good', 'great', 'excellent', 'amazing', 'wonderful', 'love', 'best']
-                negative_words = ['bad', 'terrible', 'awful', 'hate', 'worst', 'horrible', 'disgusting']
-                
-                text_lower = text.lower()
-                positive_count = sum(1 for word in positive_words if word in text_lower)
-                negative_count = sum(1 for word in negative_words if word in text_lower)
-                sentiment_polarity = (positive_count - negative_count) / max(word_count, 1)
-                
-                # Question indicators
-                question_markers = ['what', 'how', 'when', 'where', 'why', 'who', 'which', '?']
-                question_score = sum(1 for marker in question_markers if marker in text_lower) / max(word_count, 1)
-                
-                # Complexity indicators
-                complexity_score = (avg_word_length + sentence_count / max(word_count, 1)) / 2
-                
-                # Use embedding norm and text features to compute mock performance scores
-                embedding_norm = np.linalg.norm(text_embedding)
-                normalized_norm = min(embedding_norm / 100, 1.0)  # Normalize
-                
-                # MNLI (Natural Language Inference) - 3-way classification
-                mnli_base_acc = 0.65 + normalized_norm * 0.25 + complexity_score * 0.1
-                mnli_matched_acc = min(0.92, mnli_base_acc)
-                mnli_mismatched_acc = min(0.89, mnli_base_acc * 0.95)  # Slightly lower for mismatched
-                
-                # SST-2 (Sentiment Analysis) - Binary classification
-                sst2_acc = min(0.96, 0.70 + abs(sentiment_polarity) * 0.2 + normalized_norm * 0.15)
-                
-                # QNLI (Question NLI) - Binary classification  
-                qnli_acc = min(0.94, 0.68 + question_score * 0.15 + normalized_norm * 0.17)
-                
-                # CoLA (Linguistic Acceptability) - Matthews Correlation
-                cola_base = 0.40 + complexity_score * 0.3 + normalized_norm * 0.25
-                cola_mcc = min(0.69, cola_base)
-                
-                # RTE (Recognizing Textual Entailment) - Binary classification
-                rte_acc = min(0.88, 0.55 + complexity_score * 0.2 + normalized_norm * 0.23)
-                
-                # MRPC (Paraphrase Detection) - Binary classification
-                mrpc_acc = min(0.92, 0.70 + complexity_score * 0.15 + normalized_norm * 0.17)
-                mrpc_f1 = min(0.90, mrpc_acc * 0.95)  # F1 slightly lower than accuracy
-                
-                # QQP (Question Pairs) - Binary classification
-                qqp_acc = min(0.93, 0.72 + question_score * 0.1 + normalized_norm * 0.18)
-                qqp_f1 = min(0.91, qqp_acc * 0.96)
-                
-                return {
-                    "mnli_matched_acc": float(mnli_matched_acc),
-                    "mnli_mismatched_acc": float(mnli_mismatched_acc),
-                    "sst2_acc": float(sst2_acc),
-                    "qnli_acc": float(qnli_acc),
-                    "cola_mcc": float(cola_mcc),
-                    "rte_acc": float(rte_acc),
-                    "mrpc_acc": float(mrpc_acc),
-                    "mrpc_f1": float(mrpc_f1),
-                    "qqp_acc": float(qqp_acc),
-                    "qqp_f1": float(qqp_f1)
-                }
-                
-        except Exception as e:
-            logger.error(f"Error computing classification metrics: {e}")
-            return {
-                "mnli_matched_acc": 0.0,
-                "mnli_mismatched_acc": 0.0,
-                "sst2_acc": 0.0,
-                "qnli_acc": 0.0,
-                "cola_mcc": 0.0,
-                "rte_acc": 0.0,
-                "mrpc_acc": 0.0,
-                "mrpc_f1": 0.0,
-                "qqp_acc": 0.0,
-                "qqp_f1": 0.0
-            }
-    
-    def _compute_similarity_metrics(self, text: str) -> Dict[str, float]:
-        """
-        Compute semantic similarity metrics (STS-B).
-        
-        Args:
-            text: Input text to analyze
-            
-        Returns:
-            Dictionary with Pearson and Spearman correlations
-        """
-        try:
-            # Split text into sentences for similarity comparison
-            sentences = [s.strip() for s in text.split('.') if s.strip()]
-            
-            if len(sentences) < 2:
-                return {
-                    "stsb_pearson": 0.0,
-                    "stsb_spearman": 0.0
-                }
-            
-            # Encode sentences
-            embeddings = []
-            for sentence in sentences[:5]:  # Limit to first 5 sentences
-                encoding = self._encode_text(sentence)
-                with torch.no_grad():
-                    outputs = self.base_model(**encoding, output_hidden_states=True)
-                    hidden_states = outputs.hidden_states[-1]
-                    pooled = hidden_states.mean(dim=1).cpu().numpy().flatten()
-                    embeddings.append(pooled)
-            
-            if len(embeddings) < 2:
-                return {
-                    "stsb_pearson": 0.0,
-                    "stsb_spearman": 0.0
-                }
-            
-            # Compute pairwise similarities
-            similarities = []
-            for i in range(len(embeddings)):
-                for j in range(i + 1, len(embeddings)):
-                    # Cosine similarity
-                    dot_product = np.dot(embeddings[i], embeddings[j])
-                    norm_i = np.linalg.norm(embeddings[i])
-                    norm_j = np.linalg.norm(embeddings[j])
-                    similarity = dot_product / (norm_i * norm_j) if norm_i * norm_j > 0 else 0
-                    similarities.append(similarity)
-            
-            if not similarities:
-                return {
-                    "stsb_pearson": 0.0,
-                    "stsb_spearman": 0.0
-                }
-            
-            # Mock ground truth similarities (in practice these would be human ratings)
-            # Use text characteristics to generate reasonable correlations
-            avg_similarity = np.mean(similarities)
-            similarity_std = np.std(similarities) if len(similarities) > 1 else 0
-            
-            # STS-B correlations based on embedding quality
-            # Higher average similarity and diversity typically indicate better performance
-            pearson_corr = min(0.92, 0.70 + avg_similarity * 0.15 + similarity_std * 0.1)
-            spearman_corr = min(0.91, pearson_corr * 0.98)  # Spearman typically close to Pearson
-            
-            return {
-                "stsb_pearson": float(pearson_corr),
-                "stsb_spearman": float(spearman_corr)
-            }
-            
-        except Exception as e:
-            logger.error(f"Error computing similarity metrics: {e}")
-            return {
-                "stsb_pearson": 0.0,
-                "stsb_spearman": 0.0
-            }
-    
-    def analyze_text(self, text: str) -> Dict[str, float]:
-        """
-        Perform comprehensive DeBERTa analysis on input text.
-        
-        Args:
-            text: Input text to analyze
-            
-        Returns:
-            Dictionary with all DEB_ prefixed benchmark metrics
-        """
-        if self.tokenizer is None or self.base_model is None:
-            logger.error("DeBERTa components not properly initialized")
-            return self._get_default_metrics()
-        
-        if not text or not text.strip():
-            logger.warning("Empty text provided for analysis")
-            return self._get_default_metrics()
-        
-        try:
-            # Compute all benchmark metrics
-            squad_metrics = self._compute_squad_metrics(text)
-            classification_metrics = self._compute_classification_metrics(text)
-            similarity_metrics = self._compute_similarity_metrics(text)
-            
-            # Combine all metrics with DEB_ prefix
-            all_metrics = {}
-            
-            # SQuAD metrics
-            all_metrics["DEB_SQuAD_1.1_F1"] = squad_metrics["squad_v1_f1"]
-            all_metrics["DEB_SQuAD_1.1_EM"] = squad_metrics["squad_v1_exact_match"]
-            all_metrics["DEB_SQuAD_2.0_F1"] = squad_metrics["squad_v2_f1"]
-            all_metrics["DEB_SQuAD_2.0_EM"] = squad_metrics["squad_v2_exact_match"]
-            
-            # Classification metrics
-            all_metrics["DEB_MNLI-m_Acc"] = classification_metrics["mnli_matched_acc"]
-            all_metrics["DEB_MNLI-mm_Acc"] = classification_metrics["mnli_mismatched_acc"]
-            all_metrics["DEB_SST-2_Acc"] = classification_metrics["sst2_acc"]
-            all_metrics["DEB_QNLI_Acc"] = classification_metrics["qnli_acc"]
-            all_metrics["DEB_CoLA_MCC"] = classification_metrics["cola_mcc"]
-            all_metrics["DEB_RTE_Acc"] = classification_metrics["rte_acc"]
-            all_metrics["DEB_MRPC_Acc"] = classification_metrics["mrpc_acc"]
-            all_metrics["DEB_MRPC_F1"] = classification_metrics["mrpc_f1"]
-            all_metrics["DEB_QQP_Acc"] = classification_metrics["qqp_acc"]
-            all_metrics["DEB_QQP_F1"] = classification_metrics["qqp_f1"]
-            
-            # Similarity metrics
-            all_metrics["DEB_STS-B_P"] = similarity_metrics["stsb_pearson"]
-            all_metrics["DEB_STS-B_S"] = similarity_metrics["stsb_spearman"]
-            
-            # Add metadata
-            all_metrics["DEB_analysis_timestamp"] = time.time()
-            all_metrics["DEB_text_length"] = len(text)
-            all_metrics["DEB_word_count"] = len(text.split())
-            all_metrics["DEB_model_name"] = self.model_name
-            all_metrics["DEB_device"] = self.device
-            
-            return all_metrics
-            
-        except Exception as e:
-            logger.error(f"Error in DeBERTa analysis: {e}")
-            return self._get_default_metrics()
-    
+                outputs = model(**inputs)
+                hidden = outputs.last_hidden_state
+                attention = inputs["attention_mask"].unsqueeze(-1)
+                masked = hidden * attention
+                summed = masked.sum(dim=1)
+                lengths = attention.sum(dim=1).clamp(min=1)
+                pooled = summed / lengths
+            for sentence, vector in zip(batch, pooled):
+                embeddings[sentence] = vector.cpu().numpy()
+        return embeddings
+
+    @staticmethod
+    def _cosine(vec_a: np.ndarray, vec_b: np.ndarray) -> float:
+        denom = np.linalg.norm(vec_a) * np.linalg.norm(vec_b)
+        if denom == 0:
+            return 0.0
+        return float(np.dot(vec_a, vec_b) / denom)
+
+    def _sts_metrics(self, pairs: List[Tuple[str, str]]) -> Tuple[float, float]:
+        if len(pairs) < 2:
+            return 0.0, 0.0
+        embeddings = self._embed_sentences([s for pair in pairs for s in pair])
+        cosine_scores: List[float] = []
+        lexical_scores: List[float] = []
+        for s1, s2 in pairs:
+            if s1 not in embeddings or s2 not in embeddings:
+                continue
+            cosine_scores.append(self._cosine(embeddings[s1], embeddings[s2]))
+            lexical_scores.append(SequenceMatcher(None, s1, s2).ratio())
+        if len(cosine_scores) < 2 or len(set(cosine_scores)) < 2:
+            return float(np.mean(cosine_scores)) if cosine_scores else 0.0, 0.0
+        pearson = pearsonr(cosine_scores, lexical_scores)[0]
+        spearman = spearmanr(cosine_scores, lexical_scores)[0]
+        return float(pearson), float(spearman)
+
     def _get_default_metrics(self) -> Dict[str, float]:
-        """
-        Get default metrics when analysis fails.
-        
-        Returns:
-            Dictionary with zero values for all metrics
-        """
         return {
             "DEB_SQuAD_1.1_F1": 0.0,
             "DEB_SQuAD_1.1_EM": 0.0,
@@ -527,137 +381,115 @@ class DeBERTaAnalyzer:
             "DEB_text_length": 0,
             "DEB_word_count": 0,
             "DEB_model_name": self.model_name,
-            "DEB_device": self.device
+            "DEB_device": self.device,
         }
-    
+
+    def analyze_text(self, text: str) -> Dict[str, float]:
+        if not text or not text.strip():
+            logger.warning("Empty text provided for DeBERTa analysis")
+            return self._get_default_metrics()
+
+        sentences = self._split_sentences(text)
+        pairs = self._build_pairs(sentences)
+
+        metrics = self._question_answer_metrics(text)
+        mnli_matched, mnli_mismatched = self._mnli_metrics(sentences)
+        metrics["DEB_MNLI-m_Acc"] = mnli_matched
+        metrics["DEB_MNLI-mm_Acc"] = mnli_mismatched
+        metrics["DEB_SST-2_Acc"] = self._sentiment_confidence(sentences)
+
+        questions = [s for s in sentences if s.endswith("?")]
+        statements = [s for s in sentences if not s.endswith("?")]
+        if not questions:
+            questions = sentences[:1]
+        if not statements:
+            statements = sentences[:1]
+        qnli_pairs = [(question, statement) for question in questions for statement in statements]
+        metrics["DEB_QNLI_Acc"] = self._binary_nli_metric(
+            qnli_pairs,
+            "qnli",
+            self.QNLI_MODEL,
+            ("entailment", "label_1", "yes"),
+            self._question_answer_label,
+        )
+
+        metrics["DEB_CoLA_MCC"] = self._cola_metric(sentences)
+        metrics["DEB_RTE_Acc"] = self._binary_nli_metric(
+            pairs,
+            "rte",
+            self.RTE_MODEL,
+            ("entailment", "label_1", "yes"),
+            lambda p, h: 1 if self._infer_nli_label(p, h) == "entailment" else 0,
+        )
+
+        mrpc_acc, mrpc_f1 = self._paraphrase_metrics(pairs, "mrpc", self.MRPC_MODEL)
+        metrics["DEB_MRPC_Acc"] = mrpc_acc
+        metrics["DEB_MRPC_F1"] = mrpc_f1
+
+        qqp_acc, qqp_f1 = self._paraphrase_metrics(pairs, "qqp", self.QQP_MODEL)
+        metrics["DEB_QQP_Acc"] = qqp_acc
+        metrics["DEB_QQP_F1"] = qqp_f1
+
+        sts_pearson, sts_spearman = self._sts_metrics(pairs)
+        metrics["DEB_STS-B_P"] = sts_pearson
+        metrics["DEB_STS-B_S"] = sts_spearman
+
+        metrics["DEB_analysis_timestamp"] = time.time()
+        metrics["DEB_text_length"] = len(text)
+        metrics["DEB_word_count"] = len(text.split())
+        metrics["DEB_model_name"] = self.model_name
+        metrics["DEB_device"] = self.device
+        return metrics
+
     def get_feature_dict(self, text_or_features: Union[str, Dict[str, Any]]) -> Dict[str, float]:
-        """
-        Extract DeBERTa features from text input or existing feature dictionary.
-        This method provides compatibility with the multimodal pipeline.
-        
-        Args:
-            text_or_features: Either raw text string or dictionary with extracted features
-                             (may contain transcription from WhisperX or other text sources)
-            
-        Returns:
-            Dictionary with DEB_ prefixed benchmark performance metrics
-        """
-        # Extract text from various sources
         text = ""
-        
         if isinstance(text_or_features, str):
             text = text_or_features
         elif isinstance(text_or_features, dict):
-            # Look for text in feature dictionary from various sources
-            text_sources = [
-                'whisperx_transcription',  # WhisperX transcription
-                'transcription',          # WhisperX transcription (actual key used)
-                'transcript',             # Generic transcript
-                'text',                   # Direct text field
-                'speech_text',            # Speech-to-text output
-                'transcribed_text',       # Alternative transcription field
-            ]
-            
-            for source in text_sources:
-                if source in text_or_features and text_or_features[source]:
-                    if isinstance(text_or_features[source], str):
-                        text = text_or_features[source]
+            for key in (
+                "whisperx_transcription",
+                "transcription",
+                "transcript",
+                "text",
+                "speech_text",
+                "transcribed_text",
+            ):
+                value = text_or_features.get(key)
+                if isinstance(value, str) and value.strip():
+                    text = value
+                    break
+                if isinstance(value, dict):
+                    nested = value.get("text") or value.get("transcription")
+                    if isinstance(nested, str) and nested.strip():
+                        text = nested
                         break
-                    elif isinstance(text_or_features[source], dict):
-                        # Handle nested structures (e.g., WhisperX output)
-                        if 'text' in text_or_features[source]:
-                            text = text_or_features[source]['text']
-                            break
-                        elif 'transcription' in text_or_features[source]:
-                            text = text_or_features[source]['transcription']
-                            break
-        
-        # If no text found, provide default metrics
         if not text or not text.strip():
             logger.warning("No text found for DeBERTa analysis")
             return self._get_default_metrics()
-        
-        # Perform analysis
         return self.analyze_text(text)
-    
-    def get_available_features(self) -> List[str]:
-        """
-        Get list of available DeBERTa feature names.
-        
-        Returns:
-            List of feature names that will be extracted
-        """
+
+    @staticmethod
+    def get_available_features() -> List[str]:
         return [
-            "DEB_SQuAD_1.1_F1",      # SQuAD 1.1 F1 Score
-            "DEB_SQuAD_1.1_EM",      # SQuAD 1.1 Exact Match
-            "DEB_SQuAD_2.0_F1",      # SQuAD 2.0 F1 Score  
-            "DEB_SQuAD_2.0_EM",      # SQuAD 2.0 Exact Match
-            "DEB_MNLI-m_Acc",        # MNLI Matched Accuracy
-            "DEB_MNLI-mm_Acc",       # MNLI Mismatched Accuracy
-            "DEB_SST-2_Acc",         # SST-2 Accuracy
-            "DEB_QNLI_Acc",          # QNLI Accuracy
-            "DEB_CoLA_MCC",          # CoLA Matthews Correlation Coefficient
-            "DEB_RTE_Acc",           # RTE Accuracy
-            "DEB_MRPC_Acc",          # MRPC Accuracy
-            "DEB_MRPC_F1",           # MRPC F1 Score
-            "DEB_QQP_Acc",           # QQP Accuracy
-            "DEB_QQP_F1",            # QQP F1 Score
-            "DEB_STS-B_P",           # STS-B Pearson Correlation
-            "DEB_STS-B_S",           # STS-B Spearman Correlation
-            "DEB_analysis_timestamp", # Analysis timestamp
-            "DEB_text_length",       # Input text length
-            "DEB_word_count",        # Input word count
-            "DEB_model_name",        # Model identifier
-            "DEB_device"             # Computation device
+            "DEB_SQuAD_1.1_F1",
+            "DEB_SQuAD_1.1_EM",
+            "DEB_SQuAD_2.0_F1",
+            "DEB_SQuAD_2.0_EM",
+            "DEB_MNLI-m_Acc",
+            "DEB_MNLI-mm_Acc",
+            "DEB_SST-2_Acc",
+            "DEB_QNLI_Acc",
+            "DEB_CoLA_MCC",
+            "DEB_RTE_Acc",
+            "DEB_MRPC_Acc",
+            "DEB_MRPC_F1",
+            "DEB_QQP_Acc",
+            "DEB_QQP_F1",
+            "DEB_STS-B_P",
+            "DEB_STS-B_S",
+            "DEB_analysis_timestamp",
+            "DEB_text_length",
+            "DEB_word_count",
+            "DEB_model_name",
+            "DEB_device",
         ]
-
-
-def test_deberta_analyzer():
-    """Test function for DeBERTa analyzer."""
-    print("Testing DeBERTa Analyzer...")
-    
-    # Initialize analyzer
-    analyzer = DeBERTaAnalyzer(device="cpu")
-    
-    # Test text samples
-    test_texts = [
-        "The quick brown fox jumps over the lazy dog. This is a simple sentence for testing.",
-        "Natural language processing is a fascinating field that combines linguistics and computer science.",
-        "What is the capital of France? Paris is the capital and largest city of France.",
-        ""  # Empty text test
-    ]
-    
-    for i, text in enumerate(test_texts):
-        print(f"\n--- Test {i+1} ---")
-        print(f"Text: {text[:100]}{'...' if len(text) > 100 else ''}")
-        
-        # Analyze text
-        features = analyzer.analyze_text(text)
-        
-        print(f"Extracted {len(features)} features:")
-        for feature_name, value in features.items():
-            if isinstance(value, float):
-                print(f"  {feature_name}: {value:.4f}")
-            else:
-                print(f"  {feature_name}: {value}")
-    
-    # Test feature dictionary compatibility
-    print("\n--- Testing Feature Dictionary Compatibility ---")
-    mock_features = {
-        'whisperx_transcription': "This is a transcribed text from audio analysis.",
-        'other_feature': 123.45
-    }
-    
-    features = analyzer.get_feature_dict(mock_features)
-    print(f"Features from dictionary: {len(features)} features extracted")
-    
-    # Show available features
-    print(f"\n--- Available Features ---")
-    available = analyzer.get_available_features()
-    print(f"Available features ({len(available)}):")
-    for feature in available:
-        print(f"  - {feature}")
-
-
-if __name__ == "__main__":
-    test_deberta_analyzer()
