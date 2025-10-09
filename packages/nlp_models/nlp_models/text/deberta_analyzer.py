@@ -22,14 +22,43 @@ __all__ = ["DeBERTaAnalyzer"]
 class DeBERTaAnalyzer:
     """Analyzer that produces DEB_* features using genuine DeBERTa inference."""
 
-    QA_MODEL = "deepset/deberta-v3-base-squad2"
-    MNLI_MODEL = "MoritzLaurer/deberta-v3-base-mnli-fever-anli"
-    SST_MODEL = "textattack/deberta-v2-base-SST-2"
-    QNLI_MODEL = "textattack/deberta-v2-base-QNLI"
-    RTE_MODEL = "textattack/deberta-v2-base-RTE"
-    COLA_MODEL = "textattack/deberta-v2-base-CoLA"
-    MRPC_MODEL = "textattack/deberta-v2-base-MRPC"
-    QQP_MODEL = "textattack/deberta-v2-base-QQP"
+    QA_MODELS = (
+        "deepset/deberta-v3-base-squad2",
+        "deepset/deberta-base-squad2",
+    )
+    MNLI_MODELS = (
+        "MoritzLaurer/deberta-v3-base-mnli-fever-anli",
+        "ynie/deberta-large-snli_mnli_fever_anli_R1_R2_R3-nli",
+        "facebook/bart-large-mnli",
+    )
+    SST_MODELS = (
+        "textattack/deberta-v2-base-SST-2",
+        "distilbert-base-uncased-finetuned-sst-2-english",
+    )
+    QNLI_MODELS = (
+        "textattack/deberta-v2-base-QNLI",
+        "cross-encoder/nli-deberta-base",
+        "facebook/bart-large-mnli",
+    )
+    RTE_MODELS = (
+        "textattack/deberta-v2-base-RTE",
+        "cross-encoder/nli-deberta-base",
+        "facebook/bart-large-mnli",
+    )
+    COLA_MODELS = (
+        "textattack/deberta-v2-base-CoLA",
+        "mrm8488/bert-base-uncased-finetuned-cola",
+    )
+    MRPC_MODELS = (
+        "textattack/deberta-v2-base-MRPC",
+        "cross-encoder/quora-roberta-large",
+        "facebook/bart-large-mnli",
+    )
+    QQP_MODELS = (
+        "textattack/deberta-v2-base-QQP",
+        "cross-encoder/quora-roberta-large",
+        "facebook/bart-large-mnli",
+    )
 
     def __init__(
         self,
@@ -58,18 +87,47 @@ class DeBERTaAnalyzer:
             self._embedding_model = model
         return self._embedding_tokenizer, self._embedding_model
 
-    def _get_pipeline(self, key: str, task: str, model_name: str):
+    def _get_pipeline(
+        self,
+        key: str,
+        task: str,
+        model_candidates: Union[str, Iterable[str]],
+        **pipeline_kwargs: Any,
+    ):
         if key in self._pipelines:
             return self._pipelines[key]
-        try:
-            logger.info("Loading %s pipeline (%s)", key, model_name)
-            pipe = pipeline(task, model=model_name, tokenizer=model_name, device=self.device_index)
-        except Exception as exc:  # pragma: no cover - defensive logging
-            logger.error("Failed to load pipeline %s: %s", key, exc)
-            self._pipelines[key] = None
-            return None
-        self._pipelines[key] = pipe
-        return pipe
+
+        if isinstance(model_candidates, str):
+            candidates = [model_candidates]
+        else:
+            # Preserve candidate order but drop duplicates
+            seen = set()
+            candidates = []
+            for candidate in model_candidates:
+                if candidate in seen:
+                    continue
+                seen.add(candidate)
+                candidates.append(candidate)
+
+        for model_name in candidates:
+            kwargs = dict(pipeline_kwargs)
+            kwargs.setdefault("device", self.device_index)
+            tokenizer_name = kwargs.pop("tokenizer", model_name)
+            try:
+                logger.info("Loading %s pipeline (%s)", key, model_name)
+                if tokenizer_name is None:
+                    pipe = pipeline(task, model=model_name, **kwargs)
+                else:
+                    pipe = pipeline(task, model=model_name, tokenizer=tokenizer_name, **kwargs)
+            except Exception as exc:  # pragma: no cover - defensive logging
+                logger.warning("Failed to load pipeline %s with %s: %s", key, model_name, exc)
+                continue
+            self._pipelines[key] = pipe
+            return pipe
+
+        logger.error("Unable to initialize pipeline %s with provided candidates", key)
+        self._pipelines[key] = None
+        return None
 
     @staticmethod
     def _split_sentences(text: str) -> List[str]:
@@ -146,7 +204,7 @@ class DeBERTaAnalyzer:
         return float(best.get("score", 0.0))
 
     def _question_answer_metrics(self, context: str) -> Dict[str, float]:
-        qa_pipe = self._get_pipeline("qa", "question-answering", self.QA_MODEL)
+        qa_pipe = self._get_pipeline("qa", "question-answering", self.QA_MODELS)
         if qa_pipe is None:
             return {
                 "DEB_SQuAD_1.1_F1": 0.0,
@@ -177,7 +235,7 @@ class DeBERTaAnalyzer:
         pairs = self._build_pairs(sentences)
         if not pairs:
             return 0.0, 0.0
-        nli_pipe = self._get_pipeline("mnli", "text-classification", self.MNLI_MODEL)
+        nli_pipe = self._get_pipeline("mnli", "text-classification", self.MNLI_MODELS)
         if nli_pipe is None:
             return 0.0, 0.0
         matched_pairs = pairs[::2] or pairs
@@ -207,7 +265,7 @@ class DeBERTaAnalyzer:
     def _sentiment_confidence(self, sentences: List[str]) -> float:
         if not sentences:
             return 0.0
-        sst_pipe = self._get_pipeline("sst", "text-classification", self.SST_MODEL)
+        sst_pipe = self._get_pipeline("sst", "text-classification", self.SST_MODELS)
         if sst_pipe is None:
             return 0.0
         try:
@@ -222,13 +280,13 @@ class DeBERTaAnalyzer:
         self,
         pairs: List[Tuple[str, str]],
         pipeline_key: str,
-        model_name: str,
+        model_candidates: Union[str, Iterable[str]],
         positive_labels: Tuple[str, ...],
         label_fn,
     ) -> float:
         if not pairs:
             return 0.0
-        clf_pipe = self._get_pipeline(pipeline_key, "text-classification", model_name)
+        clf_pipe = self._get_pipeline(pipeline_key, "text-classification", model_candidates)
         if clf_pipe is None:
             return 0.0
         try:
@@ -248,7 +306,7 @@ class DeBERTaAnalyzer:
     def _cola_metric(self, sentences: List[str]) -> float:
         if not sentences:
             return 0.0
-        cola_pipe = self._get_pipeline("cola", "text-classification", self.COLA_MODEL)
+        cola_pipe = self._get_pipeline("cola", "text-classification", self.COLA_MODELS)
         if cola_pipe is None:
             return 0.0
         try:
@@ -280,11 +338,11 @@ class DeBERTaAnalyzer:
         self,
         pairs: List[Tuple[str, str]],
         pipeline_key: str,
-        model_name: str,
+        model_candidates: Union[str, Iterable[str]],
     ) -> Tuple[float, float]:
         if not pairs:
             return 0.0, 0.0
-        para_pipe = self._get_pipeline(pipeline_key, "text-classification", model_name)
+        para_pipe = self._get_pipeline(pipeline_key, "text-classification", model_candidates)
         if para_pipe is None:
             return 0.0, 0.0
         try:
@@ -408,7 +466,7 @@ class DeBERTaAnalyzer:
         metrics["DEB_QNLI_Acc"] = self._binary_nli_metric(
             qnli_pairs,
             "qnli",
-            self.QNLI_MODEL,
+            self.QNLI_MODELS,
             ("entailment", "label_1", "yes"),
             self._question_answer_label,
         )
@@ -417,16 +475,16 @@ class DeBERTaAnalyzer:
         metrics["DEB_RTE_Acc"] = self._binary_nli_metric(
             pairs,
             "rte",
-            self.RTE_MODEL,
+            self.RTE_MODELS,
             ("entailment", "label_1", "yes"),
             lambda p, h: 1 if self._infer_nli_label(p, h) == "entailment" else 0,
         )
 
-        mrpc_acc, mrpc_f1 = self._paraphrase_metrics(pairs, "mrpc", self.MRPC_MODEL)
+        mrpc_acc, mrpc_f1 = self._paraphrase_metrics(pairs, "mrpc", self.MRPC_MODELS)
         metrics["DEB_MRPC_Acc"] = mrpc_acc
         metrics["DEB_MRPC_F1"] = mrpc_f1
 
-        qqp_acc, qqp_f1 = self._paraphrase_metrics(pairs, "qqp", self.QQP_MODEL)
+        qqp_acc, qqp_f1 = self._paraphrase_metrics(pairs, "qqp", self.QQP_MODELS)
         metrics["DEB_QQP_Acc"] = qqp_acc
         metrics["DEB_QQP_F1"] = qqp_f1
 

@@ -49,6 +49,17 @@ poetry install
 The runtime code now imports directly from these packages; the legacy `src`
 layout has been fully retired.
 
+> **Note on recent dependency hardening**
+>
+> - GPU/CPU stacks now require `torch>=2.6` to satisfy CVE-2025-32434 safeguards. The
+>   audio bundle also pins `torchaudio>=2.6` and the vision bundle expects
+>   `torchvision>=0.21`.
+> - Scientific routines share `scipy>=1.11,<1.13` across all modality packages.
+> - Transformers-based text features expect `tf-keras>=2.15` to coexist with the
+>   system `keras` package and avoid the Keras 3 incompatibility warning. Run
+>   `poetry install` (root and inside each edited package) to refresh lock files
+>   before executing the pipeline again.
+
 ## Py-Feat (Python 3.11 runner)
 
 Py-Feat isn't compatible with Python 3.12, so the repo includes an isolated subproject to run it on Python 3.11 and feed results back to the main pipeline via a subprocess.

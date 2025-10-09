@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 import numpy as np
+from .compat import ensure_legacy_stats
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +85,7 @@ def generate_features(video_path: str) -> Dict[str, Any]:
     if not video.exists():
         raise FileNotFoundError(f"Video not found: {video}")
 
+    ensure_legacy_stats()
     try:
         from feat import Detector  # type: ignore
     except ImportError as exc:  # pragma: no cover - runtime guard

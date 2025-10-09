@@ -22,14 +22,45 @@ __all__ = ["ALBERTAnalyzer"]
 class ALBERTAnalyzer:
     """Analyzer that reports alb_* features using genuine ALBERT inference."""
 
-    QA_MODEL = "twmkn9/albert-base-v2-squad2"
-    MNLI_MODEL = "textattack/albert-base-v2-MNLI"
-    QNLI_MODEL = "textattack/albert-base-v2-QNLI"
-    QQP_MODEL = "textattack/albert-base-v2-QQP"
-    RTE_MODEL = "textattack/albert-base-v2-RTE"
-    SST_MODEL = "textattack/albert-base-v2-SST-2"
-    MRPC_MODEL = "textattack/albert-base-v2-MRPC"
-    COLA_MODEL = "textattack/albert-base-v2-CoLA"
+    QA_MODELS = (
+        "twmkn9/albert-base-v2-squad2",
+        "ktrapeznikov/albert-base-v2-squad2",
+        "deepset/deberta-v3-base-squad2",
+    )
+    MNLI_MODELS = (
+        "textattack/albert-base-v2-MNLI",
+        "ynie/albert-base-v2-snli_mnli_fever_anli_R1_R2_R3-nli",
+        "facebook/bart-large-mnli",
+    )
+    QNLI_MODELS = (
+        "textattack/albert-base-v2-QNLI",
+        "ynie/albert-base-v2-snli_mnli_fever_anli_R1_R2_R3-nli",
+        "facebook/bart-large-mnli",
+    )
+    QQP_MODELS = (
+        "textattack/albert-base-v2-QQP",
+        "cross-encoder/quora-roberta-large",
+        "facebook/bart-large-mnli",
+    )
+    RTE_MODELS = (
+        "textattack/albert-base-v2-RTE",
+        "ynie/albert-base-v2-snli_mnli_fever_anli_R1_R2_R3-nli",
+        "facebook/bart-large-mnli",
+    )
+    SST_MODELS = (
+        "textattack/albert-base-v2-SST-2",
+        "bhadresh-savani/albert-base-v2-emotion",
+        "distilbert-base-uncased-finetuned-sst-2-english",
+    )
+    MRPC_MODELS = (
+        "textattack/albert-base-v2-MRPC",
+        "cross-encoder/quora-roberta-large",
+        "facebook/bart-large-mnli",
+    )
+    COLA_MODELS = (
+        "textattack/albert-base-v2-CoLA",
+        "mrm8488/bert-base-uncased-finetuned-cola",
+    )
 
     def __init__(
         self,
@@ -58,18 +89,46 @@ class ALBERTAnalyzer:
             self._embedding_model = model
         return self._embedding_tokenizer, self._embedding_model
 
-    def _get_pipeline(self, key: str, task: str, model_name: str):
+    def _get_pipeline(
+        self,
+        key: str,
+        task: str,
+        model_candidates: Union[str, Iterable[str]],
+        **pipeline_kwargs: Any,
+    ):
         if key in self._pipelines:
             return self._pipelines[key]
-        try:
-            logger.info("Loading %s pipeline (%s)", key, model_name)
-            pipe = pipeline(task, model=model_name, tokenizer=model_name, device=self.device_index)
-        except Exception as exc:  # pragma: no cover - defensive logging
-            logger.error("Failed to load pipeline %s: %s", key, exc)
-            self._pipelines[key] = None
-            return None
-        self._pipelines[key] = pipe
-        return pipe
+
+        if isinstance(model_candidates, str):
+            candidates = [model_candidates]
+        else:
+            seen = set()
+            candidates = []
+            for candidate in model_candidates:
+                if candidate in seen:
+                    continue
+                seen.add(candidate)
+                candidates.append(candidate)
+
+        for model_name in candidates:
+            kwargs = dict(pipeline_kwargs)
+            kwargs.setdefault("device", self.device_index)
+            tokenizer_name = kwargs.pop("tokenizer", model_name)
+            try:
+                logger.info("Loading %s pipeline (%s)", key, model_name)
+                if tokenizer_name is None:
+                    pipe = pipeline(task, model=model_name, **kwargs)
+                else:
+                    pipe = pipeline(task, model=model_name, tokenizer=tokenizer_name, **kwargs)
+            except Exception as exc:  # pragma: no cover - defensive logging
+                logger.warning("Failed to load pipeline %s with %s: %s", key, model_name, exc)
+                continue
+            self._pipelines[key] = pipe
+            return pipe
+
+        logger.error("Unable to initialize pipeline %s with provided candidates", key)
+        self._pipelines[key] = None
+        return None
 
     @staticmethod
     def _split_sentences(text: str) -> List[str]:
@@ -146,7 +205,7 @@ class ALBERTAnalyzer:
         return float(best.get("score", 0.0))
 
     def _question_answer_metrics(self, context: str) -> Dict[str, float]:
-        qa_pipe = self._get_pipeline("qa", "question-answering", self.QA_MODEL)
+        qa_pipe = self._get_pipeline("qa", "question-answering", self.QA_MODELS)
         if qa_pipe is None:
             return {
                 "alb_squad11dev": 0.0,
@@ -178,7 +237,7 @@ class ALBERTAnalyzer:
         pairs = self._build_pairs(sentences)
         if not pairs:
             return 0.0
-        nli_pipe = self._get_pipeline("mnli", "text-classification", self.MNLI_MODEL)
+        nli_pipe = self._get_pipeline("mnli", "text-classification", self.MNLI_MODELS)
         if nli_pipe is None:
             return 0.0
         try:
@@ -199,12 +258,12 @@ class ALBERTAnalyzer:
         self,
         sentences: List[str],
         pipeline_key: str,
-        model_name: str,
+        model_candidates: Union[str, Iterable[str]],
         positive_labels: Tuple[str, ...],
     ) -> float:
         if not sentences:
             return 0.0
-        clf_pipe = self._get_pipeline(pipeline_key, "text-classification", model_name)
+        clf_pipe = self._get_pipeline(pipeline_key, "text-classification", model_candidates)
         if clf_pipe is None:
             return 0.0
         try:
@@ -219,13 +278,13 @@ class ALBERTAnalyzer:
         self,
         pairs: List[Tuple[str, str]],
         pipeline_key: str,
-        model_name: str,
+        model_candidates: Union[str, Iterable[str]],
         positive_labels: Tuple[str, ...],
         label_fn,
     ) -> float:
         if not pairs:
             return 0.0
-        clf_pipe = self._get_pipeline(pipeline_key, "text-classification", model_name)
+        clf_pipe = self._get_pipeline(pipeline_key, "text-classification", model_candidates)
         if clf_pipe is None:
             return 0.0
         try:
@@ -244,7 +303,7 @@ class ALBERTAnalyzer:
     def _cola_metric(self, sentences: List[str]) -> float:
         if not sentences:
             return 0.0
-        cola_pipe = self._get_pipeline("cola", "text-classification", self.COLA_MODEL)
+        cola_pipe = self._get_pipeline("cola", "text-classification", self.COLA_MODELS)
         if cola_pipe is None:
             return 0.0
         try:
@@ -276,11 +335,11 @@ class ALBERTAnalyzer:
         self,
         pairs: List[Tuple[str, str]],
         pipeline_key: str,
-        model_name: str,
+        model_candidates: Union[str, Iterable[str]],
     ) -> float:
         if not pairs:
             return 0.0
-        para_pipe = self._get_pipeline(pipeline_key, "text-classification", model_name)
+        para_pipe = self._get_pipeline(pipeline_key, "text-classification", model_candidates)
         if para_pipe is None:
             return 0.0
         try:
@@ -360,7 +419,7 @@ class ALBERTAnalyzer:
         return self._binary_pair_metric(
             pairs,
             "race",
-            self.QNLI_MODEL,
+            self.QNLI_MODELS,
             ("entailment", "label_1", "yes"),
             self._question_answer_label,
         )
@@ -399,20 +458,20 @@ class ALBERTAnalyzer:
         metrics["alb_qnli"] = self._binary_pair_metric(
             [(q, s) for q in sentences if q.endswith("?") for s in sentences if not s.endswith("?")],
             "qnli",
-            self.QNLI_MODEL,
+            self.QNLI_MODELS,
             ("entailment", "label_1", "yes"),
             self._question_answer_label,
         )
-        metrics["alb_qqp"] = self._paraphrase_metric(pairs, "qqp", self.QQP_MODEL)
+        metrics["alb_qqp"] = self._paraphrase_metric(pairs, "qqp", self.QQP_MODELS)
         metrics["alb_rte"] = self._binary_pair_metric(
             pairs,
             "rte",
-            self.RTE_MODEL,
+            self.RTE_MODELS,
             ("entailment", "label_1", "yes"),
             lambda p, h: 1 if self._infer_nli_label(p, h) == "entailment" else 0,
         )
-        metrics["alb_sst"] = self._single_text_classification(sentences, "sst", self.SST_MODEL, ("positive", "label_1"))
-        metrics["alb_mrpc"] = self._paraphrase_metric(pairs, "mrpc", self.MRPC_MODEL)
+        metrics["alb_sst"] = self._single_text_classification(sentences, "sst", self.SST_MODELS, ("positive", "label_1"))
+        metrics["alb_mrpc"] = self._paraphrase_metric(pairs, "mrpc", self.MRPC_MODELS)
         metrics["alb_cola"] = self._cola_metric(sentences)
         metrics["alb_sts"] = self._sts_metric(pairs)
         metrics["alb_racetestmiddlehigh"] = self._race_metric(sentences)

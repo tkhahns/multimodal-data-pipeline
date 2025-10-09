@@ -10,6 +10,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from cv_models.utils.scipy_compat import ensure_legacy_stats
+
 logger = logging.getLogger(__name__)
 
 class PyFeatAnalyzer:
@@ -19,6 +21,7 @@ class PyFeatAnalyzer:
         # Project root = .../multimodal-data-pipeline
     # __file__ is .../packages/cv_models/cv_models/vision/pyfeat_analyzer.py
         self._runner_path = Path(__file__).resolve().parents[2] / 'external' / 'pyfeat_runner'
+        ensure_legacy_stats()
         try:
             from feat import Detector  # type: ignore
             # Use default face model and AU/emotion heads
