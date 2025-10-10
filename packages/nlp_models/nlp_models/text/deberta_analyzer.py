@@ -24,40 +24,41 @@ class DeBERTaAnalyzer:
 
     QA_MODELS = (
         "deepset/deberta-v3-base-squad2",
-        "deepset/deberta-base-squad2",
+        "deepset/bert-large-uncased-whole-word-masking-squad2",
+        "distilbert-base-cased-distilled-squad",
     )
     MNLI_MODELS = (
         "MoritzLaurer/deberta-v3-base-mnli-fever-anli",
-        "ynie/deberta-large-snli_mnli_fever_anli_R1_R2_R3-nli",
-        "facebook/bart-large-mnli",
-    )
-    SST_MODELS = (
-        "textattack/deberta-v2-base-SST-2",
-        "distilbert-base-uncased-finetuned-sst-2-english",
-    )
-    QNLI_MODELS = (
-        "textattack/deberta-v2-base-QNLI",
         "cross-encoder/nli-deberta-base",
         "facebook/bart-large-mnli",
     )
+    SST_MODELS = (
+        "distilbert-base-uncased-finetuned-sst-2-english",
+        "textattack/bert-base-uncased-SST-2",
+        "textattack/albert-base-v2-SST-2",
+    )
+    QNLI_MODELS = (
+        "cross-encoder/nli-deberta-base",
+        "textattack/bert-base-uncased-QNLI",
+        "facebook/bart-large-mnli",
+    )
     RTE_MODELS = (
-        "textattack/deberta-v2-base-RTE",
+        "textattack/bert-base-uncased-RTE",
         "cross-encoder/nli-deberta-base",
         "facebook/bart-large-mnli",
     )
     COLA_MODELS = (
-        "textattack/deberta-v2-base-CoLA",
+        "textattack/bert-base-uncased-CoLA",
         "mrm8488/bert-base-uncased-finetuned-cola",
     )
     MRPC_MODELS = (
-        "textattack/deberta-v2-base-MRPC",
-        "cross-encoder/quora-roberta-large",
-        "facebook/bart-large-mnli",
+        "textattack/bert-base-uncased-MRPC",
+        "textattack/albert-base-v2-MRPC",
     )
     QQP_MODELS = (
-        "textattack/deberta-v2-base-QQP",
-        "cross-encoder/quora-roberta-large",
-        "facebook/bart-large-mnli",
+        "Tomor0720/deberta-base-finetuned-qqp",
+        "textattack/bert-base-uncased-QQP",
+        "textattack/albert-base-v2-QQP",
     )
 
     def __init__(
@@ -112,6 +113,7 @@ class DeBERTaAnalyzer:
         for model_name in candidates:
             kwargs = dict(pipeline_kwargs)
             kwargs.setdefault("device", self.device_index)
+            kwargs.setdefault("framework", "pt")
             tokenizer_name = kwargs.pop("tokenizer", model_name)
             try:
                 logger.info("Loading %s pipeline (%s)", key, model_name)

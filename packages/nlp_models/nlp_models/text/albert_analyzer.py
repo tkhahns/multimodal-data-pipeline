@@ -24,28 +24,28 @@ class ALBERTAnalyzer:
 
     QA_MODELS = (
         "twmkn9/albert-base-v2-squad2",
-        "ktrapeznikov/albert-base-v2-squad2",
-        "deepset/deberta-v3-base-squad2",
+        "deepset/bert-large-uncased-whole-word-masking-squad2",
+        "distilbert-base-cased-distilled-squad",
     )
     MNLI_MODELS = (
         "textattack/albert-base-v2-MNLI",
-        "ynie/albert-base-v2-snli_mnli_fever_anli_R1_R2_R3-nli",
+        "cross-encoder/nli-deberta-base",
         "facebook/bart-large-mnli",
     )
     QNLI_MODELS = (
         "textattack/albert-base-v2-QNLI",
-        "ynie/albert-base-v2-snli_mnli_fever_anli_R1_R2_R3-nli",
+        "cross-encoder/nli-deberta-base",
         "facebook/bart-large-mnli",
     )
     QQP_MODELS = (
         "textattack/albert-base-v2-QQP",
-        "cross-encoder/quora-roberta-large",
-        "facebook/bart-large-mnli",
+        "textattack/bert-base-uncased-QQP",
+        "Tomor0720/deberta-base-finetuned-qqp",
     )
     RTE_MODELS = (
         "textattack/albert-base-v2-RTE",
-        "ynie/albert-base-v2-snli_mnli_fever_anli_R1_R2_R3-nli",
-        "facebook/bart-large-mnli",
+        "textattack/bert-base-uncased-RTE",
+        "cross-encoder/nli-deberta-base",
     )
     SST_MODELS = (
         "textattack/albert-base-v2-SST-2",
@@ -54,11 +54,11 @@ class ALBERTAnalyzer:
     )
     MRPC_MODELS = (
         "textattack/albert-base-v2-MRPC",
-        "cross-encoder/quora-roberta-large",
-        "facebook/bart-large-mnli",
+        "textattack/bert-base-uncased-MRPC",
     )
     COLA_MODELS = (
         "textattack/albert-base-v2-CoLA",
+        "textattack/bert-base-uncased-CoLA",
         "mrm8488/bert-base-uncased-finetuned-cola",
     )
 
@@ -113,6 +113,7 @@ class ALBERTAnalyzer:
         for model_name in candidates:
             kwargs = dict(pipeline_kwargs)
             kwargs.setdefault("device", self.device_index)
+            kwargs.setdefault("framework", "pt")
             tokenizer_name = kwargs.pop("tokenizer", model_name)
             try:
                 logger.info("Loading %s pipeline (%s)", key, model_name)
