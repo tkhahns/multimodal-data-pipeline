@@ -208,11 +208,6 @@ class SpeechSeparator:
         
         result = {}
         
-        # Add original audio path (use the main audio file, not duplicated)
-        if output_dir:
-            base_name = Path(audio_path).stem
-            result["original_audio_path"] = str(Path(output_dir) / f"{base_name}.wav")
-            
         # Add separated sources 
         for i, (source, path) in enumerate(zip(separated_sources, source_paths)):
             source_key = f"source{i+1}hat"

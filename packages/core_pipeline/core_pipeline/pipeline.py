@@ -8,6 +8,7 @@ import numpy as np
 from pathlib import Path
 from typing import Dict, List, Any, Union
 from datetime import datetime
+from tempfile import TemporaryDirectory
 
 from audio_models.utils.audio_extraction import (
     extract_audio_from_video,
@@ -650,16 +651,18 @@ class MultimodalPipeline:
             raise FileNotFoundError(f"Video file not found: {video_path}")
         
         # Extract audio from video
-        audio_output_dir = self.output_dir / "audio"
-        audio_path = extract_audio_from_video(
-            video_path, 
-            audio_output_dir, 
-            format="wav", 
-            sample_rate=16000
-        )
-        
-        # Process the audio to get audio-based features
-        features = self.extract_features(str(audio_path))
+        with TemporaryDirectory(prefix=f"{video_path.stem}_", dir=str(self.output_dir)) as temp_audio_dir:
+            audio_path = Path(
+                extract_audio_from_video(
+                    video_path,
+                    temp_audio_dir,
+                    format="wav",
+                    sample_rate=16000,
+                )
+            )
+
+            # Process the audio to get audio-based features
+            features = self.extract_features(str(audio_path))
         
         # Extract PARE vision features (video-specific)
         vision_feature_flags = [

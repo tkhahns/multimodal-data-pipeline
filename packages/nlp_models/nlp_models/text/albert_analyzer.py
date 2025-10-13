@@ -28,12 +28,12 @@ class ALBERTAnalyzer:
         "distilbert-base-cased-distilled-squad",
     )
     MNLI_MODELS = (
-        "textattack/albert-base-v2-MNLI",
+        "MoritzLaurer/deberta-v3-base-mnli-fever-anli",
         "cross-encoder/nli-deberta-base",
         "facebook/bart-large-mnli",
     )
     QNLI_MODELS = (
-        "textattack/albert-base-v2-QNLI",
+        "textattack/bert-base-uncased-QNLI",
         "cross-encoder/nli-deberta-base",
         "facebook/bart-large-mnli",
     )

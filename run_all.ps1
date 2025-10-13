@@ -6,13 +6,13 @@ param(
     [string[]]$PipelineArgs
 )
 
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Stop"      
 
 function Require-Command {
     param([string]$Name)
     if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
         Write-Host "[ERROR] '$Name' is required but not installed." -ForegroundColor Red
-        Write-Host "Install Poetry from https://python-poetry.org/docs/#installation" -ForegroundColor Yellow
+        Write-Host "Install Poetry from https://python-poetry.org/docs/#installation" -ForegroundColor Yellow    
         exit 1
     }
 }
@@ -20,7 +20,7 @@ function Require-Command {
 $repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $repoRoot
 
-Require-Command -Name "poetry"
+Require-Command -Name "poetry"       
 
 Write-Host "[INFO] Installing project dependencies via Poetry..." -ForegroundColor Blue
 poetry install

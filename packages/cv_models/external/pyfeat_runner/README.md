@@ -1,8 +1,9 @@
 # Py-Feat Runner Helper
 
-This sidecar package lets the multimodal data pipeline run Py-Feat
-(`feat.Detector`) in a Python 3.11 environment when the main runtime uses
-Python 3.12 (where py-feat is currently unsupported).
+This sidecar package is retained for manual diagnostics or environments that
+still require a dedicated interpreter. The main pipeline now executes
+Py-Feat (`feat.Detector`) directly inside its primary Python 3.12 runtime, so
+this helper is optional.
 
 ## Usage
 

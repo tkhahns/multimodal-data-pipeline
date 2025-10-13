@@ -1,34 +1,71 @@
 """
 Py-Feat Analyzer wrapper to produce pf_* features (AUs, emotions, face geometry).
 """
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import numpy as np
-import cv2
 import logging
-import json
-import subprocess
-import sys
-from pathlib import Path
 
 from cv_models.utils.scipy_compat import ensure_legacy_stats
 
 logger = logging.getLogger(__name__)
 
+REQUIRED_FEATURES = (
+    "pf_au01",
+    "pf_au02",
+    "pf_au04",
+    "pf_au05",
+    "pf_au06",
+    "pf_au07",
+    "pf_au09",
+    "pf_au10",
+    "pf_au11",
+    "pf_au12",
+    "pf_au14",
+    "pf_au15",
+    "pf_au17",
+    "pf_au20",
+    "pf_au23",
+    "pf_au24",
+    "pf_au25",
+    "pf_au26",
+    "pf_au28",
+    "pf_au43",
+    "pf_anger",
+    "pf_disgust",
+    "pf_fear",
+    "pf_happiness",
+    "pf_sadness",
+    "pf_surprise",
+    "pf_neutral",
+    "pf_facerectx",
+    "pf_facerecty",
+    "pf_facerectwidth",
+    "pf_facerectheight",
+    "pf_facescore",
+    "pf_pitch",
+    "pf_roll",
+    "pf_yaw",
+    "pf_x",
+    "pf_y",
+    "pf_z",
+)
+
+
 class PyFeatAnalyzer:
     def __init__(self, device: str = 'cpu'):
         self.device = device
-        self._use_subprocess = False
-        # Project root = .../multimodal-data-pipeline
-    # __file__ is .../packages/cv_models/cv_models/vision/pyfeat_analyzer.py
-        self._runner_path = Path(__file__).resolve().parents[2] / 'external' / 'pyfeat_runner'
+        self._init_error: Optional[str] = None
         ensure_legacy_stats()
+        self.detector = None
+
         try:
             from feat import Detector  # type: ignore
             # Use default face model and AU/emotion heads
             self.detector = Detector()
         except Exception as e:
-            logger.warning(f"py-feat import failed in main env (likely Python 3.12). Will try subprocess runner. Error: {e}")
-            self._use_subprocess = True
+            message = f"Py-Feat detector init failed in main environment: {e}"
+            logger.warning(message)
+            self._init_error = str(e)
             self.detector = None
 
     def _postprocess_df(self, df) -> Dict[str, Any]:
@@ -65,57 +102,30 @@ class PyFeatAnalyzer:
                 features[f'pf_{axis}'] = float(np.nanmean(df[coln].values))
         return features
 
-    def _run_subprocess(self, video_path: str) -> Dict[str, Any]:
-        runner_dir = self._runner_path
-        if not runner_dir.exists():
-            return {"pf_error": f"pyfeat_runner not found at {runner_dir}"}
-
-        # Try invoking via Poetry first, then python3.11, then current python
-        cmds = []
-        pyproject = runner_dir / 'pyproject.toml'
-        if pyproject.exists():
-            cmds.append(["poetry", "run", "python", "-m", "pyfeat_runner", video_path])
-        cmds.append(["python3.11", "-m", "pyfeat_runner", video_path])
-        cmds.append(["python", "-m", "pyfeat_runner", video_path])
-
-        last_err = None
-        for cmd in cmds:
-            try:
-                proc = subprocess.run(
-                    cmd,
-                    cwd=str(runner_dir),
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                )
-                if proc.returncode == 0 and proc.stdout:
-                    data = json.loads(proc.stdout or '{}')
-                    if 'features' in data:
-                        return data['features']
-                    if 'error' in data:
-                        return {"pf_error": data['error']}
-                    return data
-                else:
-                    last_err = f"code={proc.returncode} stderr={proc.stderr.strip()}"
-            except FileNotFoundError as e:
-                last_err = f"{e}"
-                continue
-            except Exception as e:
-                last_err = f"{e}"
-                continue
-        return {"pf_error": f"runner failed: {last_err}"}
+    @staticmethod
+    def _ensure_required_features(features: Dict[str, Any]) -> Dict[str, Any]:
+        for key in REQUIRED_FEATURES:
+            features.setdefault(key, 0.0)
+        return features
 
     def get_feature_dict(self, video_path: str) -> Dict[str, Any]:
-        try:
-            if not self._use_subprocess and self.detector is not None:
-                # Run in-process
-                result = self.detector.detect_video(video_path)
-                df = result.to_pandas() if hasattr(result, 'to_pandas') else result
-                features = self._postprocess_df(df)
-            else:
-                # Fallback to subprocess runner (Python 3.11 env)
-                features = self._run_subprocess(video_path)
+        if self.detector is None:
+            message = self._init_error or "Py-Feat is not available in this environment."
+            logger.error(f"Py-Feat detector unavailable: {message}")
+            features = self._ensure_required_features({})
+            features["pf_error"] = message
+            return {
+                "Facial Expression (Py-Feat)": {
+                    "description": "Py-Feat: Python Facial Expression Analysis Toolbox",
+                    "features": features
+                }
+            }
 
+        try:
+            result = self.detector.detect_video(video_path)
+            df = result.to_pandas() if hasattr(result, 'to_pandas') else result
+            features = self._postprocess_df(df)
+            features = self._ensure_required_features(features)
             return {
                 "Facial Expression (Py-Feat)": {
                     "description": "Py-Feat: Python Facial Expression Analysis Toolbox",
@@ -124,9 +134,11 @@ class PyFeatAnalyzer:
             }
         except Exception as e:
             logger.error(f"Py-Feat analysis failed: {e}")
+            features = self._ensure_required_features({})
+            features["pf_error"] = str(e)
             return {
                 "Facial Expression (Py-Feat)": {
                     "description": "Py-Feat: Python Facial Expression Analysis Toolbox",
-                    "features": {"pf_error": str(e)}
+                    "features": features
                 }
             }

@@ -60,27 +60,17 @@ layout has been fully retired.
 >   `poetry install` (root and inside each edited package) to refresh lock files
 >   before executing the pipeline again.
 
-## Py-Feat (Python 3.11 runner)
+## Py-Feat (in-process)
 
-Py-Feat isn't compatible with Python 3.12, so the repo includes an isolated subproject to run it on Python 3.11 and feed results back to the main pipeline via a subprocess.
+Py-Feat now runs directly inside the main Poetry environment on Python 3.12.
+When `feat.Detector` is available, the pipeline executes it in-process to
+produce the `pf_*` feature set. If Py-Feat can't be imported, the analyzer
+records an informative `pf_error` while still populating all required feature
+keys with default values so downstream stages remain stable.
 
-Location: `external/pyfeat_runner`
-
-Setup (in WSL):
-
-```bash
-cd external/pyfeat_runner
-poetry env use python3.11
-poetry install
-```
-
-Usage (standalone):
-
-```bash
-poetry run python -m pyfeat_runner /absolute/path/to/video.mp4
-```
-
-The main pipeline will automatically use this runner if `py-feat` cannot import in the Python 3.12 environment. No further code changes are needed; just ensure the runner environment is set up once.
+The legacy sidecar project remains at `external/pyfeat_runner` for manual
+diagnostics or environments that still rely on older interpreters, but it is no
+longer invoked automatically by the pipeline scripts.
 
 
 ## Features (by prefix → model)
@@ -121,12 +111,12 @@ The main pipeline will automatically use this runner if `py-feat` cannot import 
   - DHiR_* → Deep HRNet pose metrics
   - SBH_* → Simple Baselines pose metrics
 - Facial (optional)
-  - pf_* → Py-Feat facial analysis (requires Python 3.11 + numpy ~=1.23.x)
+  - pf_* → Py-Feat facial analysis (installs via Poetry in the main environment)
 
 ## Installation
 
 Prerequisites
-- Python 3.11, Poetry, Git
+- Python 3.12+, Poetry, Git
 - FFmpeg (system binary)
 - Ollama (required; included by default for VideoFinder)
 
@@ -229,7 +219,7 @@ Available features (names)
 
 Note
 - VideoFinder requires Ollama (included by default in setup)
-- Py-Feat requires Python 3.11 with numpy ~=1.23.x
+- Py-Feat runs inside the main Poetry environment (Python 3.12+)
 
 ## Troubleshooting (essentials)
 
