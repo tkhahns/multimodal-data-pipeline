@@ -153,15 +153,7 @@ class InstaDMAnalyzer:
         curr_gray = cv2.cvtColor(curr_frame, cv2.COLOR_BGR2GRAY)
         
         # Calculate optical flow using Farneback method
-        flow = cv2.calcOpticalFlowPyrLK(
-            prev_gray, curr_gray, 
-            None, None,
-            winSize=(15, 15),
-            maxLevel=2,
-            criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03)
-        )
-        
-        # If LK method doesn't work, fall back to dense optical flow
+        # Calculate optical flow using Farneback method (robust for dense motion)
         try:
             flow = cv2.calcOpticalFlowFarneback(
                 prev_gray, curr_gray, None, 

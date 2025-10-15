@@ -59,9 +59,48 @@ class PyFeatAnalyzer:
         self.detector = None
 
         try:
-            from feat import Detector  # type: ignore
-            # Use default face model and AU/emotion heads
-            self.detector = Detector()
+            # Patch sklearn tree node dtype compatibility
+            self._patch_sklearn_compat()
+            
+            # Patch torch.nn.Module.load_state_dict to handle DataParallel mismatch
+            import torch.nn as nn
+            original_load_state_dict = nn.Module.load_state_dict
+            
+            def patched_load_state_dict(self, state_dict, strict=True):
+                """Patched load_state_dict that handles DataParallel prefix mismatch."""
+                if isinstance(state_dict, dict) and state_dict:
+                    model_keys = set(self.state_dict().keys())
+                    state_keys = set(state_dict.keys())
+                    
+                    # Check if we have a module. prefix mismatch
+                    model_has_module = any(k.startswith('module.') for k in model_keys)
+                    state_has_module = any(k.startswith('module.') for k in state_keys)
+                    
+                    if model_has_module and not state_has_module:
+                        # Model expects module. prefix but state_dict doesn't have it
+                        logger.info("Adding 'module.' prefix to state_dict keys")
+                        state_dict = {'module.' + k: v for k, v in state_dict.items()}
+                    elif not model_has_module and state_has_module:
+                        # State_dict has module. prefix but model doesn't expect it
+                        logger.info("Removing 'module.' prefix from state_dict keys")
+                        state_dict = {k.replace('module.', '', 1): v for k, v in state_dict.items()}
+                
+                return original_load_state_dict(self, state_dict, strict=strict)
+            
+            # Apply the monkey patch
+            nn.Module.load_state_dict = patched_load_state_dict
+            
+            try:
+                from feat import Detector  # type: ignore
+                # Use default face model and AU/emotion heads
+                self.detector = Detector()
+            finally:
+                # Restore original method
+                nn.Module.load_state_dict = original_load_state_dict
+                
+                # Restore sklearn tree dtype if it was patched
+                self._restore_sklearn_dtype()
+                
         except Exception as e:
             message = f"Py-Feat detector init failed in main environment: {e}"
             logger.warning(message)
@@ -122,16 +161,24 @@ class PyFeatAnalyzer:
             }
 
         try:
-            result = self.detector.detect_video(video_path)
-            df = result.to_pandas() if hasattr(result, 'to_pandas') else result
-            features = self._postprocess_df(df)
-            features = self._ensure_required_features(features)
-            return {
-                "Facial Expression (Py-Feat)": {
-                    "description": "Py-Feat: Python Facial Expression Analysis Toolbox",
-                    "features": features
+            # Re-apply sklearn patch before video detection (models loaded during detect_video)
+            self._patch_sklearn_compat()
+            
+            try:
+                result = self.detector.detect_video(video_path)
+                df = result.to_pandas() if hasattr(result, 'to_pandas') else result
+                features = self._postprocess_df(df)
+                features = self._ensure_required_features(features)
+                return {
+                    "Facial Expression (Py-Feat)": {
+                        "description": "Py-Feat: Python Facial Expression Analysis Toolbox",
+                        "features": features
+                    }
                 }
-            }
+            finally:
+                # Restore sklearn after video processing
+                self._restore_sklearn_dtype()
+                
         except Exception as e:
             logger.error(f"Py-Feat analysis failed: {e}")
             features = self._ensure_required_features({})
@@ -142,3 +189,84 @@ class PyFeatAnalyzer:
                     "features": features
                 }
             }
+
+    @staticmethod
+    def _patch_sklearn_compat():
+        """Patch sklearn tree loading to handle old pickle format without missing_go_to_left field."""
+        try:
+            from sklearn.tree import _tree
+            import numpy as np
+            
+            # Check if already patched - if so, just ensure it's still the old dtype
+            if hasattr(_tree, '_patched_for_old_pickles'):
+                # Already patched, ensure dtype is correct
+                if not hasattr(_tree, '_original_NODE_DTYPE'):
+                    # Restore original if lost
+                    _tree._original_NODE_DTYPE = np.dtype([
+                        ('left_child', '<i8'),
+                        ('right_child', '<i8'),
+                        ('feature', '<i8'),
+                        ('threshold', '<f8'),
+                        ('impurity', '<f8'),
+                        ('n_node_samples', '<i8'),
+                        ('weighted_n_node_samples', '<f8'),
+                        ('missing_go_to_left', 'u1')
+                    ])
+                
+                # Re-apply old dtype in case it was restored
+                old_node_dtype = np.dtype([
+                    ('left_child', '<i8'),
+                    ('right_child', '<i8'),
+                    ('feature', '<i8'),
+                    ('threshold', '<f8'),
+                    ('impurity', '<f8'),
+                    ('n_node_samples', '<i8'),
+                    ('weighted_n_node_samples', '<f8')
+                ])
+                _tree.NODE_DTYPE = old_node_dtype
+                logger.debug("Re-applied sklearn tree dtype patch")
+                return
+            
+            logger.info("Patching sklearn.tree._tree for old pickle compatibility")
+            
+            # Save original NODE_DTYPE
+            _tree._original_NODE_DTYPE = _tree.NODE_DTYPE
+            
+            # Create a version without missing_go_to_left for backward compatibility
+            # This matches the old format that py-feat models were saved with
+            old_node_dtype = np.dtype([
+                ('left_child', '<i8'),
+                ('right_child', '<i8'),
+                ('feature', '<i8'),
+                ('threshold', '<f8'),
+                ('impurity', '<f8'),
+                ('n_node_samples', '<i8'),
+                ('weighted_n_node_samples', '<f8')
+            ])
+            
+            # Patch the module's dtype temporarily
+            _tree.NODE_DTYPE = old_node_dtype
+            
+            # Mark as patched
+            _tree._patched_for_old_pickles = True
+            
+            logger.info("sklearn tree dtype patched successfully")
+            
+        except Exception as e:
+            logger.warning(f"Could not patch sklearn tree compatibility: {e}")
+    
+    @staticmethod
+    def _restore_sklearn_dtype():
+        """Restore original sklearn tree dtype after Py-Feat initialization."""
+        try:
+            from sklearn.tree import _tree
+            
+            if hasattr(_tree, '_original_NODE_DTYPE'):
+                logger.info("Restoring original sklearn tree dtype")
+                _tree.NODE_DTYPE = _tree._original_NODE_DTYPE
+                delattr(_tree, '_original_NODE_DTYPE')
+                if hasattr(_tree, '_patched_for_old_pickles'):
+                    delattr(_tree, '_patched_for_old_pickles')
+                    
+        except Exception as e:
+            logger.warning(f"Could not restore sklearn tree dtype: {e}")

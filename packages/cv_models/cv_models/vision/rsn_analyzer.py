@@ -127,13 +127,15 @@ class RSNAnalyzer:
         """
         # Resize to standard input size
         image = cv2.resize(image, (256, 256))
-        
-        # Normalize
+
+        # Normalize using float32 to avoid dtype mismatches with model weights
         image = image.astype(np.float32) / 255.0
-        image = (image - np.array([0.485, 0.456, 0.406])) / np.array([0.229, 0.224, 0.225])
-        
-        # Convert to tensor and add batch dimension
-        tensor = torch.from_numpy(image.transpose(2, 0, 1)).unsqueeze(0)
+        mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
+        std = np.array([0.229, 0.224, 0.225], dtype=np.float32)
+        image = (image - mean) / std
+
+        # Convert to tensor, ensure float32, add batch dimension
+        tensor = torch.from_numpy(image.transpose(2, 0, 1)).unsqueeze(0).float()
         return tensor.to(self.device)
     
     def _extract_keypoints(self, heatmaps: torch.Tensor) -> np.ndarray:
@@ -297,11 +299,11 @@ class RSNAnalyzer:
             frame_results = []
             frame_count = 0
             
-            while cap.read()[0] and frame_count < max_frames:
+            while frame_count < max_frames:
                 ret, frame = cap.read()
                 if not ret:
                     break
-                    
+
                 # Analyze frame
                 result = self.analyze_frame(frame)
                 frame_results.append(result)

@@ -138,8 +138,6 @@ class OpticalFlowAnalyzer:
         Returns:
             Dense flow field
         """
-        flow = cv2.calcOpticalFlowPyrLK(old_gray, gray, None, None)
-        
         # Use Farneback method for dense optical flow
         flow = cv2.calcOpticalFlowFarneback(
             old_gray, gray, None, 
@@ -350,19 +348,25 @@ class OpticalFlowAnalyzer:
         sparse_points_data = None
         
         if prev_corners is not None and len(prev_corners) > 0:
-            # Calculate sparse flow
-            new_points, status, error = self._calculate_sparse_flow(prev_gray, curr_gray, prev_corners)
-            
-            # Filter good points
-            good_points = new_points[status == 1]
-            if len(good_points) > 0:
-                new_corners = good_points.reshape(-1, 1, 2)
-                
-                # Visualize sparse flow
-                sparse_vis = self._visualize_sparse_flow(curr_frame, prev_corners, new_points, status)
-                
-                # Store sparse points data
-                sparse_points_data = good_points
+            p0 = prev_corners.astype(np.float32)
+            try:
+                # Calculate sparse flow
+                new_points, status, error = self._calculate_sparse_flow(prev_gray, curr_gray, p0)
+            except cv2.error as err:
+                logger.warning(f"Sparse optical flow failed: {err}")
+                new_points, status = None, None
+
+            if new_points is not None and status is not None:
+                # Filter good points
+                good_points = new_points[status == 1]
+                if len(good_points) > 0:
+                    new_corners = good_points.reshape(-1, 1, 2).astype(np.float32)
+
+                    # Visualize sparse flow
+                    sparse_vis = self._visualize_sparse_flow(curr_frame, p0, new_points, status)
+
+                    # Store sparse points data
+                    sparse_points_data = good_points.astype(np.float32)
         
         # Dense optical flow
         dense_flow = self._calculate_dense_flow(prev_gray, curr_gray)
@@ -456,6 +460,8 @@ class OpticalFlowAnalyzer:
                     # First frame - detect initial corners
                     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
                     prev_corners = self._detect_corners(gray)
+                    if prev_corners is not None:
+                        prev_corners = prev_corners.astype(np.float32)
                 
                 prev_frame = frame
                 frame_idx += 1
