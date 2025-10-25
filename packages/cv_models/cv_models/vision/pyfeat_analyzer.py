@@ -1,9 +1,17 @@
 """
 Py-Feat Analyzer wrapper to produce pf_* features (AUs, emotions, face geometry).
 """
-from typing import Dict, Any, Optional
-import numpy as np
+from typing import Dict, Any, Optional, Tuple
+import importlib.util
 import logging
+import sys
+
+import shutil
+import subprocess
+import tempfile
+from pathlib import Path
+
+import numpy as np
 
 from cv_models.utils.scipy_compat import ensure_legacy_stats
 
@@ -56,6 +64,7 @@ class PyFeatAnalyzer:
         self.device = device
         self._init_error: Optional[str] = None
         ensure_legacy_stats()
+        self._ensure_lib2to3()
         self.detector = None
 
         try:
@@ -63,7 +72,7 @@ class PyFeatAnalyzer:
             self._patch_sklearn_compat()
             
             # Patch torch.nn.Module.load_state_dict to handle DataParallel mismatch
-            import torch.nn as nn
+            import torch.nn as nn  # type: ignore[import]
             original_load_state_dict = nn.Module.load_state_dict
             
             def patched_load_state_dict(self, state_dict, strict=True):
@@ -160,25 +169,27 @@ class PyFeatAnalyzer:
                 }
             }
 
+        cleanup_dir: Optional[Path] = None
         try:
-            # Re-apply sklearn patch before video detection (models loaded during detect_video)
-            self._patch_sklearn_compat()
-            
             try:
-                result = self.detector.detect_video(video_path)
-                df = result.to_pandas() if hasattr(result, 'to_pandas') else result
-                features = self._postprocess_df(df)
-                features = self._ensure_required_features(features)
-                return {
-                    "Facial Expression (Py-Feat)": {
-                        "description": "Py-Feat: Python Facial Expression Analysis Toolbox",
-                        "features": features
-                    }
+                feature_values = self._detect_features(video_path)
+            except Exception as first_error:
+                logger.warning("Py-Feat detection failed (%s); attempting sanitized copy", first_error)
+                sanitized_path, cleanup_dir = self._sanitize_video(video_path)
+                if sanitized_path is None:
+                    raise
+
+                try:
+                    feature_values = self._detect_features(sanitized_path)
+                except Exception as sanitized_error:
+                    raise RuntimeError(f"Py-Feat sanitized detection failed: {sanitized_error}") from first_error
+
+            return {
+                "Facial Expression (Py-Feat)": {
+                    "description": "Py-Feat: Python Facial Expression Analysis Toolbox",
+                    "features": feature_values
                 }
-            finally:
-                # Restore sklearn after video processing
-                self._restore_sklearn_dtype()
-                
+            }
         except Exception as e:
             logger.error(f"Py-Feat analysis failed: {e}")
             features = self._ensure_required_features({})
@@ -189,6 +200,9 @@ class PyFeatAnalyzer:
                     "features": features
                 }
             }
+        finally:
+            if cleanup_dir is not None:
+                shutil.rmtree(cleanup_dir, ignore_errors=True)
 
     @staticmethod
     def _patch_sklearn_compat():
@@ -270,3 +284,92 @@ class PyFeatAnalyzer:
                     
         except Exception as e:
             logger.warning(f"Could not restore sklearn tree dtype: {e}")
+
+    @staticmethod
+    def _ensure_lib2to3() -> None:
+        """Ensure lib2to3 (removed in Python 3.13) is available for Py-Feat imports."""
+        spec = importlib.util.find_spec("lib2to3")
+        if spec is not None:
+            return
+
+        from types import ModuleType
+
+        shim = ModuleType("lib2to3")
+        shim.__path__ = []  # type: ignore[attr-defined]
+
+        pytree = ModuleType("lib2to3.pytree")
+
+        def _convert(node, results=None):  # pragma: no cover - compatibility shim
+            return node
+
+        pytree.convert = _convert  # type: ignore[attr-defined]
+
+        shim.pytree = pytree  # type: ignore[attr-defined]
+
+        sys.modules.setdefault("lib2to3", shim)
+        sys.modules.setdefault("lib2to3.pytree", pytree)
+
+    def _detect_features(self, video_path: str) -> Dict[str, Any]:
+        """Run Py-Feat detection with the necessary compatibility patches."""
+        # Re-apply sklearn patch before video detection (models may load lazily)
+        self._patch_sklearn_compat()
+        try:
+            result = self.detector.detect_video(video_path)
+        finally:
+            # Always restore regardless of success/failure
+            self._restore_sklearn_dtype()
+
+        df = result.to_pandas() if hasattr(result, 'to_pandas') else result
+        features = self._postprocess_df(df)
+        return self._ensure_required_features(features)
+
+    def _sanitize_video(self, video_path: str) -> Tuple[Optional[str], Optional[Path]]:
+        """Create a sanitized temporary copy of the video tolerant to decode errors."""
+        ffmpeg_path = shutil.which("ffmpeg")
+        if ffmpeg_path is None:
+            logger.warning("FFmpeg not found; cannot sanitize video for Py-Feat.")
+            return None, None
+
+        source_path = Path(video_path)
+        if not source_path.exists():
+            logger.warning("Video path does not exist: %s", video_path)
+            return None, None
+
+        temp_dir = Path(tempfile.mkdtemp(prefix="pyfeat_sanitize_"))
+        sanitized_path = temp_dir / source_path.name
+
+        cmd = [
+            ffmpeg_path,
+            "-y",
+            "-err_detect",
+            "ignore_err",
+            "-i",
+            str(source_path),
+            "-c",
+            "copy",
+            str(sanitized_path),
+        ]
+
+        try:
+            completed = subprocess.run(
+                cmd,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            if completed.stderr:
+                logger.debug("FFmpeg sanitize stderr: %s", completed.stderr.decode(errors="ignore"))
+        except subprocess.CalledProcessError as exc:
+            logger.warning(
+                "FFmpeg failed to sanitize video for Py-Feat: %s",
+                exc.stderr.decode(errors="ignore") if exc.stderr else exc,
+            )
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            return None, None
+        except Exception as exc:
+            logger.warning("Unexpected error while sanitizing video for Py-Feat: %s", exc)
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            return None, None
+
+        logger.info("Created sanitized video copy for Py-Feat at %s", sanitized_path)
+        return str(sanitized_path), temp_dir

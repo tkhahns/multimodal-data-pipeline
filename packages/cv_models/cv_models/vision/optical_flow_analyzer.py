@@ -97,19 +97,10 @@ class OpticalFlowAnalyzer:
         except Exception as e:
             logger.error(f"Failed to initialize Optical Flow analyzer: {e}")
             raise
-    
+
     def _detect_corners(self, gray_frame: np.ndarray) -> Optional[np.ndarray]:
-        """
-        Detect corners/features for sparse optical flow tracking.
-        
-        Args:
-            gray_frame: Grayscale frame
-            
-        Returns:
-            Array of corner points or None if no corners found
-        """
-        corners = cv2.goodFeaturesToTrack(gray_frame, mask=None, **self.feature_params)
-        return corners
+        """Detect Shi-Tomasi corners for sparse optical flow tracking."""
+        return cv2.goodFeaturesToTrack(gray_frame, mask=None, **self.feature_params)
     
     def _calculate_sparse_flow(self, old_gray: np.ndarray, gray: np.ndarray, 
                               p0: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -323,8 +314,18 @@ class OpticalFlowAnalyzer:
         
         return metrics
     
-    def _process_frame_pair(self, prev_frame: np.ndarray, curr_frame: np.ndarray, 
-                           prev_corners: Optional[np.ndarray]) -> Tuple[Dict[str, Any], Optional[np.ndarray]]:
+    def _process_frame_pair(
+        self,
+        prev_frame: np.ndarray,
+        curr_frame: np.ndarray,
+        prev_corners: Optional[np.ndarray],
+    ) -> Tuple[
+        Dict[str, float],
+        Optional[np.ndarray],
+        Optional[np.ndarray],
+        Optional[np.ndarray],
+        Optional[np.ndarray],
+    ]:
         """
         Process a pair of consecutive frames for optical flow analysis.
         
@@ -334,18 +335,18 @@ class OpticalFlowAnalyzer:
             prev_corners: Previous corner points for sparse flow
             
         Returns:
-            Tuple of (flow_data, new_corners)
+            Tuple containing per-frame metrics and artefacts for best-frame selection
         """
         # Convert to grayscale
         prev_gray = cv2.cvtColor(prev_frame, cv2.COLOR_BGR2GRAY)
         curr_gray = cv2.cvtColor(curr_frame, cv2.COLOR_BGR2GRAY)
         
-        flow_data = {}
-        new_corners = None
-        
-        # Sparse optical flow
-        sparse_vis = None
-        sparse_points_data = None
+        metrics: Dict[str, float] = {}
+        new_corners: Optional[np.ndarray] = None
+
+        # Sparse optical flow artefacts (kept only for best frame selection)
+        sparse_vis: Optional[np.ndarray] = None
+        sparse_points_data: Optional[np.ndarray] = None
         
         if prev_corners is not None and len(prev_corners) > 0:
             p0 = prev_corners.astype(np.float32)
@@ -375,17 +376,9 @@ class OpticalFlowAnalyzer:
         # Calculate motion metrics
         motion_metrics = self._calculate_motion_metrics(dense_flow, sparse_points_data)
         
-        # Encode visualizations and data
-        flow_data.update({
-            'sparse_flow_vis_.png': self._encode_image_to_base64(sparse_vis) if sparse_vis is not None else "",
-            'sparse_points.npy': self._encode_array_to_base64(sparse_points_data) if sparse_points_data is not None else "",
-            'dense_flow.npy': self._encode_array_to_base64(dense_flow),
-            'dense_flow_vis_.png': self._encode_image_to_base64(dense_vis)
-        })
-        
-        flow_data.update(motion_metrics)
-        
-        return flow_data, new_corners
+        metrics.update(motion_metrics)
+
+        return metrics, new_corners, sparse_vis, sparse_points_data, dense_flow, dense_vis
     
     def analyze_video(self, video_path: str) -> Dict[str, Any]:
         """
@@ -431,28 +424,51 @@ class OpticalFlowAnalyzer:
                 
                 if prev_frame is not None:
                     # Process frame pair
-                    flow_data, new_corners = self._process_frame_pair(prev_frame, frame, prev_corners)
+                    (
+                        frame_metrics,
+                        new_corners,
+                        sparse_vis,
+                        sparse_points_arr,
+                        dense_flow_arr,
+                        dense_vis,
+                    ) = self._process_frame_pair(prev_frame, frame, prev_corners)
                     
                     # Check if motion detected
-                    motion_magnitude = flow_data.get('avg_motion_magnitude', 0.0)
+                    motion_magnitude = frame_metrics.get('avg_motion_magnitude', 0.0)
                     if motion_magnitude > 0.1:  # Threshold for motion detection
                         motion_detected_frames += 1
                     
                     # Keep best visualizations
                     if motion_magnitude > max_motion:
                         max_motion = motion_magnitude
-                        best_sparse_vis = flow_data.get('sparse_flow_vis_.png', '')
-                        best_dense_vis = flow_data.get('dense_flow_vis_.png', '')
-                        best_sparse_points = flow_data.get('sparse_points.npy', '')
-                        best_dense_flow = flow_data.get('dense_flow.npy', '')
+                        best_sparse_vis = (
+                            self._encode_image_to_base64(sparse_vis)
+                            if sparse_vis is not None
+                            else ''
+                        )
+                        best_dense_vis = (
+                            self._encode_image_to_base64(dense_vis)
+                            if dense_vis is not None
+                            else ''
+                        )
+                        best_sparse_points = (
+                            self._encode_array_to_base64(sparse_points_arr)
+                            if sparse_points_arr is not None and sparse_points_arr.size > 0
+                            else ''
+                        )
+                        best_dense_flow = (
+                            self._encode_array_to_base64(dense_flow_arr)
+                            if dense_flow_arr is not None
+                            else ''
+                        )
                     
                     # Add frame metadata
-                    flow_data.update({
+                    frame_metrics.update({
                         'frame_idx': frame_idx,
                         'timestamp': frame_idx / fps if fps > 0 else frame_idx
                     })
                     
-                    frame_data.append(flow_data)
+                    frame_data.append(frame_metrics)
                     
                     # Update corners for next iteration
                     prev_corners = new_corners
@@ -608,21 +624,31 @@ class OpticalFlowAnalyzer:
                     break
                 
                 if prev_frame is not None:
-                    flow_data, new_corners = self._process_frame_pair(prev_frame, frame, prev_corners)
+                    (
+                        _,
+                        new_corners,
+                        _,
+                        _,
+                        _,
+                        dense_vis,
+                    ) = self._process_frame_pair(prev_frame, frame, prev_corners)
                     
                     # Create side-by-side visualization
                     left_frame = frame.copy()
-                    
-                    # Decode dense flow visualization
-                    dense_vis_b64 = flow_data.get('dense_flow_vis_.png', '')
-                    if dense_vis_b64 and dense_vis_b64.startswith('data:image/png;base64,'):
-                        # In practice, we would decode and use the visualization
-                        # For now, create a simple motion overlay
+
+                    if dense_vis is None:
                         right_frame = np.zeros_like(frame)
-                        cv2.putText(right_frame, "Dense Flow", (50, 50), 
-                                   cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+                        cv2.putText(
+                            right_frame,
+                            "Dense Flow",
+                            (50, 50),
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            1,
+                            (255, 255, 255),
+                            2,
+                        )
                     else:
-                        right_frame = np.zeros_like(frame)
+                        right_frame = dense_vis
                     
                     # Combine frames
                     combined = np.hstack([left_frame, right_frame])
