@@ -30,6 +30,10 @@ from .optical_flow_analyzer import OpticalFlowAnalyzer
 from .videofinder_analyzer import VideoFinderAnalyzer
 from .lanegcn_analyzer import LaneGCNAnalyzer
 from .smoothnet_analyzer import SmoothNetAnalyzer
+from .avhubert_analyzer import AVHuBERTAnalyzer
+from .fact_analyzer import FACTAnalyzer
+from .video_frame_extractor import VideoFrameExtractor
+from .rife_analyzer import RIFEAnalyzer
 
 __all__ = [
     'PAREAnalyzer',
@@ -54,5 +58,9 @@ __all__ = [
     'OpticalFlowAnalyzer',
     'VideoFinderAnalyzer',
     'LaneGCNAnalyzer',
-    'SmoothNetAnalyzer'
+    'SmoothNetAnalyzer',
+    'AVHuBERTAnalyzer',
+    'FACTAnalyzer',
+    'VideoFrameExtractor',
+    'RIFEAnalyzer'
 ]

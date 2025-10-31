@@ -5,6 +5,7 @@ from .deberta_analyzer import DeBERTaAnalyzer
 from .sbert_analyzer import SBERTAnalyzer
 from .simcse_analyzer import SimCSEAnalyzer
 from .use_analyzer import USEAnalyzer
+from .elmo_analyzer import ELMoAnalyzer
 
 __all__ = [
 	"ALBERTAnalyzer",
@@ -12,4 +13,5 @@ __all__ = [
 	"SBERTAnalyzer",
 	"SimCSEAnalyzer",
 	"USEAnalyzer",
+	"ELMoAnalyzer",
 ]

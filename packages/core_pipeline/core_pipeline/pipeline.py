@@ -54,11 +54,14 @@ class MultimodalPipeline:
             "meld_emotion",     # MELD emotion recognition during social interactions
             "speech_separation", # Speech source separation
             "whisperx_transcription", # WhisperX transcription with diarization
+            "xlsr_speech_to_text", # XLSR-style speech-to-text & hidden states
+            "s2t_speech_to_text",  # Speech-to-Text (S2T) transcript + alignment
             "deberta_text",     # DeBERTa text analysis with benchmark performance metrics
             "simcse_text",      # SimCSE contrastive learning of sentence embeddings
             "albert_text",      # ALBERT language representation analysis
             "sbert_text",       # Sentence-BERT dense vector representations and reranking
             "use_text",         # Universal Sentence Encoder for text classification and semantic analysis
+            "elmo_text",        # ELMo contextual embeddings
             "pare_vision",      # PARE 3D human body estimation and pose analysis
             "vitpose_vision",   # ViTPose Vision Transformer pose estimation
             "psa_vision",       # Polarized Self-Attention pose estimation
@@ -80,6 +83,10 @@ class MultimodalPipeline:
             "videofinder_vision",   # VideoFinder object/people localization (ViF_*)
             "lanegcn_vision",       # LaneGCN motion forecasting (GCN_*)
             "smoothnet_vision",     # SmoothNet temporal pose smoothing (net_*)
+            "avhubert_vision",      # AV-HuBERT audio-visual embeddings (AVH_*)
+            "fact_vision",          # FACT facial action coding (FACT_*)
+            "video_frames_vision",  # Video frame extraction utility (VFE_*)
+            "rife_vision",          # RIFE motion estimation (RIFE_*)
         ]
         
         # Default behavior: extract all features when none specified
@@ -164,6 +171,20 @@ class MultimodalPipeline:
                 except Exception as e:
                     print(f"Warning: whisperx_transcription unavailable: {e}")
                     self.extractors[feature_name] = None
+            elif feature_name == "xlsr_speech_to_text":
+                try:
+                    from audio_models.speech.xlsr_speech_to_text import XLSRSpeechToTextAnalyzer
+                    self.extractors[feature_name] = XLSRSpeechToTextAnalyzer(device=self.device, output_dir=self.output_dir)
+                except Exception as e:
+                    print(f"Warning: xlsr_speech_to_text unavailable: {e}")
+                    self.extractors[feature_name] = None
+            elif feature_name == "s2t_speech_to_text":
+                try:
+                    from audio_models.speech.s2t_speech_to_text import S2TSpeechToTextAnalyzer
+                    self.extractors[feature_name] = S2TSpeechToTextAnalyzer(device=self.device, output_dir=self.output_dir)
+                except Exception as e:
+                    print(f"Warning: s2t_speech_to_text unavailable: {e}")
+                    self.extractors[feature_name] = None
             elif feature_name == "deberta_text":
                 try:
                     from nlp_models.text.deberta_analyzer import DeBERTaAnalyzer
@@ -198,6 +219,13 @@ class MultimodalPipeline:
                     self.extractors[feature_name] = USEAnalyzer(device=self.device)
                 except Exception as e:
                     print(f"Warning: use_text unavailable: {e}")
+                    self.extractors[feature_name] = None
+            elif feature_name == "elmo_text":
+                try:
+                    from nlp_models.text.elmo_analyzer import ELMoAnalyzer
+                    self.extractors[feature_name] = ELMoAnalyzer(device=self.device, output_dir=self.output_dir)
+                except Exception as e:
+                    print(f"Warning: elmo_text unavailable: {e}")
                     self.extractors[feature_name] = None
             elif feature_name == "pare_vision":
                 try:
@@ -343,6 +371,34 @@ class MultimodalPipeline:
                 except Exception as e:
                     print(f"Warning: smoothnet_vision unavailable: {e}")
                     self.extractors[feature_name] = None
+            elif feature_name == "avhubert_vision":
+                try:
+                    from cv_models.vision.avhubert_analyzer import AVHuBERTAnalyzer
+                    self.extractors[feature_name] = AVHuBERTAnalyzer(device=self.device, output_dir=self.output_dir)
+                except Exception as e:
+                    print(f"Warning: avhubert_vision unavailable: {e}")
+                    self.extractors[feature_name] = None
+            elif feature_name == "fact_vision":
+                try:
+                    from cv_models.vision.fact_analyzer import FACTAnalyzer
+                    self.extractors[feature_name] = FACTAnalyzer(output_dir=self.output_dir)
+                except Exception as e:
+                    print(f"Warning: fact_vision unavailable: {e}")
+                    self.extractors[feature_name] = None
+            elif feature_name == "video_frames_vision":
+                try:
+                    from cv_models.vision.video_frame_extractor import VideoFrameExtractor
+                    self.extractors[feature_name] = VideoFrameExtractor(output_dir=self.output_dir)
+                except Exception as e:
+                    print(f"Warning: video_frames_vision unavailable: {e}")
+                    self.extractors[feature_name] = None
+            elif feature_name == "rife_vision":
+                try:
+                    from cv_models.vision.rife_analyzer import RIFEAnalyzer
+                    self.extractors[feature_name] = RIFEAnalyzer(output_dir=self.output_dir)
+                except Exception as e:
+                    print(f"Warning: rife_vision unavailable: {e}")
+                    self.extractors[feature_name] = None
                 
         return self.extractors.get(feature_name)
     
@@ -443,6 +499,32 @@ class MultimodalPipeline:
             else:
                 print("Warning: Skipping whisperx_transcription (extractor unavailable)")
 
+        # Extract XLSR speech-to-text features
+        if "xlsr_speech_to_text" in self.features:
+            print(f"Extracting XLSR speech-to-text features from {audio_path}")
+            extractor = self._get_extractor("xlsr_speech_to_text")
+            if extractor is not None:
+                try:
+                    xlsr_features = extractor.get_feature_dict(audio_path, features)
+                    features.update(xlsr_features)
+                except Exception as e:
+                    print(f"Warning: XLSR speech-to-text analysis failed: {e}")
+            else:
+                print("Warning: Skipping xlsr_speech_to_text (extractor unavailable)")
+
+        # Extract S2T speech-to-text features
+        if "s2t_speech_to_text" in self.features:
+            print(f"Extracting S2T speech-to-text features from {audio_path}")
+            extractor = self._get_extractor("s2t_speech_to_text")
+            if extractor is not None:
+                try:
+                    s2t_features = extractor.get_feature_dict(audio_path, features)
+                    features.update(s2t_features)
+                except Exception as e:
+                    print(f"Warning: S2T speech-to-text analysis failed: {e}")
+            else:
+                print("Warning: Skipping s2t_speech_to_text (extractor unavailable)")
+
         # Extract MELD emotion features (after WhisperX to access transcription)
         if "meld_emotion" in self.features:
             print(f"Extracting MELD emotion recognition features from {audio_path}")
@@ -532,6 +614,19 @@ class MultimodalPipeline:
                     print(f"Warning: USE text analysis failed: {e}")
             else:
                 print("Warning: Skipping use_text (extractor unavailable)")
+
+        # Extract ELMo contextual embeddings
+        if "elmo_text" in self.features:
+            print(f"Extracting ELMo contextual embeddings from {audio_path}")
+            extractor = self._get_extractor("elmo_text")
+            if extractor is not None:
+                try:
+                    elmo_features = extractor.get_feature_dict(features)
+                    features.update(elmo_features)
+                except Exception as e:
+                    print(f"Warning: ELMo text analysis failed: {e}")
+            else:
+                print("Warning: Skipping elmo_text (extractor unavailable)")
 
         return features
     
@@ -671,7 +766,8 @@ class MultimodalPipeline:
             "pyfeat_vision",
             "me_graphau_vision","dan_vision","ganimation_vision",
             "arbex_vision","instadm_vision","crowdflow_vision","deep_hrnet_vision","simple_baselines_vision",
-            "rsn_vision","optical_flow_vision","videofinder_vision","lanegcn_vision","smoothnet_vision"
+            "rsn_vision","optical_flow_vision","videofinder_vision","lanegcn_vision","smoothnet_vision",
+            "avhubert_vision","fact_vision","video_frames_vision","rife_vision"
         ]
 
         for vf in vision_feature_flags:
@@ -869,6 +965,16 @@ class MultimodalPipeline:
                 "exact_matches": ["sample_rate", "hop_length", "num_frames"],
                 "model_name": "openSMILE"
             },
+            "Speech-to-Text (XLSR)": {
+                "prefixes": ["xlsr_"] ,
+                "exact_matches": [],
+                "model_name": "XLSR / Wav2Vec 2.0"
+            },
+            "Speech-to-Text (S2T)": {
+                "prefixes": ["s2t_"] ,
+                "exact_matches": [],
+                "model_name": "Speech-to-Text (S2T)"
+            },
             "Sentiment Analysis": {
                 "prefixes": ["arvs_"],
                 "exact_matches": [],
@@ -903,6 +1009,11 @@ class MultimodalPipeline:
                 "prefixes": ["USE_"],
                 "exact_matches": [],
                 "model_name": "Universal Sentence Encoder"
+            },
+            "Deep contextualized word representations (ELMo)": {
+                "prefixes": ["elmo_"] ,
+                "exact_matches": [],
+                "model_name": "ELMo"
             },
             "3D Human Body Estimation and Pose Analysis": {
                 "prefixes": ["PARE_"],
@@ -970,6 +1081,16 @@ class MultimodalPipeline:
                 "exact_matches": [],
                 "model_name": "Insta-DM"
             },
+            "AV-HuBERT Audio-Visual Embeddings": {
+                "prefixes": ["AVH_"] ,
+                "exact_matches": [],
+                "model_name": "AV-HuBERT"
+            },
+            "FACT Facial Action Coding": {
+                "prefixes": ["FACT_"] ,
+                "exact_matches": [],
+                "model_name": "FACT"
+            },
             "CrowdFlow Optical Flow": {
                 "prefixes": ["of_"] ,
                 "exact_matches": [],
@@ -994,6 +1115,16 @@ class MultimodalPipeline:
                 "prefixes": ["rsn_"] ,
                 "exact_matches": [],
                 "model_name": "RSN"
+            },
+            "Video Frame Extraction": {
+                "prefixes": ["VFE_"] ,
+                "exact_matches": [],
+                "model_name": "Frame Sampler"
+            },
+            "RIFE Motion Estimation": {
+                "prefixes": ["RIFE_"] ,
+                "exact_matches": [],
+                "model_name": "RIFE"
             },
             "PSA Keypoint & Segmentation": {
                 "prefixes": ["psa_"] ,

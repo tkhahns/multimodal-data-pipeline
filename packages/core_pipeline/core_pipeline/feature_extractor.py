@@ -96,6 +96,11 @@ class MultimodalFeatureExtractor:
             extractor = self.pipeline._get_extractor("use_text")
             use_features = extractor.get_feature_dict(data)
             features.update(use_features)
+
+        if "elmo_text" in self.pipeline.features:
+            extractor = self.pipeline._get_extractor("elmo_text")
+            elmo_features = extractor.get_feature_dict(data)
+            features.update(elmo_features)
         
         # Can add other feature extractors that work with dictionary input here
         
