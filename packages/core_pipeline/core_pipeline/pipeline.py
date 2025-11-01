@@ -269,7 +269,10 @@ class MultimodalPipeline:
             elif feature_name == "openpose_vision":
                 try:
                     from cv_models.vision.openpose_analyzer import OpenPoseAnalyzer
-                    self.extractors[feature_name] = OpenPoseAnalyzer(device=self.device)
+                    self.extractors[feature_name] = OpenPoseAnalyzer(
+                        device=self.device,
+                        output_root=self.output_dir,
+                    )
                 except Exception as e:
                     print(f"Warning: openpose_vision unavailable: {e}")
                     self.extractors[feature_name] = None
@@ -481,10 +484,7 @@ class MultimodalPipeline:
             os.makedirs(sep_out_dir, exist_ok=True)
             if extractor is not None:
                 separation_features = extractor.get_feature_dict(audio_path, sep_out_dir)
-                # Don't add the raw audio to features dict, just paths
-                for key, val in separation_features.items():
-                    if "_path" in key:
-                        features[key] = val
+                features.update(separation_features)
             else:
                 print("Warning: Skipping speech_separation (extractor unavailable)")
 

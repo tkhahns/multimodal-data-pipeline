@@ -7,27 +7,37 @@ Based on CMU's OpenPose: Real-time multi-person keypoint detection library.
 import cv2
 import numpy as np
 import json
-import base64
 import logging
 from pathlib import Path
 from typing import Dict, List, Tuple, Any, Optional
-import tempfile
 import os
+import shutil
+import subprocess
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class OpenPoseAnalyzer:
     """
     OpenPose analyzer for real-time multi-person pose estimation and tracking.
-    
-    This implementation provides pose estimation capabilities using OpenCV's DNN module
-    with pre-trained OpenPose models. It extracts keypoints for body pose, hand pose,
-    and facial landmarks.
+
+    Rather than re-implementing OpenPose, this class invokes the official OpenPose binary
+    (https://github.com/CMU-Perceptual-Computing-Lab/openpose) as an external process,
+    parses the generated JSON keypoint files, and aggregates them into pipeline features.
     """
     
-    def __init__(self, device: str = 'cpu', confidence_threshold: float = 0.1):
+    def __init__(
+        self,
+        device: str = 'cpu',
+        confidence_threshold: float = 0.1,
+        openpose_bin: Optional[str] = None,
+        model_folder: Optional[str] = None,
+        extra_flags: Optional[List[str]] = None,
+        enable_face: bool = True,
+        enable_hand: bool = False,
+        render_pose: int = 2,
+        keep_json: bool = False,
+        output_root: Optional[Path] = None,
+    ):
         """
         Initialize OpenPose analyzer.
         
@@ -38,19 +48,18 @@ class OpenPoseAnalyzer:
         self.device = device
         self.confidence_threshold = confidence_threshold
         self.initialized = False
-        
-        # OpenPose body pose model parameters
-        self.pose_net = None
-        self.pose_proto = None
-        self.pose_weights = None
-        
-        # Body pose keypoint pairs for skeleton drawing
-        self.pose_pairs = [
-            (1, 2), (1, 5), (2, 3), (3, 4), (5, 6), (6, 7),
-            (1, 8), (8, 9), (9, 10), (1, 11), (11, 12), (12, 13),
-            (1, 0), (0, 14), (14, 16), (0, 15), (15, 17),
-            (2, 16), (5, 17)
-        ]
+        self.openpose_bin = openpose_bin or os.environ.get("OPENPOSE_BIN")
+        self.model_folder = model_folder or os.environ.get("OPENPOSE_MODEL_FOLDER")
+        env_flags = os.environ.get("OPENPOSE_FLAGS")
+        if env_flags and not extra_flags:
+            extra_flags = [flag for flag in env_flags.split() if flag]
+        self.extra_flags = extra_flags or []
+        self.enable_face = enable_face
+        self.enable_hand = enable_hand
+        self.render_pose = render_pose
+        self.keep_json = keep_json
+        self.number_people_max = 10
+    self.output_root = Path(output_root) if output_root else None
         
         # Body keypoint names (COCO format)
         self.keypoint_names = [
@@ -59,6 +68,18 @@ class OpenPoseAnalyzer:
             'RAnkle', 'LHip', 'LKnee', 'LAnkle', 'REye',
             'LEye', 'REar', 'LEar'
         ]
+
+        self.openpose_gpu_mode = (os.environ.get("OPENPOSE_GPU_MODE") or "").upper()
+        self.openpose_use_cuda = (os.environ.get("OPENPOSE_USE_CUDA") or "").upper()
+        self.cpu_only_mode = (
+            self.openpose_gpu_mode == "CPU_ONLY"
+            or self.openpose_use_cuda in {"OFF", "0", "FALSE"}
+        )
+        if self.cpu_only_mode and isinstance(self.render_pose, int) and self.render_pose > 0:
+            logger.info(
+                "OpenPose configured for CPU-only; disabling rendered video output (render_pose=0)"
+            )
+            self.render_pose = 0
         
         # Initialize default metrics
         self.default_metrics = {
@@ -70,7 +91,10 @@ class OpenPoseAnalyzer:
             'openPose_max_persons_detected': 0,
             'openPose_pose_video_path': "",
             'openPose_pose_gif_path': "",
-            'openPose_SM_pic': ""  # Base64 encoded sample frame
+            'openPose_SM_pic': "",
+            'openPose_SM_preview_available': 0.0,
+            'openPose_SM_preview_mean_intensity': 0.0,
+            'openPose_SM_preview_contrast': 0.0,
         }
         
         # Add individual keypoint coordinates
@@ -91,134 +115,248 @@ class OpenPoseAnalyzer:
             'openPose_body_height': 0.0
         })
 
-    def _initialize_model(self):
-        """Initialize the OpenPose model."""
+    def _initialize_model(self) -> None:
+        """Resolve OpenPose binary and ensure prerequisites are in place."""
         if self.initialized:
             return
-            
-        try:
-            logger.info("Initializing OpenPose analyzer...")
-            
-            # Note: In a full implementation, you would download and load the actual OpenPose models
-            # For this implementation, we'll use OpenCV's DNN module with a simplified approach
-            # The actual OpenPose models can be downloaded from:
-            # https://github.com/CMU-Perceptual-Computing-Lab/openpose/blob/master/models/getModels.sh
-            
-            # For now, we'll implement a simplified pose estimation using OpenCV's built-in capabilities
-            # and provide a framework that can be extended with actual OpenPose models
-            
-            self.initialized = True
-            logger.info("OpenPose analyzer initialized successfully")
-            
-        except Exception as e:
-            logger.error(f"Failed to initialize OpenPose analyzer: {e}")
-            raise
 
-    def _detect_pose_opencv(self, frame: np.ndarray) -> List[Dict[str, Any]]:
-        """
-        Detect poses using OpenCV's built-in capabilities.
-        This is a simplified implementation - can be replaced with actual OpenPose models.
-        
-        Args:
-            frame: Input frame as numpy array
-            
-        Returns:
-            List of detected poses with keypoints
-        """
-        # Convert to grayscale for processing
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        
-        # Use simple contour detection as a basic pose estimation
-        # In a full implementation, this would use the actual OpenPose DNN models
-        
-        # Apply some preprocessing
-        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-        edges = cv2.Canny(blurred, 50, 150)
-        
-        # Find contours (simplified body detection)
-        contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        
-        poses = []
-        
-        # Process largest contours as potential bodies
-        contours = sorted(contours, key=cv2.contourArea, reverse=True)[:3]
-        
-        for i, contour in enumerate(contours):
-            if cv2.contourArea(contour) < 1000:  # Skip small contours
+        logger.info("Initializing OpenPose analyzer (external OpenPose binary)")
+
+        if not self.openpose_bin:
+            raise RuntimeError(
+                "OpenPose binary path not provided. Set OPENPOSE_BIN environment variable "
+                "or pass openpose_bin to OpenPoseAnalyzer."
+            )
+
+        candidate_path = Path(self.openpose_bin)
+        if candidate_path.exists():
+            resolved_bin = candidate_path
+        else:
+            resolved = shutil.which(self.openpose_bin)
+            if not resolved:
+                raise FileNotFoundError(f"Could not locate OpenPose executable '{self.openpose_bin}'.")
+            resolved_bin = Path(resolved)
+
+        if not os.access(resolved_bin, os.X_OK):
+            raise PermissionError(f"OpenPose executable is not runnable: {resolved_bin}")
+
+        if self.model_folder:
+            model_folder_path = Path(self.model_folder)
+            if not model_folder_path.exists():
+                raise FileNotFoundError(
+                    f"OpenPose model folder not found at {model_folder_path}. Set OPENPOSE_MODEL_FOLDER correctly."
+                )
+            self.model_folder = str(model_folder_path.resolve())
+
+        self.openpose_bin = str(resolved_bin.resolve())
+        self.initialized = True
+        logger.info("OpenPose analyzer initialized with binary %s", self.openpose_bin)
+
+    def _prepare_output_paths(self, video_path: Path) -> Tuple[Path, Path, Path, Path]:
+    base_root = self.output_root if self.output_root else video_path.parent
+    output_dir = base_root / "openpose_output"
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        json_dir = output_dir / f"{video_path.stem}_json"
+        if json_dir.exists() and not self.keep_json:
+            shutil.rmtree(json_dir, ignore_errors=True)
+        json_dir.mkdir(parents=True, exist_ok=True)
+
+        render_video_path = output_dir / f"{video_path.stem}_openpose.mp4"
+        if render_video_path.exists():
+            render_video_path.unlink()
+
+        gif_path = output_dir / f"{video_path.stem}_openpose.gif"
+        if gif_path.exists():
+            gif_path.unlink()
+
+        return output_dir, json_dir, render_video_path, gif_path
+
+    def _build_openpose_command(self, video_path: Path, json_dir: Path, render_video_path: Path) -> List[str]:
+        command: List[str] = [
+            self.openpose_bin,
+            "--video",
+            str(video_path),
+            "--display",
+            "0",
+            "--render_pose",
+            str(self.render_pose),
+            "--model_pose",
+            "COCO",
+            "--write_json",
+            str(json_dir),
+            "--number_people_max",
+            str(self.number_people_max),
+        ]
+
+        if self.cpu_only_mode:
+            command.extend(["--num_gpu", "0"])
+
+        if self.render_pose and self.render_pose > 0:
+            command.extend(["--write_video", str(render_video_path)])
+
+        if self.model_folder:
+            command.extend(["--model_folder", self.model_folder])
+
+        if self.enable_face:
+            command.append("--face")
+
+        if self.enable_hand:
+            command.append("--hand")
+
+        if self.extra_flags:
+            command.extend(self.extra_flags)
+
+        return command
+
+    def _run_openpose_cli(self, video_path: Path, json_dir: Path, render_video_path: Path) -> None:
+        command = self._build_openpose_command(video_path, json_dir, render_video_path)
+        logger.info("Running OpenPose binary: %s", " ".join(command))
+        try:
+            completed = subprocess.run(
+                command,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            if completed.stdout:
+                logger.debug("OpenPose stdout: %s", completed.stdout.strip())
+            if completed.stderr:
+                logger.debug("OpenPose stderr: %s", completed.stderr.strip())
+        except subprocess.CalledProcessError as exc:
+            stderr_tail = exc.stderr[-1024:] if exc.stderr else str(exc)
+            raise RuntimeError(f"OpenPose execution failed: {stderr_tail}") from exc
+
+    @staticmethod
+    def _extract_keypoints_from_flat(values: List[float]) -> Dict[str, Tuple[float, float, float]]:
+        keypoints: Dict[str, Tuple[float, float, float]] = {}
+        if not values:
+            return keypoints
+
+        expected = len(values) // 3
+        # Ensure we only map the keypoints we have names for
+        # (OpenPose COCO model has 18 keypoints)
+        for idx, name in enumerate([
+            'nose', 'neck', 'rshoulder', 'relbow', 'rwrist',
+            'lshoulder', 'lelbow', 'lwrist', 'rhip', 'rknee',
+            'rankle', 'lhip', 'lknee', 'lankle', 'reye', 'leye',
+            'rear', 'lear'
+        ]):
+            base = idx * 3
+            if base + 2 >= len(values):
+                break
+            x, y, c = values[base], values[base + 1], values[base + 2]
+            keypoints[name] = (x, y, c)
+
+        # If OpenPose returned more keypoints than expected (e.g., BODY_25), ignore extras
+        return keypoints
+
+    @staticmethod
+    def _compute_bbox_from_keypoints(keypoints: Dict[str, Tuple[float, float, float]]) -> Tuple[int, int, int, int]:
+        valid_points = [(x, y) for (x, y, c) in keypoints.values() if c > 0]
+        if not valid_points:
+            return (0, 0, 0, 0)
+        xs, ys = zip(*valid_points)
+        min_x, max_x = min(xs), max(xs)
+        min_y, max_y = min(ys), max(ys)
+        return (int(min_x), int(min_y), int(max_x - min_x), int(max_y - min_y))
+
+    def _poses_from_people(self, people: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        poses: List[Dict[str, Any]] = []
+        for person_id, person in enumerate(people):
+            flat_keypoints = person.get('pose_keypoints_2d', [])
+            if not flat_keypoints:
                 continue
-                
-            # Get bounding box
-            x, y, w, h = cv2.boundingRect(contour)
-            
-            # Generate simplified keypoints based on body proportions
-            # This is a placeholder - actual OpenPose would provide real keypoints
-            pose_keypoints = self._generate_simplified_keypoints(x, y, w, h)
-            
-            pose = {
-                'person_id': i,
-                'keypoints': pose_keypoints,
-                'bbox': (x, y, w, h),
-                'confidence': min(0.8, cv2.contourArea(contour) / (frame.shape[0] * frame.shape[1]))
+            keypoints = self._extract_keypoints_from_flat(flat_keypoints)
+            if not keypoints:
+                continue
+
+            confidences = [kp[2] for kp in keypoints.values() if kp[2] > 0]
+            avg_conf = float(np.mean(confidences)) if confidences else 0.0
+
+            pose: Dict[str, Any] = {
+                'person_id': person_id,
+                'keypoints': keypoints,
+                'confidence': avg_conf,
+                'bbox': self._compute_bbox_from_keypoints(keypoints),
             }
+
+            flat_keypoints_3d = person.get('pose_keypoints_3d', [])
+            if flat_keypoints_3d:
+                pose['keypoints_3d'] = flat_keypoints_3d
+
             poses.append(pose)
-        
         return poses
 
-    def _generate_simplified_keypoints(self, x: int, y: int, w: int, h: int) -> Dict[str, Tuple[float, float, float]]:
-        """
-        Generate simplified keypoints based on human body proportions.
-        
-        Args:
-            x, y, w, h: Bounding box coordinates
-            
-        Returns:
-            Dictionary of keypoint coordinates and confidences
-        """
-        keypoints = {}
-        
-        # Basic human body proportions
-        center_x = x + w // 2
-        center_y = y + h // 2
-        
-        # Head (top 1/8 of body)
-        head_y = y + h // 8
-        keypoints['nose'] = (center_x, head_y, 0.7)
-        keypoints['reye'] = (center_x - w // 12, head_y - h // 16, 0.6)
-        keypoints['leye'] = (center_x + w // 12, head_y - h // 16, 0.6)
-        keypoints['rear'] = (center_x - w // 8, head_y, 0.5)
-        keypoints['lear'] = (center_x + w // 8, head_y, 0.5)
-        
-        # Neck and shoulders (1/4 down from top)
-        neck_y = y + h // 4
-        keypoints['neck'] = (center_x, neck_y, 0.8)
-        keypoints['rshoulder'] = (center_x - w // 3, neck_y, 0.7)
-        keypoints['lshoulder'] = (center_x + w // 3, neck_y, 0.7)
-        
-        # Arms
-        elbow_y = y + h // 2
-        keypoints['relbow'] = (center_x - w // 2, elbow_y, 0.6)
-        keypoints['lelbow'] = (center_x + w // 2, elbow_y, 0.6)
-        
-        wrist_y = y + 3 * h // 4
-        keypoints['rwrist'] = (center_x - w // 2, wrist_y, 0.5)
-        keypoints['lwrist'] = (center_x + w // 2, wrist_y, 0.5)
-        
-        # Hips (3/4 down from top)
-        hip_y = y + 3 * h // 4
-        keypoints['rhip'] = (center_x - w // 4, hip_y, 0.7)
-        keypoints['lhip'] = (center_x + w // 4, hip_y, 0.7)
-        
-        # Knees
-        knee_y = y + 7 * h // 8
-        keypoints['rknee'] = (center_x - w // 6, knee_y, 0.6)
-        keypoints['lknee'] = (center_x + w // 6, knee_y, 0.6)
-        
-        # Ankles
-        ankle_y = y + h
-        keypoints['rankle'] = (center_x - w // 8, ankle_y, 0.5)
-        keypoints['lankle'] = (center_x + w // 8, ankle_y, 0.5)
-        
-        return keypoints
+    @staticmethod
+    def _frame_index_from_json_name(filename: str) -> Optional[int]:
+        try:
+            parts = filename.split('_')
+            for part in reversed(parts):
+                if part.isdigit():
+                    return int(part)
+                if part.endswith('keypoints.json'):
+                    digits = ''.join(ch for ch in part if ch.isdigit())
+                    if digits:
+                        return int(digits)
+        except Exception:
+            return None
+        return None
+
+    def _parse_frame_metrics(self, json_dir: Path) -> Tuple[Dict[int, Dict[str, Any]], Optional[int]]:
+        frame_metrics: Dict[int, Dict[str, Any]] = {}
+        best_frame_idx: Optional[int] = None
+        best_confidence = -1.0
+
+        json_files = sorted(json_dir.glob('*keypoints.json'))
+        for order, json_file in enumerate(json_files):
+            try:
+                with json_file.open('r', encoding='utf-8') as fh:
+                    data = json.load(fh)
+            except Exception as exc:
+                logger.warning("Failed to read OpenPose JSON %s: %s", json_file, exc)
+                continue
+
+            people = data.get('people', [])
+            poses = self._poses_from_people(people)
+
+            frame_idx = self._frame_index_from_json_name(json_file.stem)
+            if frame_idx is None:
+                frame_idx = order
+
+            keypoints_detected = 0
+            confidences: List[float] = []
+            for pose in poses:
+                keypoints_detected += sum(1 for _, (_, _, conf) in pose['keypoints'].items() if conf > self.confidence_threshold)
+                confidences.append(pose['confidence'])
+
+            avg_confidence = float(np.mean(confidences)) if confidences else 0.0
+
+            frame_result: Dict[str, Any] = {
+                'frame_idx': frame_idx,
+                'poses_detected': len(poses),
+                'keypoints_detected': keypoints_detected,
+                'avg_confidence': avg_confidence,
+            }
+
+            if poses:
+                best_pose = max(poses, key=lambda pose_item: pose_item['confidence'])
+                pose_metrics = self._calculate_pose_metrics(poses)
+                frame_result.update(pose_metrics)
+
+                for name, (x, y, conf) in best_pose['keypoints'].items():
+                    frame_result[f'{name}_x'] = x
+                    frame_result[f'{name}_y'] = y
+                    frame_result[f'{name}_confidence'] = conf
+
+                if best_pose['confidence'] > best_confidence:
+                    best_confidence = best_pose['confidence']
+                    best_frame_idx = frame_idx
+
+            frame_metrics[frame_idx] = frame_result
+
+        return frame_metrics, best_frame_idx
 
     def _calculate_pose_metrics(self, poses: List[Dict[str, Any]]) -> Dict[str, float]:
         """
@@ -304,189 +442,128 @@ class OpenPoseAnalyzer:
         
         return metrics
 
-    def _draw_pose_skeleton(self, frame: np.ndarray, poses: List[Dict[str, Any]]) -> np.ndarray:
-        """
-        Draw pose skeleton on frame.
-        
-        Args:
-            frame: Input frame
-            poses: Detected poses
-            
-        Returns:
-            Frame with pose skeleton drawn
-        """
-        result_frame = frame.copy()
-        
-        for pose in poses:
-            keypoints = pose['keypoints']
-            confidence = pose['confidence']
-            
-            # Draw keypoints
-            for name, (x, y, conf) in keypoints.items():
-                if conf > self.confidence_threshold:
-                    cv2.circle(result_frame, (int(x), int(y)), 4, (0, 255, 0), -1)
-                    cv2.putText(result_frame, name[:3], (int(x), int(y-10)), 
-                              cv2.FONT_HERSHEY_SIMPLEX, 0.3, (255, 255, 255), 1)
-            
-            # Draw skeleton connections
-            connections = [
-                ('neck', 'rshoulder'), ('neck', 'lshoulder'),
-                ('rshoulder', 'relbow'), ('relbow', 'rwrist'),
-                ('lshoulder', 'lelbow'), ('lelbow', 'lwrist'),
-                ('neck', 'rhip'), ('neck', 'lhip'),
-                ('rhip', 'rknee'), ('rknee', 'rankle'),
-                ('lhip', 'lknee'), ('lknee', 'lankle'),
-                ('rhip', 'lhip'), ('rshoulder', 'lshoulder')
-            ]
-            
-            for point1, point2 in connections:
-                if (point1 in keypoints and point2 in keypoints and
-                    keypoints[point1][2] > self.confidence_threshold and
-                    keypoints[point2][2] > self.confidence_threshold):
-                    
-                    pt1 = (int(keypoints[point1][0]), int(keypoints[point1][1]))
-                    pt2 = (int(keypoints[point2][0]), int(keypoints[point2][1]))
-                    cv2.line(result_frame, pt1, pt2, (0, 255, 255), 2)
-            
-            # Draw bounding box
-            x, y, w, h = pose['bbox']
-            cv2.rectangle(result_frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
-            cv2.putText(result_frame, f'Person {pose["person_id"]} ({confidence:.2f})', 
-                       (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
-        
-        return result_frame
+    @staticmethod
+    def _frame_preview_stats(frame: Optional[np.ndarray]) -> Tuple[float, float, float]:
+        if frame is None:
+            return 0.0, 0.0, 0.0
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        mean_intensity = float(np.mean(gray)) if gray.size else 0.0
+        contrast = float(np.std(gray)) if gray.size else 0.0
+        return 1.0, mean_intensity, contrast
 
-    def analyze_video(self, video_path: str) -> Dict[str, Any]:
-        """
-        Analyze poses in a video file.
-        
-        Args:
-            video_path: Path to the video file
-            
-        Returns:
-            Dictionary containing pose analysis results
-        """
-        if not self.initialized:
-            self._initialize_model()
-        
-        logger.info(f"Analyzing poses in video: {video_path}")
-        
-        # Open video
-        cap = cv2.VideoCapture(str(video_path))
+    def _extract_preview_media(
+        self,
+        render_video_path: Path,
+        gif_path: Path,
+        best_frame_idx: Optional[int],
+    ) -> Tuple[str, Tuple[float, float, float]]:
+        if not render_video_path.exists():
+            return "", (0.0, 0.0, 0.0)
+
+        cap = cv2.VideoCapture(str(render_video_path))
         if not cap.isOpened():
-            raise ValueError(f"Could not open video file: {video_path}")
-        
-        frame_metrics = []
-        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        fps = cap.get(cv2.CAP_PROP_FPS)
-        
-        # Prepare for output video creation
-        output_dir = Path(video_path).parent / "openpose_output"
-        output_dir.mkdir(exist_ok=True)
-        
-        output_video_path = output_dir / f"{Path(video_path).stem}_openpose.mp4"
-        output_gif_path = output_dir / f"{Path(video_path).stem}_openpose.gif"
-        
-        # Video writer for pose visualization
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        out_video = cv2.VideoWriter(str(output_video_path), fourcc, fps, (frame_width, frame_height))
-        
-        best_annotated_frame = None
-        max_confidence = 0
-        gif_frames = []
-        
+            return "", (0.0, 0.0, 0.0)
+
+        gif_frames: List[np.ndarray] = []
+        preview_frame: Optional[np.ndarray] = None
+        frame_order = 0
+
         try:
-            frame_idx = 0
-            while cap.isOpened():
-                ret, frame = cap.read()
-                if not ret:
+            while True:
+                success, frame = cap.read()
+                if not success:
                     break
-                
-                # Detect poses
-                poses = self._detect_pose_opencv(frame)
-                
-                # Draw pose skeleton
-                annotated_frame = self._draw_pose_skeleton(frame, poses)
-                
-                # Write to output video
-                out_video.write(annotated_frame)
-                
-                # Collect frames for GIF (every 5th frame to reduce size)
-                if frame_idx % 5 == 0 and len(gif_frames) < 20:
-                    # Resize for GIF
-                    gif_frame = cv2.resize(annotated_frame, (320, 240))
-                    gif_frames.append(cv2.cvtColor(gif_frame, cv2.COLOR_BGR2RGB))
-                
-                # Calculate frame metrics
-                frame_result = {
-                    'frame_idx': frame_idx,
-                    'poses_detected': len(poses),
-                    'keypoints_detected': sum(len(pose['keypoints']) for pose in poses),
-                    'avg_confidence': np.mean([pose['confidence'] for pose in poses]) if poses else 0.0
-                }
-                
-                if poses:
-                    # Calculate pose metrics for the best pose
-                    best_pose = max(poses, key=lambda p: p['confidence'])
-                    pose_metrics = self._calculate_pose_metrics(poses)
-                    frame_result.update(pose_metrics)
-                    
-                    # Store keypoint coordinates
-                    for name, (x, y, conf) in best_pose['keypoints'].items():
-                        frame_result[f'{name}_x'] = x
-                        frame_result[f'{name}_y'] = y
-                        frame_result[f'{name}_confidence'] = conf
-                    
-                    # Keep track of best frame for sample image
-                    if best_pose['confidence'] > max_confidence:
-                        max_confidence = best_pose['confidence']
-                        best_annotated_frame = annotated_frame.copy()
-                
-                frame_metrics.append(frame_result)
-                frame_idx += 1
-                
-                # Progress logging
-                if frame_idx % 30 == 0:
-                    logger.info(f"Processed {frame_idx}/{total_frames} frames")
-        
+
+                if best_frame_idx is not None and frame_order == best_frame_idx:
+                    preview_frame = frame.copy()
+
+                if frame_order % 5 == 0 and len(gif_frames) < 20:
+                    resized = cv2.resize(frame, (320, 240))
+                    gif_frames.append(cv2.cvtColor(resized, cv2.COLOR_BGR2RGB))
+
+                frame_order += 1
         finally:
             cap.release()
-            out_video.release()
-        
-        # Create GIF
+
+        if preview_frame is None and gif_frames:
+            preview_frame = cv2.cvtColor(gif_frames[0], cv2.COLOR_RGB2BGR)
+
+        gif_path_str = ""
         if gif_frames:
             try:
                 from PIL import Image
+
                 pil_images = [Image.fromarray(frame) for frame in gif_frames]
                 pil_images[0].save(
-                    str(output_gif_path),
+                    str(gif_path),
                     save_all=True,
                     append_images=pil_images[1:],
-                    duration=200,  # 200ms per frame
-                    loop=0
+                    duration=200,
+                    loop=0,
                 )
-                logger.info(f"Created pose GIF: {output_gif_path}")
+                gif_path_str = str(gif_path)
+                logger.info("Created pose GIF: %s", gif_path_str)
             except ImportError:
-                logger.warning("PIL not available - could not create GIF")
-                output_gif_path = ""
-        
-        # Aggregate results
+                logger.warning("PIL not available - could not create GIF preview")
+
+        preview_stats = self._frame_preview_stats(preview_frame)
+        return gif_path_str, preview_stats
+
+    def analyze_video(self, video_path: str) -> Dict[str, Any]:
+        """Run OpenPose on a video and aggregate its outputs."""
+
+        if not self.initialized:
+            self._initialize_model()
+
+        logger.info("Analyzing poses in video via OpenPose binary: %s", video_path)
+
+        capture = cv2.VideoCapture(str(video_path))
+        if not capture.isOpened():
+            raise ValueError(f"Could not open video file: {video_path}")
+
+        total_frames = int(capture.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+        capture.release()
+
+        video_path_obj = Path(video_path)
+        _, json_dir, render_video_path, gif_path = self._prepare_output_paths(video_path_obj)
+
+        self._run_openpose_cli(video_path_obj, json_dir, render_video_path)
+
+        frame_metrics_map, best_frame_idx = self._parse_frame_metrics(json_dir)
+        if not frame_metrics_map:
+            logger.warning("OpenPose produced no keypoint JSON files for %s", video_path)
+
+        max_idx = max(frame_metrics_map.keys(), default=-1)
+        if total_frames <= 0 or (max_idx >= 0 and max_idx + 1 > total_frames):
+            total_frames = max_idx + 1 if max_idx >= 0 else 0
+
+        frame_metrics: List[Dict[str, Any]] = []
+        for frame_idx in range(total_frames):
+            metrics = frame_metrics_map.get(frame_idx)
+            if metrics is None:
+                metrics = {
+                    'frame_idx': frame_idx,
+                    'poses_detected': 0,
+                    'keypoints_detected': 0,
+                    'avg_confidence': 0.0,
+                }
+            frame_metrics.append(metrics)
+
         results = self._aggregate_frame_results(frame_metrics, total_frames)
-        
-        # Add output paths
-        results['openPose_pose_video_path'] = str(output_video_path)
-        results['openPose_pose_gif_path'] = str(output_gif_path) if gif_frames else ""
-        
-        # Add sample image
-        if best_annotated_frame is not None:
-            _, buffer = cv2.imencode('.jpg', best_annotated_frame)
-            img_base64 = base64.b64encode(buffer).decode('utf-8')
-            results['openPose_SM_pic'] = img_base64
-        
-        logger.info(f"OpenPose analysis completed. Processed {total_frames} frames.")
-        
+        results['openPose_pose_video_path'] = str(render_video_path) if render_video_path.exists() else ""
+
+        gif_path_str, preview_stats = self._extract_preview_media(render_video_path, gif_path, best_frame_idx)
+        results['openPose_pose_gif_path'] = gif_path_str
+        results['openPose_SM_pic'] = ""
+        results['openPose_SM_preview_available'] = preview_stats[0]
+        results['openPose_SM_preview_mean_intensity'] = preview_stats[1]
+        results['openPose_SM_preview_contrast'] = preview_stats[2]
+
+        if not self.keep_json:
+            shutil.rmtree(json_dir, ignore_errors=True)
+
+        logger.info("OpenPose analysis completed for %s", video_path)
+
         return results
 
     def _aggregate_frame_results(self, frame_metrics: List[Dict], total_frames: int) -> Dict[str, Any]:
@@ -525,12 +602,15 @@ class OpenPoseAnalyzer:
         # Aggregate keypoint coordinates (average across frames where detected)
         for keypoint in self.keypoint_names:
             keypoint_lower = keypoint.lower()
-            x_values = [fm[f'{keypoint_lower}_x'] for fm in frame_metrics 
-                       if f'{keypoint_lower}_x' in fm and fm[f'{keypoint_lower}_confidence'] > self.confidence_threshold]
-            y_values = [fm[f'{keypoint_lower}_y'] for fm in frame_metrics 
-                       if f'{keypoint_lower}_y' in fm and fm[f'{keypoint_lower}_confidence'] > self.confidence_threshold]
-            conf_values = [fm[f'{keypoint_lower}_confidence'] for fm in frame_metrics 
-                          if f'{keypoint_lower}_confidence' in fm]
+            x_key = f'{keypoint_lower}_x'
+            y_key = f'{keypoint_lower}_y'
+            conf_key = f'{keypoint_lower}_confidence'
+
+            x_values = [fm[x_key] for fm in frame_metrics
+                        if x_key in fm and conf_key in fm and fm[conf_key] > self.confidence_threshold]
+            y_values = [fm[y_key] for fm in frame_metrics
+                        if y_key in fm and conf_key in fm and fm[conf_key] > self.confidence_threshold]
+            conf_values = [fm[conf_key] for fm in frame_metrics if conf_key in fm]
             
             results[f'openPose_{keypoint_lower}_x'] = np.mean(x_values) if x_values else 0.0
             results[f'openPose_{keypoint_lower}_y'] = np.mean(y_values) if y_values else 0.0

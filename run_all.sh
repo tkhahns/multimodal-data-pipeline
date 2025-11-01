@@ -14,6 +14,16 @@ fi
 echo "[INFO] Installing project dependencies via Poetry..."
 poetry install
 
+OPENPOSE_TARGET="${OPENPOSE_TARGET:-${1:-data}}"
+OPENPOSE_AUTO_RUN="${OPENPOSE_AUTO_RUN:-1}"
+if [[ -f "$ROOT_DIR/scripts/openpose_setup.sh" ]]; then
+    # shellcheck disable=SC1090
+    source "$ROOT_DIR/scripts/openpose_setup.sh"
+    openpose_setup_main "$OPENPOSE_TARGET"
+else
+    echo "[WARN] OpenPose setup script not found at scripts/openpose_setup.sh; skipping OpenPose stage." >&2
+fi
+
 echo "[INFO] Running multimodal data pipeline..."
 poetry run python run_pipeline.py "$@"
 

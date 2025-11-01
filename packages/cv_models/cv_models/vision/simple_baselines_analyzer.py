@@ -22,7 +22,7 @@ class SimpleBaselinesAnalyzer:
     with detailed body part accuracy metrics and AP/AR scores across different scales.
     """
     
-    def __init__(self, device='cpu', model_type='resnet50', confidence_threshold=0.3):
+    def __init__(self, device='cpu', model_type='resnet50', confidence_threshold=0.08):
         """
         Initialize Simple Baselines pose analyzer.
         
@@ -138,7 +138,10 @@ class SimpleBaselinesAnalyzer:
                 )
                 
                 # Final layer for keypoint heatmaps (17 keypoints for COCO format)
-                self.final_layer = nn.Conv2d(256, 17, 1)
+                self.final_layer = nn.Sequential(
+                    nn.Conv2d(256, 17, 1),
+                    nn.Sigmoid(),
+                )
                 
             def _make_layer(self, in_channels, out_channels, stride):
                 return nn.Sequential(
