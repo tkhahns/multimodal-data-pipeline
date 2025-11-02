@@ -241,7 +241,12 @@ class MultimodalPipeline:
                     from cv_models.vision.vitpose_analyzer import ViTPoseAnalyzer
                     # Optional: provide checkpoint via env var VITPOSE_CHECKPOINT
                     vitpose_ckpt = os.getenv("VITPOSE_CHECKPOINT")
-                    self.extractors[feature_name] = ViTPoseAnalyzer(device=self.device, model_path=vitpose_ckpt)
+                    vitpose_config = os.getenv("VITPOSE_CONFIG")
+                    self.extractors[feature_name] = ViTPoseAnalyzer(
+                        device=self.device,
+                        checkpoint_path=vitpose_ckpt,
+                        config_path=vitpose_config,
+                    )
                 except Exception as e:
                     print(f"Warning: vitpose_vision unavailable: {e}")
                     self.extractors[feature_name] = None

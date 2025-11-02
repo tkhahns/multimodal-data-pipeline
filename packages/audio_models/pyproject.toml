@@ -15,13 +15,16 @@ numpy = "^1.26"
 opencv-python = "^4.9.0"
 librosa = "^0.10.1"
 opensmile = "^2.5.0"
-audiostretchy = { git = "https://github.com/twardoch/audiostretchy" }
+audiostretchy = "^1.3.5"
 torch = ">=2.6,<2.8"
 torchaudio = ">=2.6,<2.8"
 speechbrain = "^1.0.0"
 whisperx = "^3.3.0"
 soundfile = "^0.12.1"
 scipy = ">=1.11,<1.13"
+scikit-learn = "^1.4.2"
+transformers = "^4.44.2"
+sentencepiece = "^0.2.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.1"

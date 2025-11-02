@@ -1,12 +1,17 @@
-"""
-Speech separation module using SepFormer.
-"""
+"""Speech separation module using SepFormer."""
+
+from __future__ import annotations
+
+import os
+import sys
+from pathlib import Path
+from typing import List, Tuple
+
+import numpy as np
 import torch
 import torchaudio
-import numpy as np
-from pathlib import Path
-from typing import List, Union, Tuple
-import os
+
+from audio_models.external.repo_manager import ensure_repo
 
 class SpeechSeparator:
     """Speech separator using SepFormer from SpeechBrain."""
@@ -24,20 +29,37 @@ class SpeechSeparator:
         self.sample_rate = 8000  # SepFormer default
         self.chunk_duration = chunk_duration
         
+    def _import_sepformer(self):
+        """Ensure SpeechBrain is importable from the managed clone."""
+
+        try:
+            from speechbrain.inference import SepformerSeparation  # type: ignore
+            return SepformerSeparation
+        except ImportError:
+            repo_path = ensure_repo("speechbrain")
+            repo_root = Path(repo_path)
+            if str(repo_root) not in sys.path:
+                sys.path.insert(0, str(repo_root))
+            try:
+                from speechbrain.inference import SepformerSeparation  # type: ignore
+                return SepformerSeparation
+            except ImportError as exc:  # pragma: no cover - defensive path
+                raise ImportError(
+                    "Unable to import SpeechBrain even after cloning the repository. "
+                    "Run `pip install -e external/audio/speechbrain` inside the audio_models environment."
+                ) from exc
+
     def _load_model(self):
         """Load the SepFormer model from SpeechBrain."""
+        SepformerSeparation = self._import_sepformer()
         try:
-            from speechbrain.inference import SepformerSeparation
             print("Loading SepFormer model...")
             self.model = SepformerSeparation.from_hparams(
-                source="speechbrain/sepformer-libri3mix", 
-                run_opts={"device": self.device}
+                source="speechbrain/sepformer-libri3mix",
+                run_opts={"device": self.device},
             )
             print("SepFormer model loaded successfully")
-        except ImportError:
-            print("SpeechBrain not installed. Please install it using: poetry add speechbrain")
-            raise
-        except Exception as e:
+        except Exception as e:  # pragma: no cover - runtime guard
             print(f"Error loading SepFormer model: {e}")
             raise
     

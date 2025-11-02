@@ -59,7 +59,7 @@ class OpenPoseAnalyzer:
         self.render_pose = render_pose
         self.keep_json = keep_json
         self.number_people_max = 10
-    self.output_root = Path(output_root) if output_root else None
+        self.output_root = Path(output_root) if output_root else None
         
         # Body keypoint names (COCO format)
         self.keypoint_names = [
@@ -153,8 +153,8 @@ class OpenPoseAnalyzer:
         logger.info("OpenPose analyzer initialized with binary %s", self.openpose_bin)
 
     def _prepare_output_paths(self, video_path: Path) -> Tuple[Path, Path, Path, Path]:
-    base_root = self.output_root if self.output_root else video_path.parent
-    output_dir = base_root / "openpose_output"
+        base_root = self.output_root if self.output_root else video_path.parent
+        output_dir = base_root / "openpose_output"
         output_dir.mkdir(parents=True, exist_ok=True)
 
         json_dir = output_dir / f"{video_path.stem}_json"

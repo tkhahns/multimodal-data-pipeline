@@ -49,6 +49,20 @@ poetry install
 The runtime code now imports directly from these packages; the legacy `src`
 layout has been fully retired.
 
+### External repositories
+
+Clone the upstream research models with:
+
+```bash
+python scripts/setup_all_repos.py
+```
+
+Use `--list` to see available keys and `--only <key>` to target specific models
+while developing. The video frame extractor project (`intelligent-video-frame-extractor`)
+referenced in `requirements.csv` is private and is therefore not cloned by the
+script; if you have access, clone it manually and point
+`VIDEO_FRAME_EXTRACTOR_REPO` at your local checkout.
+
 > **Note on recent dependency hardening**
 >
 > - GPU/CPU stacks now require `torch>=2.6` to satisfy CVE-2025-32434 safeguards. The

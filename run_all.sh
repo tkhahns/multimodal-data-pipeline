@@ -1,30 +1,46 @@
 #!/bin/bash
-# Simple helper to install dependencies with Poetry and run the full pipeline.
+# Orchestrate the full multimodal pipeline by chaining stage scripts.
 
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT_DIR"
 
-if ! command -v poetry >/dev/null 2>&1; then
-    echo "[ERROR] Poetry is required but not installed. See https://python-poetry.org/docs/#installation" >&2
-    exit 1
+PIPELINE_ARGS=("$@")
+
+# If the first argument looks like a path (no leading dash), treat it as the data directory.
+if [[ "${#PIPELINE_ARGS[@]}" -gt 0 ]]; then
+    first_arg="${PIPELINE_ARGS[0]}"
+    if [[ "$first_arg" != --* ]]; then
+        OPENPOSE_TARGET="${OPENPOSE_TARGET:-$first_arg}"
+        PIPELINE_ARGS=("--data-dir" "$first_arg" "${PIPELINE_ARGS[@]:1}")
+    fi
 fi
 
-echo "[INFO] Installing project dependencies via Poetry..."
-poetry install
+OPENPOSE_TARGET="${OPENPOSE_TARGET:-data}"
+export OPENPOSE_TARGET
 
-OPENPOSE_TARGET="${OPENPOSE_TARGET:-${1:-data}}"
-OPENPOSE_AUTO_RUN="${OPENPOSE_AUTO_RUN:-1}"
-if [[ -f "$ROOT_DIR/scripts/openpose_setup.sh" ]]; then
-    # shellcheck disable=SC1090
-    source "$ROOT_DIR/scripts/openpose_setup.sh"
-    openpose_setup_main "$OPENPOSE_TARGET"
-else
-    echo "[WARN] OpenPose setup script not found at scripts/openpose_setup.sh; skipping OpenPose stage." >&2
-fi
+STAGES=(
+    "scripts/install_dependencies.sh"
+    "scripts/run_openpose_stage.sh"
+    "scripts/run_pipeline_stage.sh"
+)
 
-echo "[INFO] Running multimodal data pipeline..."
-poetry run python run_pipeline.py "$@"
+for stage in "${STAGES[@]}"; do
+    if [[ ! -x "$ROOT_DIR/$stage" ]]; then
+        echo "[WARN] Stage script $stage is missing or not executable; skipping." >&2
+        continue
+    fi
 
-echo "[INFO] Pipeline run completed."
+    case "$stage" in
+        "scripts/run_openpose_stage.sh")
+            "$ROOT_DIR/$stage"
+            ;;
+        "scripts/run_pipeline_stage.sh")
+            "$ROOT_DIR/$stage" "${PIPELINE_ARGS[@]}"
+            ;;
+        *)
+            "$ROOT_DIR/$stage"
+            ;;
+    esac
+done

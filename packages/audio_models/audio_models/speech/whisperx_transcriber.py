@@ -1,11 +1,16 @@
-"""
-WhisperX for time-accurate speech transcription and diarization.
-"""
+"""WhisperX for time-accurate speech transcription and diarization."""
+
+from __future__ import annotations
+
 import os
-import torch
-import numpy as np
+import sys
 from pathlib import Path
-from typing import List, Dict, Union, Any, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
+
+import numpy as np
+import torch
+
+from audio_models.external.repo_manager import ensure_repo
 
 class WhisperXTranscriber:
     """Transcribe and diarize speech using WhisperX."""
@@ -51,8 +56,12 @@ class WhisperXTranscriber:
         
     def _load_models(self):
         """Load WhisperX and diarization models."""
+        repo_path = ensure_repo("whisperx")
+        if str(repo_path) not in sys.path:
+            sys.path.insert(0, str(repo_path))
+
         try:
-            import whisperx
+            import whisperx  # type: ignore
             
             print(f"Loading WhisperX model: {self.model_size} on {self.device} with compute_type: {self.compute_type}")
             
@@ -67,8 +76,7 @@ class WhisperXTranscriber:
             print("Loading diarization model...")
             # Load diarization model with proper device handling
             try:
-                # Import DiarizationPipeline from the correct submodule (WhisperX v3.3.4+)
-                from whisperx.diarize import DiarizationPipeline
+                from whisperx.diarize import DiarizationPipeline  # type: ignore
                 self.diarization_model = DiarizationPipeline(
                     use_auth_token=self.hf_token,
                     device=self.device
@@ -89,8 +97,11 @@ class WhisperXTranscriber:
                 print("Continuing without diarization...")
                 self.diarization_model = None
                 
-        except ImportError:
-            print("WhisperX not installed. Please install it using: pip install git+https://github.com/m-bain/whisperx.git")
+        except ImportError as exc:
+            print(
+                "WhisperX is not importable even after cloning. "
+                "Run `pip install -e external/audio/whisperx` or install the package in this environment."
+            )
             raise
     
     def transcribe(

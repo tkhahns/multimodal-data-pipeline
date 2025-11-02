@@ -1,46 +1,48 @@
-"""Lightweight XLSR-style speech-to-text wrapper.
+"""XLSR speech-to-text analyzer powered by wav2vec 2.0 checkpoints.
 
-This module provides a pragmatic implementation that satisfies the
-requirements of the multimodal pipeline without forcing heavyweight
-runtime dependencies.  When the Hugging Face `transformers` ASR pipeline
-is available it will be used.  Otherwise the analyzer falls back to a
-signal-processing approximation that still emits the required feature
-artifacts.
+The implementation loads Facebook's multilingual XLSR models via
+``transformers`` and exposes both the textual transcription and the last hidden
+layer activations.  No synthetic fallbacks are emitted—missing dependencies
+result in descriptive runtime errors so the caller can remedy the
+environment.
 """
 from __future__ import annotations
 
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Dict, Optional
 
+import librosa
 import numpy as np
+import torch
 
-try:  # Optional audio dependency
-    import soundfile as sf  # type: ignore
-except Exception:  # pragma: no cover - optional dependency
-    sf = None  # type: ignore
-
-try:  # Optional ASR dependency
-    from transformers import pipeline  # type: ignore
-except Exception:  # pragma: no cover - optional dependency
-    pipeline = None  # type: ignore
+try:
+    from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
+except Exception as exc:  # pragma: no cover - import guard
+    Wav2Vec2ForCTC = None  # type: ignore[assignment]
+    Wav2Vec2Processor = None  # type: ignore[assignment]
+    _TRANSFORMERS_IMPORT_ERROR = exc
+else:
+    _TRANSFORMERS_IMPORT_ERROR = None
 
 logger = logging.getLogger(__name__)
 
 
+def _resolve_device(device_spec: str) -> torch.device:
+    if device_spec.startswith("cuda"):
+        if not torch.cuda.is_available():  # pragma: no cover - env dependent
+            raise RuntimeError("CUDA requested for XLSR but no GPU is available")
+        return torch.device(device_spec)
+    if device_spec != "cpu":
+        logger.warning("Unknown device '%s', defaulting to CPU", device_spec)
+    return torch.device("cpu")
+
+
 class XLSRSpeechToTextAnalyzer:
-    """Produce XLSR-inspired speech-to-text features.
+    """Produce XLSR speech-to-text outputs using wav2vec 2.0."""
 
-    The analyzer tries to run an automatic-speech-recognition (ASR)
-    pipeline first.  If that is not possible it derives a deterministic
-    fallback transcript based on the audio file name so downstream stages
-    remain stable.  Regardless of the branch taken the analyzer exports a
-    NumPy array that plays the role of "hidden states" so the output
-    contract from the requirements table is satisfied.
-    """
-
-    DEFAULT_MODEL = "facebook/wav2vec2-base-960h"
+    DEFAULT_MODEL = "facebook/wav2vec2-large-xlsr-53"
 
     def __init__(
         self,
@@ -49,107 +51,90 @@ class XLSRSpeechToTextAnalyzer:
         output_dir: Optional[Path] = None,
         model_name: str = DEFAULT_MODEL,
     ) -> None:
-        self.device = device
+        if Wav2Vec2Processor is None or Wav2Vec2ForCTC is None:
+            raise RuntimeError(
+                "transformers is not installed. Run 'poetry install' inside packages/audio_models "
+                "or ensure transformers is available."
+            ) from _TRANSFORMERS_IMPORT_ERROR
+
+        self.device = _resolve_device(device)
         self.model_name = model_name
         self.output_dir = Path(output_dir) if output_dir else Path("output")
         self.output_dir = self.output_dir / "audio" / "xlsr"
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
-        self._pipeline = None
-        if pipeline is not None:
-            try:
-                device_index = 0 if device.startswith("cuda") else -1
-                self._pipeline = pipeline(
-                    "automatic-speech-recognition",
-                    model=self.model_name,
-                    device=device_index,
-                )
-                logger.info("Loaded XLSR ASR pipeline %s", self.model_name)
-            except Exception as exc:  # pragma: no cover - defensive path
-                logger.warning("Failed to initialise XLSR pipeline: %s", exc)
-                self._pipeline = None
+        logger.info("Loading XLSR wav2vec2 model %s", self.model_name)
+        self.processor = Wav2Vec2Processor.from_pretrained(self.model_name)
+        self.model = Wav2Vec2ForCTC.from_pretrained(self.model_name)
+        self.model.to(self.device)
+        self.model.eval()
+        self._target_sr = int(self.processor.feature_extractor.sampling_rate)
 
-    # ------------------------------------------------------------------
-    def _simple_transcription(self, audio_path: Path) -> str:
-        """Fallback transcription based on file metadata."""
-        stem = audio_path.stem.replace("_", " ")
-        return stem if stem else "speech sample"
+    def _load_audio(self, audio_path: Path) -> np.ndarray:
+        waveform, sr = librosa.load(str(audio_path), sr=self._target_sr)
+        if waveform.size == 0:
+            raise RuntimeError(f"Audio file '{audio_path}' did not contain samples")
+        if sr != self._target_sr:
+            logger.debug("Resampled %s to %d Hz for XLSR", audio_path, self._target_sr)
+        return waveform.astype(np.float32)
 
-    def _signal_summary(self, audio_path: Path) -> np.ndarray:
-        """Create a compact representation of the audio signal."""
-        if sf is None:  # pragma: no cover - optional dependency missing
-            logger.debug("soundfile unavailable, returning constant hidden state")
-            return np.linspace(0.0, 1.0, 32, dtype=np.float32)
-
-        try:
-            audio, sr = sf.read(str(audio_path))
-        except Exception as exc:  # pragma: no cover - defensive path
-            logger.warning("Failed to read %s: %s", audio_path, exc)
-            return np.linspace(0.0, 1.0, 32, dtype=np.float32)
-
-        if audio.ndim > 1:
-            audio = audio.mean(axis=1)
-
-        # Frame the signal in one-second windows and compute RMS energy
-        window = max(int(sr), 1)
-        frames = max(len(audio) // window, 1)
-        rms = []
-        for idx in range(frames):
-            segment = audio[idx * window : (idx + 1) * window]
-            if segment.size == 0:
-                rms.append(0.0)
-            else:
-                rms.append(float(np.sqrt(np.mean(np.square(segment)))))
-        result = np.asarray(rms, dtype=np.float32)
-        if result.size == 0:
-            result = np.zeros(1, dtype=np.float32)
-        return result
-
-    # ------------------------------------------------------------------
     def get_feature_dict(
         self,
         audio_path: str,
-        existing_features: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
-        """Extract XLSR-style speech-to-text features."""
+        existing_features: Optional[Dict[str, object]] = None,
+    ) -> Dict[str, object]:
+        del existing_features  # Real model handles transcription
+
         audio_file = Path(audio_path)
-        transcript = ""
-        fallback_used = False
-        timestamps: Optional[Any] = None
+        waveform = self._load_audio(audio_file)
+        inputs = self.processor(
+            waveform,
+            sampling_rate=self._target_sr,
+            return_tensors="pt",
+        )
+        inputs = {name: tensor.to(self.device) for name, tensor in inputs.items()}
 
-        if self._pipeline is not None:
-            try:
-                result = self._pipeline(audio_path, return_timestamps="word")
-                transcript = (result.get("text") or "").strip()
-                timestamps = result.get("chunks") or result.get("timestamps")
-            except Exception as exc:  # pragma: no cover - defensive path
-                logger.warning("XLSR pipeline inference failed: %s", exc)
-                transcript = ""
+        with torch.no_grad():
+            outputs = self.model(**inputs, output_hidden_states=True)
 
+        logits = outputs.logits
+        predicted_ids = torch.argmax(logits, dim=-1)
+        transcript = self.processor.batch_decode(predicted_ids)[0].strip()
         if not transcript:
-            fallback_used = True
-            if existing_features:
-                transcript = (
-                    existing_features.get("whisperx_transcription")
-                    or existing_features.get("transcription")
-                    or ""
-                ).strip()
-            if not transcript:
-                transcript = self._simple_transcription(audio_file)
+            raise RuntimeError(
+                f"wav2vec2 model '{self.model_name}' produced an empty transcription for {audio_file}"
+            )
 
-        hidden_states = self._signal_summary(audio_file)
+        frame_confidence = torch.softmax(logits, dim=-1).max(dim=-1).values
+        confidence = float(frame_confidence.mean().item())
+
+        hidden = outputs.hidden_states[-1].squeeze(0).cpu().float().numpy()
         hidden_path = self.output_dir / f"{audio_file.stem}_xlsr_hidden.npy"
-        np.save(hidden_path, hidden_states)
+        np.save(hidden_path, hidden)
+
+        duration = float(waveform.shape[0]) / float(self._target_sr)
+        frame_stride = duration / max(hidden.shape[0], 1)
+        frame_timestamps = [
+            {
+                "index": int(idx),
+                "start": round(idx * frame_stride, 3),
+                "end": round((idx + 1) * frame_stride, 3),
+            }
+            for idx in range(hidden.shape[0])
+        ]
 
         metadata_path = self.output_dir / f"{audio_file.stem}_xlsr_metadata.json"
         with metadata_path.open("w", encoding="utf-8") as handle:
             json.dump(
                 {
                     "audio_path": str(audio_file),
-                    "frames": int(hidden_states.shape[0]),
-                    "model": self.model_name if self._pipeline else "fallback",
-                    "device": self.device,
-                    "timestamps": timestamps,
+                    "model": self.model_name,
+                    "device": str(self.device),
+                    "num_frames": int(hidden.shape[0]),
+                    "hidden_dim": int(hidden.shape[1]) if hidden.ndim == 2 else None,
+                    "duration_seconds": duration,
+                    "frame_stride_seconds": frame_stride,
+                    "frame_timestamps": frame_timestamps,
                 },
                 handle,
                 indent=2,
@@ -157,12 +142,13 @@ class XLSRSpeechToTextAnalyzer:
 
         return {
             "xlsr_transcription": transcript,
+            "xlsr_confidence": confidence,
             "xlsr_hidden_states_path": str(hidden_path),
-            "xlsr_num_hidden_frames": int(hidden_states.shape[0]),
-            "xlsr_inference_device": self.device,
-            "xlsr_model_name": self.model_name if self._pipeline else "fallback",
+            "xlsr_num_hidden_frames": int(hidden.shape[0]),
+            "xlsr_inference_device": str(self.device),
+            "xlsr_model_name": self.model_name,
             "xlsr_metadata_path": str(metadata_path),
-            "xlsr_fallback_used": fallback_used,
+            "xlsr_fallback_used": False,
         }
 
 
