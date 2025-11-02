@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -10,8 +11,8 @@ from typing import Any, Dict, List, Optional
 import cv2
 import numpy as np
 import torch
-from torchvision import transforms
 from PIL import Image
+from torchvision import transforms
 
 from cv_models.external.repo_manager import ensure_repo
 
@@ -107,8 +108,8 @@ class DANAnalyzer:
         if self.model is None:
             raise RuntimeError("DAN model not initialized")
 
-    pil_img = Image.fromarray(cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB))
-    tensor = self.transform(pil_img).unsqueeze(0).to(self.device)
+        pil_img = Image.fromarray(cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB))
+        tensor = self.transform(pil_img).unsqueeze(0).to(self.device)
         with torch.no_grad():
             logits, _, _ = self.model(tensor)
             probs = torch.softmax(logits, dim=1).cpu().numpy().squeeze()

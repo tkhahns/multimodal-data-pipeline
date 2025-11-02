@@ -1,621 +1,495 @@
-"""
-ARBEx: Attentive Feature Extraction with Reliability Balancing for Robust Facial Expression Learning
-Based on: https://github.com/takihasan/ARBEx
+"""ARBEx analyzer backed by the official implementation.
 
-This analyzer implements emotional indices extraction via different feature levels
-using attentive feature extraction with reliability balancing.
+This module wires the original ARBEx repository into the multimodal pipeline.
+It loads the published Poster encoder, classification head, anchor bank, and
+(optional) self-attention correction modules to provide robust facial
+expression recognition metrics on top of per-frame facial crops.
 """
+
+from __future__ import annotations
+
+import base64
+import io
+import logging
+import os
+import sys
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import cv2
 import numpy as np
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from typing import Dict, Any, List, Optional, Tuple
-import logging
-import os
-from pathlib import Path
-import base64
-import io
+import torchvision.transforms as T
 from PIL import Image
-import warnings
+
+from cv_models.external.repo_manager import ensure_repo
 
 logger = logging.getLogger(__name__)
 
-class ARBExAnalyzer:
-    """
-    ARBEx analyzer for robust facial expression learning with attentive feature extraction.
-    
-    This analyzer implements emotional indices extraction via different feature levels
-    using reliability balancing for robust facial expression recognition.
-    """
-    
-    def __init__(self, device='cpu', confidence_threshold=0.5):
-        """
-        Initialize ARBEx analyzer.
-        
-        Args:
-            device: Device to run inference on ('cpu' or 'cuda')
-            confidence_threshold: Minimum confidence threshold for emotion classification
-        """
-        self.device = device
-        self.confidence_threshold = confidence_threshold
-        self.initialized = False
-        
-        # Emotion labels according to ARBEx
-        self.emotion_labels = [
-            'Neutral',
-            'Anger', 
-            'Disgust',
-            'Fear',
-            'Happiness',
-            'Sadness',
-            'Surprise',
-            'Others'
-        ]
-        
-        # Face detection model
-        self.face_cascade = None
-        
-        # Initialize default metrics
-        self.default_metrics = {
-            'arbex_primary': 'Neutral',      # Primary emotion classification
-            'arbex_final': 'Neutral',        # Final emotion classification after reliability balancing
-            'arbex_face_detected': 0.0,      # Whether face was detected
-            'arbex_confidence_primary': 0.0, # Confidence for primary classification
-            'arbex_confidence_final': 0.0,   # Confidence for final classification
-            'arbex_reliability_score': 0.0,  # Reliability balancing score
-            'arbex_SM_pic': ""               # Base64 encoded visualization
-        }
-        
-        # Add individual emotion probabilities for primary level
-        for emotion in self.emotion_labels:
-            self.default_metrics[f'arbex_primary_{emotion.lower()}'] = 0.0
-        
-        # Add individual emotion probabilities for final level
-        for emotion in self.emotion_labels:
-            self.default_metrics[f'arbex_final_{emotion.lower()}'] = 0.0
-        
-    def _initialize_model(self):
-        """Initialize the ARBEx model components."""
-        if self.initialized:
-            return
-            
-        try:
-            logger.info("Initializing ARBEx analyzer...")
-            
-            # Initialize face detection (using OpenCV's Haar cascade as fallback)
-            cascade_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
-            self.face_cascade = cv2.CascadeClassifier(cascade_path)
-            
-            if self.face_cascade.empty():
-                logger.warning("Could not load face cascade classifier")
-            
-            # Note: In a full implementation, you would load the actual ARBEx model here
-            # For this implementation, we'll use a simplified approach with feature extraction
-            # and rule-based emotion classification with reliability balancing
-            
-            self.initialized = True
-            logger.info("ARBEx analyzer initialized successfully")
-            
-        except Exception as e:
-            logger.error(f"Failed to initialize ARBEx analyzer: {e}")
-            raise
-    
-    def _detect_faces(self, frame: np.ndarray) -> List[Tuple[int, int, int, int]]:
-        """
-        Detect faces in the frame.
-        
-        Args:
-            frame: Input frame as numpy array
-            
-        Returns:
-            List of face bounding boxes (x, y, w, h)
-        """
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        faces = self.face_cascade.detectMultiScale(
-            gray, 
-            scaleFactor=1.1, 
-            minNeighbors=5, 
-            minSize=(30, 30)
-        )
-        return faces
-    
-    def _extract_facial_features(self, face_roi: np.ndarray) -> Dict[str, float]:
-        """
-        Extract facial features from a face ROI for emotion classification.
-        
-        Args:
-            face_roi: Face region of interest
-            
-        Returns:
-            Dictionary of facial features for emotion analysis
-        """
-        # Convert to grayscale
-        gray_roi = cv2.cvtColor(face_roi, cv2.COLOR_BGR2GRAY)
-        
-        # Normalize image
-        gray_roi = gray_roi.astype(np.float32) / 255.0
-        
-        # Extract features using different levels (simulating ARBEx's multi-level approach)
-        
-        # Level 1: Basic statistical features
-        level1_features = {
-            'mean_intensity': np.mean(gray_roi),
-            'std_intensity': np.std(gray_roi),
-            'skewness': float(np.mean((gray_roi - np.mean(gray_roi))**3)) / (np.std(gray_roi)**3 + 1e-7),
-            'kurtosis': float(np.mean((gray_roi - np.mean(gray_roi))**4)) / (np.std(gray_roi)**4 + 1e-7)
-        }
-        
-        # Level 2: Regional features (eye, mouth, forehead regions)
-        h, w = gray_roi.shape
-        level2_features = {
-            'eye_region_intensity': np.mean(gray_roi[:h//3, :]),          # Upper third
-            'mouth_region_intensity': np.mean(gray_roi[2*h//3:, :]),     # Lower third  
-            'cheek_region_intensity': np.mean(gray_roi[h//3:2*h//3, :]), # Middle third
-            'forehead_intensity': np.mean(gray_roi[:h//4, w//4:3*w//4]), # Forehead area
-            'eye_mouth_contrast': abs(np.mean(gray_roi[:h//3, :]) - np.mean(gray_roi[2*h//3:, :]))
-        }
-        
-        # Level 3: Texture features (simulating attentive feature extraction)
-        level3_features = {
-            'horizontal_gradient': np.mean(np.abs(np.diff(gray_roi, axis=1))),
-            'vertical_gradient': np.mean(np.abs(np.diff(gray_roi, axis=0))),
-            'edge_density': np.mean(cv2.Canny((gray_roi * 255).astype(np.uint8), 50, 150) / 255.0),
-            'texture_variance': np.var(gray_roi)
-        }
-        
-        # Combine all features
-        features = {**level1_features, **level2_features, **level3_features}
-        
-        return features
-    
-    def _classify_emotion_primary(self, features: Dict[str, float]) -> Tuple[str, float, Dict[str, float]]:
-        """
-        Primary emotion classification based on facial features.
-        
-        Args:
-            features: Extracted facial features
-            
-        Returns:
-            Tuple of (emotion_label, confidence, emotion_probabilities)
-        """
-        # Simple rule-based emotion classification for primary level
-        # In a full implementation, this would use the trained ARBEx model
-        
-        emotion_scores = {}
-        
-        # Calculate emotion scores based on features
-        # These are simplified heuristics - real ARBEx would use learned features
-        
-        # Neutral: balanced features, low variance
-        emotion_scores['Neutral'] = (
-            1.0 - abs(features['mean_intensity'] - 0.5) * 2 +
-            max(0, 0.5 - features['std_intensity']) * 2 +
-            max(0, 0.3 - features['edge_density']) * 2
-        ) / 3
-        
-        # Happiness: mouth region brighter, eye-mouth contrast
-        emotion_scores['Happiness'] = (
-            max(0, features['mouth_region_intensity'] - features['eye_region_intensity']) * 3 +
-            features['eye_mouth_contrast'] * 2 +
-            max(0, features['mean_intensity'] - 0.4) * 2
-        ) / 3
-        
-        # Sadness: mouth region darker, low overall intensity
-        emotion_scores['Sadness'] = (
-            max(0, features['eye_region_intensity'] - features['mouth_region_intensity']) * 3 +
-            max(0, 0.6 - features['mean_intensity']) * 2 +
-            features['std_intensity'] * 1.5
-        ) / 3
-        
-        # Anger: high contrast, strong gradients
-        emotion_scores['Anger'] = (
-            features['horizontal_gradient'] * 2 +
-            features['vertical_gradient'] * 2 +
-            features['edge_density'] * 2 +
-            abs(features['skewness']) * 1.5
-        ) / 4
-        
-        # Fear: high variance, strong texture
-        emotion_scores['Fear'] = (
-            features['texture_variance'] * 2 +
-            features['std_intensity'] * 2 +
-            features['edge_density'] * 1.5 +
-            abs(features['kurtosis'] - 3) * 1.5
-        ) / 4
-        
-        # Surprise: high eye region intensity, strong gradients
-        emotion_scores['Surprise'] = (
-            features['eye_region_intensity'] * 2 +
-            features['forehead_intensity'] * 1.5 +
-            features['vertical_gradient'] * 2 +
-            features['eye_mouth_contrast'] * 1.5
-        ) / 4
-        
-        # Disgust: mouth region features, moderate contrast
-        emotion_scores['Disgust'] = (
-            max(0, 0.5 - features['mouth_region_intensity']) * 2 +
-            features['horizontal_gradient'] * 1.5 +
-            features['cheek_region_intensity'] * 1.5 +
-            features['edge_density'] * 1.5
-        ) / 4
-        
-        # Others: residual category for ambiguous cases
-        emotion_scores['Others'] = (
-            features['texture_variance'] * 1.5 +
-            abs(features['skewness']) * 1.5 +
-            abs(features['kurtosis'] - 3) * 1.5 +
-            features['std_intensity'] * 1.5
-        ) / 4
-        
-        # Normalize scores to probabilities
-        total_score = sum(emotion_scores.values()) + 1e-7
-        emotion_probs = {emotion: score / total_score for emotion, score in emotion_scores.items()}
-        
-        # Get primary emotion and confidence
-        primary_emotion = max(emotion_probs, key=emotion_probs.get)
-        primary_confidence = emotion_probs[primary_emotion]
-        
-        return primary_emotion, primary_confidence, emotion_probs
-    
-    def _apply_reliability_balancing(self, primary_emotion: str, primary_confidence: float, 
-                                   primary_probs: Dict[str, float], features: Dict[str, float]) -> Tuple[str, float, Dict[str, float], float]:
-        """
-        Apply reliability balancing to get final emotion classification.
-        
-        Args:
-            primary_emotion: Primary emotion classification
-            primary_confidence: Confidence of primary classification
-            primary_probs: Primary emotion probabilities
-            features: Facial features
-            
-        Returns:
-            Tuple of (final_emotion, final_confidence, final_probabilities, reliability_score)
-        """
-        # Calculate reliability score based on feature consistency
-        reliability_factors = [
-            min(1.0, primary_confidence * 2),  # Primary confidence
-            max(0, 1.0 - features['std_intensity']),  # Feature stability
-            max(0, 1.0 - abs(features['skewness'])),  # Feature normality
-            min(1.0, features['edge_density'] * 2)    # Feature distinctiveness
-        ]
-        
-        reliability_score = np.mean(reliability_factors)
-        
-        # Apply reliability balancing
-        if reliability_score > 0.7:
-            # High reliability: keep primary classification
-            final_emotion = primary_emotion
-            final_confidence = primary_confidence
-            final_probs = primary_probs.copy()
-        elif reliability_score > 0.4:
-            # Medium reliability: blend with neutral
-            neutral_weight = (0.7 - reliability_score) / 0.3 * 0.3
-            final_probs = {}
-            for emotion in self.emotion_labels:
-                if emotion == 'Neutral':
-                    final_probs[emotion] = primary_probs[emotion] + neutral_weight
-                else:
-                    final_probs[emotion] = primary_probs[emotion] * (1 - neutral_weight)
-            
-            # Renormalize
-            total = sum(final_probs.values())
-            final_probs = {emotion: prob / total for emotion, prob in final_probs.items()}
-            
-            final_emotion = max(final_probs, key=final_probs.get)
-            final_confidence = final_probs[final_emotion]
-        else:
-            # Low reliability: default to neutral with low confidence
-            final_emotion = 'Neutral'
-            final_confidence = 0.3
-            final_probs = {emotion: 0.1 if emotion != 'Neutral' else 0.3 for emotion in self.emotion_labels}
-        
-        return final_emotion, final_confidence, final_probs, reliability_score
-    
-    def _process_frame(self, frame: np.ndarray) -> Tuple[Dict[str, Any], Optional[np.ndarray]]:
-        """
-        Process a single frame for emotion classification.
-        
-        Args:
-            frame: Input frame as numpy array (BGR format)
-            
-        Returns:
-            Tuple of (emotion_metrics_dict, annotated_frame)
-        """
-        if not self.initialized:
-            self._initialize_model()
-        
-        # Initialize metrics with defaults
-        metrics = self.default_metrics.copy()
-        annotated_frame = frame.copy()
-        
-        # Detect faces
-        faces = self._detect_faces(frame)
-        
-        if len(faces) > 0:
-            metrics['arbex_face_detected'] = 1.0
-            
-            # Process the largest face
-            largest_face = max(faces, key=lambda f: f[2] * f[3])
-            x, y, w, h = largest_face
-            
-            # Extract face ROI
-            face_roi = frame[y:y+h, x:x+w]
-            
-            # Extract facial features
-            features = self._extract_facial_features(face_roi)
-            
-            # Primary emotion classification
-            primary_emotion, primary_confidence, primary_probs = self._classify_emotion_primary(features)
-            
-            # Apply reliability balancing for final classification
-            final_emotion, final_confidence, final_probs, reliability_score = self._apply_reliability_balancing(
-                primary_emotion, primary_confidence, primary_probs, features
-            )
-            
-            # Update metrics
-            metrics['arbex_primary'] = primary_emotion
-            metrics['arbex_final'] = final_emotion
-            metrics['arbex_confidence_primary'] = float(primary_confidence)
-            metrics['arbex_confidence_final'] = float(final_confidence)
-            metrics['arbex_reliability_score'] = float(reliability_score)
-            
-            # Update individual emotion probabilities
-            for emotion in self.emotion_labels:
-                metrics[f'arbex_primary_{emotion.lower()}'] = float(primary_probs.get(emotion, 0.0))
-                metrics[f'arbex_final_{emotion.lower()}'] = float(final_probs.get(emotion, 0.0))
-            
-            # Draw face bounding box and emotion labels
-            cv2.rectangle(annotated_frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
-            
-            # Add emotion text
-            primary_text = f"Primary: {primary_emotion} ({primary_confidence:.2f})"
-            final_text = f"Final: {final_emotion} ({final_confidence:.2f})"
-            reliability_text = f"Reliability: {reliability_score:.2f}"
-            
-            cv2.putText(annotated_frame, primary_text, (x, y-30), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
-            cv2.putText(annotated_frame, final_text, (x, y-15), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
-            cv2.putText(annotated_frame, reliability_text, (x, y-45), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 0), 1)
-        
-        return metrics, annotated_frame
-    
-    def _encode_image_to_base64(self, image: np.ndarray) -> str:
-        """
-        Encode image to base64 string.
-        
-        Args:
-            image: Image as numpy array
-            
-        Returns:
-            Base64 encoded string
-        """
-        try:
-            # Convert BGR to RGB
-            rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            
-            # Convert to PIL Image
-            pil_image = Image.fromarray(rgb_image)
-            
-            # Save to bytes buffer
-            buffer = io.BytesIO()
-            pil_image.save(buffer, format='JPEG', quality=85)
-            
-            # Encode to base64
-            image_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
-            
-            return f"data:image/jpeg;base64,{image_base64}"
-            
-        except Exception as e:
-            logger.warning(f"Failed to encode image to base64: {e}")
-            return ""
-    
-    def analyze_video(self, video_path: str) -> Dict[str, Any]:
-        """
-        Analyze emotional indices in a video file.
-        
-        Args:
-            video_path: Path to the video file
-            
-        Returns:
-            Dictionary containing emotion analysis results
-        """
-        if not self.initialized:
-            self._initialize_model()
-        
-        logger.info(f"Analyzing emotional indices in video: {video_path}")
-        
-        # Open video
-        cap = cv2.VideoCapture(str(video_path))
-        if not cap.isOpened():
-            raise ValueError(f"Could not open video file: {video_path}")
-        
-        frame_metrics = []
-        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        fps = cap.get(cv2.CAP_PROP_FPS)
-        
-        best_annotated_frame = None
-        max_confidence = 0
-        
-        try:
-            frame_idx = 0
-            while cap.isOpened():
-                ret, frame = cap.read()
-                if not ret:
-                    break
-                
-                # Process frame
-                metrics, annotated_frame = self._process_frame(frame)
-                
-                # Keep the frame with highest confidence for visualization
-                final_confidence = metrics.get('arbex_confidence_final', 0)
-                if final_confidence > max_confidence:
-                    max_confidence = final_confidence
-                    best_annotated_frame = annotated_frame
-                
-                # Add frame index and timestamp
-                metrics['frame_idx'] = frame_idx
-                metrics['timestamp'] = frame_idx / fps if fps > 0 else frame_idx
-                
-                frame_metrics.append(metrics)
-                frame_idx += 1
-                
-                # Progress logging
-                if frame_idx % 100 == 0:
-                    logger.info(f"Processed {frame_idx}/{total_frames} frames")
-        
-        finally:
-            cap.release()
-        
-        logger.info(f"Completed emotion analysis: {len(frame_metrics)} frames processed")
-        
-        # Aggregate results
-        return self._aggregate_results(frame_metrics, best_annotated_frame, video_path)
-    
-    def _aggregate_results(self, frame_metrics: List[Dict[str, Any]], 
-                          best_frame: Optional[np.ndarray], 
-                          video_path: str) -> Dict[str, Any]:
-        """
-        Aggregate frame-level results into final metrics.
-        
-        Args:
-            frame_metrics: List of per-frame metrics
-            best_frame: Best annotated frame for visualization
-            video_path: Path to the video file
-            
-        Returns:
-            Aggregated emotion analysis results
-        """
-        if not frame_metrics:
-            result = self.default_metrics.copy()
-            result.update({
-                'video_path': str(video_path),
-                'total_frames': 0,
-                'faces_detected_frames': 0,
-                'face_detection_rate': 0.0
-            })
-            return result
-        
-        # Calculate mode (most frequent) for categorical variables
-        primary_emotions = [frame.get('arbex_primary', 'Neutral') for frame in frame_metrics]
-        final_emotions = [frame.get('arbex_final', 'Neutral') for frame in frame_metrics]
-        
-        # Get most frequent emotions
-        primary_mode = max(set(primary_emotions), key=primary_emotions.count)
-        final_mode = max(set(final_emotions), key=final_emotions.count)
-        
-        # Calculate mean for numerical variables
-        aggregated = {
-            'arbex_primary': primary_mode,
-            'arbex_final': final_mode
-        }
-        
-        # Aggregate numerical metrics
-        numerical_keys = [
-            'arbex_face_detected', 'arbex_confidence_primary', 'arbex_confidence_final', 
-            'arbex_reliability_score'
-        ]
-        
-        # Add emotion probability keys
-        for emotion in self.emotion_labels:
-            numerical_keys.extend([
-                f'arbex_primary_{emotion.lower()}',
-                f'arbex_final_{emotion.lower()}'
-            ])
-        
-        for key in numerical_keys:
-            values = [frame.get(key, 0.0) for frame in frame_metrics]
-            aggregated[key] = float(np.mean(values))
-        
-        # Add visualization of best frame
-        if best_frame is not None:
-            aggregated['arbex_SM_pic'] = self._encode_image_to_base64(best_frame)
-        else:
-            aggregated['arbex_SM_pic'] = ""
-        
-        # Add summary statistics
-        faces_detected_frames = sum(1 for frame in frame_metrics 
-                                   if frame.get('arbex_face_detected', 0) > 0.5)
-        
-        aggregated.update({
-            'video_path': str(video_path),
-            'total_frames': len(frame_metrics),
-            'faces_detected_frames': faces_detected_frames,
-            'face_detection_rate': faces_detected_frames / len(frame_metrics),
-            'avg_confidence_primary': float(np.mean([
-                frame.get('arbex_confidence_primary', 0) for frame in frame_metrics
-            ])),
-            'avg_confidence_final': float(np.mean([
-                frame.get('arbex_confidence_final', 0) for frame in frame_metrics
-            ])),
-            'avg_reliability_score': float(np.mean([
-                frame.get('arbex_reliability_score', 0) for frame in frame_metrics
-            ]))
-        })
-        
-        return aggregated
-    
-    def get_feature_dict(self, video_path: str) -> Dict[str, Any]:
-        """
-        Get ARBEx emotion features for the pipeline.
-        
-        Args:
-            video_path: Path to the video file
-            
-        Returns:
-            Dictionary with ARBEx emotion features
-        """
-        try:
-            results = self.analyze_video(video_path)
-            
-            # Create feature group for the pipeline
-            feature_dict = {
-                "Extract emotional indices via different feature levels": {
-                    "description": "ARBEx attentive feature extraction with reliability balancing for robust facial expression learning",
-                    "features": results
-                }
-            }
-            
-            return feature_dict
-            
-        except Exception as e:
-            logger.error(f"Error in ARBEx analysis: {e}")
-            
-            # Return default values on error
-            default_result = self.default_metrics.copy()
-            default_result.update({
-                'video_path': str(video_path),
-                'total_frames': 0,
-                'faces_detected_frames': 0,
-                'face_detection_rate': 0.0,
-                'avg_confidence_primary': 0.0,
-                'avg_confidence_final': 0.0,
-                'avg_reliability_score': 0.0,
-                'error': str(e)
-            })
-            
-            feature_dict = {
-                "Extract emotional indices via different feature levels": {
-                    "description": "ARBEx attentive feature extraction with reliability balancing for robust facial expression learning",
-                    "features": default_result
-                }
-            }
-            
-            return feature_dict
 
-def extract_arbex_features(video_path: str, device: str = 'cpu') -> Dict[str, Any]:
-    """
-    Extract ARBEx emotion features from a video file.
-    
-    Args:
-        video_path: Path to the video file
-        device: Device to run on ('cpu' or 'cuda')
-        
-    Returns:
-        Dictionary containing emotion features
-    """
-    analyzer = ARBExAnalyzer(device=device)
-    return analyzer.get_feature_dict(video_path)
+@dataclass(frozen=True)
+class ArbexWeights:
+    """Container describing the four learnable components of ARBEx."""
+
+    poster: Path
+    classifier: Path
+    anchors: Path
+    self_attn: Optional[Path] = None
+
+
+def _append_to_syspath(path: Path) -> None:
+    if not path.exists():
+        return
+    resolved = str(path.resolve())
+    if resolved not in sys.path:
+        sys.path.insert(0, resolved)
+
+
+def _normalized_entropy(probs: torch.Tensor, eps: float = 1e-6) -> torch.Tensor:
+    probs = torch.clamp(probs, eps, 1.0)
+    entropy = -(probs * torch.log(probs)).sum(dim=-1)
+    max_entropy = float(np.log(probs.shape[-1]))
+    return entropy / max_entropy
+
+
+def _softmax(tensor: torch.Tensor, temperature: float = 1.0) -> torch.Tensor:
+    if temperature != 1.0:
+        tensor = tensor / temperature
+    return torch.softmax(tensor, dim=-1)
+
+
+class ARBExAnalyzer:
+    """Run the official ARBEx model across sampled video frames."""
+
+    EMOTIONS = (
+        "neutral",
+        "anger",
+        "disgust",
+        "fear",
+        "happiness",
+        "sadness",
+        "surprise",
+        "other",
+    )
+
+    DEFAULT_POSTER_ENV = "ARBEX_POSTER_WEIGHTS"
+    DEFAULT_CLASSIFIER_ENV = "ARBEX_CLASSIFIER_WEIGHTS"
+    DEFAULT_ANCHORS_ENV = "ARBEX_ANCHORS_WEIGHTS"
+    DEFAULT_SELF_ATTENTION_ENV = "ARBEX_SELF_ATTENTION_WEIGHTS"
+    DEFAULT_FACE_SCALE = 1.2
+
+    def __init__(
+        self,
+        device: str = "cpu",
+        *,
+        poster_weights: Optional[str] = None,
+        classifier_weights: Optional[str] = None,
+        anchor_weights: Optional[str] = None,
+        self_attention_weights: Optional[str] = None,
+        temperature: float = 1.0,
+        delta: float = 1.0,
+        max_frames: Optional[int] = 256,
+        frame_stride: Optional[int] = None,
+        face_scale: float = DEFAULT_FACE_SCALE,
+        output_dir: Optional[Path] = None,
+    ) -> None:
+        self.device = torch.device(device if torch.cuda.is_available() or device == "cpu" else "cpu")
+        if device.startswith("cuda") and not torch.cuda.is_available():
+            logger.warning("CUDA requested for ARBEx but CUDA is unavailable; using CPU instead.")
+
+        repo_root = ensure_repo("arbex")
+        _append_to_syspath(repo_root)
+        _append_to_syspath(repo_root / "arbex")
+
+        try:
+            from arbex.models.head import ClassificationHead  # type: ignore
+            from arbex.models.anchors import Anchors  # type: ignore
+            from arbex.models.attn import SelfAttn  # type: ignore
+            from arbex.models.poster import get_poster  # type: ignore
+        except ImportError as exc:  # pragma: no cover - defensive guard
+            raise ImportError(
+                "ARBExAnalyzer requires the dependencies from the official repository. "
+                "Install them with `pip install -r external/vision/ARBEx/requirements.txt`."
+            ) from exc
+
+        self._ClassificationHead = ClassificationHead
+        self._Anchors = Anchors
+        self._SelfAttn = SelfAttn
+        self._get_poster = get_poster
+
+        weights = self._resolve_weights(
+            repo_root=repo_root,
+            poster=poster_weights,
+            classifier=classifier_weights,
+            anchors=anchor_weights,
+            self_attn=self_attention_weights,
+        )
+        self.weights = weights
+
+        self.poster = self._load_poster(weights.poster).to(self.device)
+        self.classifier = self._ClassificationHead(size_out=len(self.EMOTIONS))
+        self.classifier.load_state_dict(torch.load(str(weights.classifier), map_location="cpu"))
+        self.classifier.to(self.device)
+        self.anchors = self._Anchors(n_classes=len(self.EMOTIONS))
+        self.anchors.load_state_dict(torch.load(str(weights.anchors), map_location="cpu"))
+        self.anchors.to(self.device)
+
+        if weights.self_attn and weights.self_attn.exists():
+            self.self_attn = self._SelfAttn(n_classes=len(self.EMOTIONS))
+            self.self_attn.load_state_dict(torch.load(str(weights.self_attn), map_location="cpu"))
+            self.self_attn.to(self.device)
+        else:
+            self.self_attn = None
+            if weights.self_attn is not None:
+                logger.warning(
+                    "Self-attention weights not found at %s; skipping attention correction.",
+                    weights.self_attn,
+                )
+
+        self.poster.eval()
+        self.classifier.eval()
+        self.anchors.eval()
+        if self.self_attn is not None:
+            self.self_attn.eval()
+
+        self.temperature = float(temperature)
+        self.delta = float(delta)
+        self.max_frames = max_frames
+        self.frame_stride = frame_stride
+        self.face_scale = float(face_scale)
+
+        self.transforms = T.Compose(
+            [
+                T.Resize((224, 224)),
+                T.ToTensor(),
+                T.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+            ]
+        )
+
+        cascade_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+        self.face_detector = cv2.CascadeClassifier(cascade_path)
+        if self.face_detector.empty():
+            raise RuntimeError("Failed to load OpenCV face cascade. Ensure OpenCV is installed with data files.")
+
+        default_output = Path.cwd() / "output" / "vision" / "arbex"
+        self.output_dir = Path(output_dir) if output_dir else default_output
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+
+        self.default_metrics: Dict[str, Any] = {
+            "arbex_top_emotion": "neutral",
+            "arbex_top_probability": 0.0,
+            "arbex_mean_confidence": 0.0,
+            "arbex_entropy": 1.0,
+            "arbex_processed_frames": 0,
+            "arbex_total_frames": 0,
+            "arbex_face_detection_rate": 0.0,
+            "arbex_video_path": "",
+            "arbex_probabilities_path": "",
+            "arbex_attention_available": bool(self.self_attn),
+            "arbex_SM_pic": "",
+            "arbex_distribution_plot": "",
+        }
+        for emotion in self.EMOTIONS:
+            self.default_metrics[f"arbex_prob_{emotion}"] = 0.0
+
+    # ------------------------------------------------------------------
+    # Model loading helpers
+    # ------------------------------------------------------------------
+    def _resolve_weights(
+        self,
+        *,
+        repo_root: Path,
+        poster: Optional[str],
+        classifier: Optional[str],
+        anchors: Optional[str],
+        self_attn: Optional[str],
+    ) -> ArbexWeights:
+        poster_path = self._resolve_weight_path(
+            provided=poster,
+            env_var=self.DEFAULT_POSTER_ENV,
+            default_hint=repo_root,
+            glob_pattern="**/poster*.pth",
+            component="poster",
+        )
+        classifier_path = self._resolve_weight_path(
+            provided=classifier,
+            env_var=self.DEFAULT_CLASSIFIER_ENV,
+            default_hint=repo_root,
+            glob_pattern="**/classifier*.pth",
+            component="classifier",
+        )
+        anchor_path = self._resolve_weight_path(
+            provided=anchors,
+            env_var=self.DEFAULT_ANCHORS_ENV,
+            default_hint=repo_root,
+            glob_pattern="**/anchors*.pth",
+            component="anchors",
+        )
+        self_attn_path: Optional[Path] = None
+        if self_attn or os.getenv(self.DEFAULT_SELF_ATTENTION_ENV):
+            self_attn_path = self._resolve_weight_path(
+                provided=self_attn,
+                env_var=self.DEFAULT_SELF_ATTENTION_ENV,
+                default_hint=repo_root,
+                glob_pattern="**/attn*.pth",
+                component="self-attention",
+                required=False,
+            )
+
+        return ArbexWeights(
+            poster=poster_path,
+            classifier=classifier_path,
+            anchors=anchor_path,
+            self_attn=self_attn_path,
+        )
+
+    def _resolve_weight_path(
+        self,
+        *,
+        provided: Optional[str],
+        env_var: str,
+        default_hint: Path,
+        glob_pattern: str,
+        component: str,
+        required: bool = True,
+    ) -> Path:
+        candidate = provided or os.getenv(env_var)
+        if candidate:
+            path = Path(candidate).expanduser()
+            if path.exists():
+                return path
+            raise FileNotFoundError(f"Configured {component} weights not found at {path}.")
+
+        matches = sorted(default_hint.glob(glob_pattern))
+        for match in matches:
+            if match.is_file():
+                return match
+
+        message = (
+            f"Unable to locate ARBEx {component} weights. Set the path via the `{env_var}` environment variable "
+            "or pass it directly to the analyzer."
+        )
+        if required:
+            raise FileNotFoundError(message)
+        logger.warning(message)
+        return default_hint / "missing"
+
+    def _load_poster(self, weights: Path) -> torch.nn.Module:
+        # Poster requires the upstream MobileFaceNet/IR checkpoints under models/pretrained
+        poster = self._get_poster(
+            path_landmark="models/pretrained/mobilefacenet.pth",
+            path_ir="models/pretrained/ir50.pth",
+        )
+        poster.load_state_dict(torch.load(str(weights), map_location="cpu"))
+        return poster
+
+    # ------------------------------------------------------------------
+    # Video processing
+    # ------------------------------------------------------------------
+    def analyze_video(self, video_path: str) -> Dict[str, Any]:
+        video_file = Path(video_path)
+        if not video_file.exists():
+            raise FileNotFoundError(f"Video file not found: {video_file}")
+
+        cap = cv2.VideoCapture(str(video_file))
+        if not cap.isOpened():
+            raise RuntimeError(f"Unable to open video: {video_file}")
+
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+        frame_indices = self._select_frame_indices(total_frames)
+        probabilities: List[np.ndarray] = []
+        confidences: List[float] = []
+        entropies: List[float] = []
+        face_hits = 0
+        processed = 0
+
+        for frame_idx in frame_indices:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+            ok, frame = cap.read()
+            if not ok or frame is None:
+                continue
+
+            face = self._extract_face(frame)
+            if face is None:
+                continue
+
+            face_hits += 1
+            probs, confidence, entropy = self._infer_face(face)
+            probabilities.append(probs)
+            confidences.append(confidence)
+            entropies.append(entropy)
+            processed += 1
+
+        cap.release()
+
+        metrics = self.default_metrics.copy()
+        metrics["arbex_video_path"] = str(video_file)
+        metrics["arbex_total_frames"] = int(total_frames)
+        metrics["arbex_processed_frames"] = int(processed)
+        metrics["arbex_face_detection_rate"] = (face_hits / len(frame_indices)) if frame_indices else 0.0
+
+        if not probabilities:
+            probabilities_path = self._dump_probabilities(video_file.stem, np.empty((0, len(self.EMOTIONS))))
+            metrics["arbex_probabilities_path"] = str(probabilities_path)
+            return metrics
+
+        prob_array = np.vstack(probabilities)
+        mean_probs = prob_array.mean(axis=0)
+        top_index = int(np.argmax(mean_probs))
+        metrics["arbex_top_emotion"] = self.EMOTIONS[top_index]
+        metrics["arbex_top_probability"] = float(mean_probs[top_index])
+        metrics["arbex_mean_confidence"] = float(np.mean(confidences))
+        metrics["arbex_entropy"] = float(np.mean(entropies))
+
+        for emotion, value in zip(self.EMOTIONS, mean_probs):
+            metrics[f"arbex_prob_{emotion}"] = float(value)
+
+        probabilities_path = self._dump_probabilities(video_file.stem, prob_array)
+        metrics["arbex_probabilities_path"] = str(probabilities_path)
+
+        preview = self._render_preview(prob_array)
+        if preview is not None:
+            metrics["arbex_distribution_plot"] = preview
+            metrics["arbex_SM_pic"] = preview
+
+        return metrics
+
+    def get_feature_dict(self, video_path: str) -> Dict[str, Any]:
+        features = self.analyze_video(video_path)
+        return {
+            "ARBEx": {
+                "description": "Facial expression recognition via ARBEx",
+                "features": features,
+            }
+        }
+
+    # ------------------------------------------------------------------
+    # Internals
+    # ------------------------------------------------------------------
+    def _select_frame_indices(self, total_frames: int) -> Sequence[int]:
+        if total_frames <= 0:
+            return []
+
+        if self.max_frames is None or total_frames <= self.max_frames:
+            stride = self.frame_stride or 1
+            return list(range(0, total_frames, stride))
+
+        sample_count = min(self.max_frames, total_frames)
+        indices = np.linspace(0, total_frames - 1, sample_count, dtype=int)
+        return indices.tolist()
+
+    def _extract_face(self, frame: np.ndarray) -> Optional[np.ndarray]:
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        faces = self.face_detector.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(64, 64))
+        if len(faces) == 0:
+            return None
+
+        x, y, w, h = max(faces, key=lambda bbox: bbox[2] * bbox[3])
+        cx, cy = x + w / 2, y + h / 2
+        scale = self.face_scale
+        size = max(w, h) * scale
+        x1 = int(max(cx - size / 2, 0))
+        y1 = int(max(cy - size / 2, 0))
+        x2 = int(min(cx + size / 2, frame.shape[1]))
+        y2 = int(min(cy + size / 2, frame.shape[0]))
+        face = frame[y1:y2, x1:x2]
+        if face.size == 0:
+            return None
+        return face
+
+    def _infer_face(self, face_bgr: np.ndarray) -> Tuple[np.ndarray, float, float]:
+        image = Image.fromarray(cv2.cvtColor(face_bgr, cv2.COLOR_BGR2RGB))
+        tensor = self.transforms(image).unsqueeze(0).to(self.device)
+
+        with torch.no_grad():
+            embedding = self.poster(tensor)
+            if isinstance(embedding, (list, tuple)):
+                embedding = embedding[-1]
+            logits = self.classifier(embedding)
+            probs = _softmax(logits, self.temperature)
+            confidence = (1.0 - _normalized_entropy(probs)).cpu().numpy()
+
+            distances = self.anchors(embedding)
+            sim = torch.softmax(-distances.view(distances.shape[0], -1) / self.delta, dim=-1)
+            sim = sim.view_as(distances).sum(-1)
+            conf_sim = 1.0 - _normalized_entropy(sim)
+
+            if self.self_attn is not None:
+                attn = self.self_attn(embedding)
+                attn = torch.softmax(attn, dim=-1)
+                conf_attn = 1.0 - _normalized_entropy(attn)
+            else:
+                attn = None
+                conf_attn = None
+
+            corrected = probs.clone()
+            weight = torch.ones_like(probs)
+            corrected = corrected + sim * conf_sim.view(-1, 1)
+            weight = weight + conf_sim.view(-1, 1)
+            if attn is not None and conf_attn is not None:
+                corrected = corrected + attn * conf_attn.view(-1, 1)
+                weight = weight + conf_attn.view(-1, 1)
+            corrected = corrected / torch.clamp(weight, min=1e-6)
+
+        probs_np = corrected.squeeze(0).cpu().numpy()
+        confidence_np = float(confidence.squeeze())
+        entropy_np = float(_normalized_entropy(torch.from_numpy(probs_np[np.newaxis, :])).item())
+        return probs_np, confidence_np, entropy_np
+
+    def _dump_probabilities(self, stem: str, probs: np.ndarray) -> Path:
+        path = self.output_dir / f"{stem}_arbex_probs.npz"
+        np.savez_compressed(path, probabilities=probs, emotions=self.EMOTIONS)
+        return path
+
+    def _render_preview(self, probs: np.ndarray) -> Optional[str]:
+        try:
+            import matplotlib.pyplot as plt
+        except ImportError:  # pragma: no cover - optional dependency
+            return None
+
+        mean_probs = probs.mean(axis=0) if probs.size else np.zeros(len(self.EMOTIONS))
+        fig, ax = plt.subplots(figsize=(6, 3))
+        ax.bar(self.EMOTIONS, mean_probs, color="tab:orange")
+        ax.set_ylim(0.0, max(1.0, float(mean_probs.max()) + 0.05))
+        ax.set_ylabel("Probability")
+        ax.set_title("ARBEx Mean Probabilities")
+        fig.tight_layout()
+
+        buffer = io.BytesIO()
+        fig.savefig(buffer, format="png")
+        plt.close(fig)
+        buffer.seek(0)
+        encoded = base64.b64encode(buffer.read()).decode("ascii")
+        return encoded
+
+
+def create_arbex_analyzer(
+    *,
+    device: str = "cpu",
+    poster_weights: Optional[str] = None,
+    classifier_weights: Optional[str] = None,
+    anchor_weights: Optional[str] = None,
+    self_attention_weights: Optional[str] = None,
+    temperature: float = 1.0,
+    delta: float = 1.0,
+    max_frames: Optional[int] = 256,
+    frame_stride: Optional[int] = None,
+    face_scale: float = ARBExAnalyzer.DEFAULT_FACE_SCALE,
+    output_dir: Optional[Path] = None,
+) -> ARBExAnalyzer:
+    """Convenience factory matching legacy call sites."""
+
+    return ARBExAnalyzer(
+        device=device,
+        poster_weights=poster_weights,
+        classifier_weights=classifier_weights,
+        anchor_weights=anchor_weights,
+        self_attention_weights=self_attention_weights,
+        temperature=temperature,
+        delta=delta,
+        max_frames=max_frames,
+        frame_stride=frame_stride,
+        face_scale=face_scale,
+        output_dir=output_dir,
+    )

@@ -1,478 +1,334 @@
-"""
-Deep High-Resolution Representation Learning for Human Pose Estimation
-Based on: https://github.com/leoxiaobin/deep-high-resolution-net.pytorch
-"""
+"""Deep HRNet analyzer powered by the official upstream repository."""
 
-import torch
-import torch.nn as nn
-import numpy as np
-import cv2
-from typing import Dict, Any, List, Optional, Tuple
+from __future__ import annotations
+
 import logging
 import os
+import sys
+from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
+from typing import Any, Dict, List, Optional
+
+import cv2
+import numpy as np
+import torch
+from PIL import Image
+from torchvision import transforms
+
+from cv_models.external.repo_manager import ensure_repo
 
 logger = logging.getLogger(__name__)
 
+
+def _append_to_syspath(path: Path) -> None:
+    resolved = str(path.resolve())
+    if resolved not in sys.path:
+        sys.path.insert(0, resolved)
+
+
+@dataclass(frozen=True)
+class HRNetResources:
+    repo_root: Path
+    config_path: Path
+    checkpoint_path: Path
+
+
 class DeepHRNetAnalyzer:
-    """
-    Deep High-Resolution Network analyzer for pose estimation.
-    
-    This analyzer implements high-resolution pose estimation with detailed
-    body part accuracy metrics and AP/AR scores across different scales.
-    """
-    
-    def __init__(self, device='cpu', model_type='hrnet_w32', confidence_threshold=0.1):
-        """
-        Initialize Deep HRNet pose analyzer.
-        
-        Args:
-            device: Device to run inference on ('cpu' or 'cuda')
-            model_type: HRNet model variant ('hrnet_w32', 'hrnet_w48')
-            confidence_threshold: Minimum confidence threshold for keypoint detection
-        """
-        self.device = device
-        self.model_type = model_type
-        self.confidence_threshold = confidence_threshold
-        self.initialized = False
-        
-        # Model and preprocessing components
-        self.model = None
-        self.transform = None
-        
-        # COCO-style keypoint indices for body parts
+    """Run pose estimation with Deep HRNet weights and decode confidences."""
+
+    DEFAULT_CONFIG = "experiments/coco/hrnet/w32_256x192_adam_lr1e-3.yaml"
+    DEFAULT_CHECKPOINT = "models/pytorch/pose_coco/pose_hrnet_w32_256x192.pth"
+
+    def __init__(
+        self,
+        *,
+        device: str = "cpu",
+        config_path: Optional[str] = None,
+        checkpoint_path: Optional[str] = None,
+        confidence_threshold: float = 0.2,
+        max_frames: int = 180,
+    ) -> None:
+        self.device = torch.device(device if torch.cuda.is_available() or device == "cpu" else "cpu")
+        if device.startswith("cuda") and not torch.cuda.is_available():
+            logger.warning("CUDA requested for Deep HRNet but CUDA is unavailable; defaulting to CPU.")
+
+        self.confidence_threshold = float(confidence_threshold)
+        self.max_frames = int(max_frames)
+        self.resources = self._resolve_resources(config_path, checkpoint_path)
+
+        self.cfg: Any = None
+        self.model: Optional[torch.nn.Module] = None
+        self.transform: Optional[transforms.Compose] = None
+        self.image_size: np.ndarray | None = None
+        self.heatmap_size: np.ndarray | None = None
+        self.pixel_std = 200.0
+
         self.body_parts = {
-            'Head': [0, 1, 2, 3, 4],  # nose, eyes, ears
-            'Shoulder': [5, 6],       # left_shoulder, right_shoulder
-            'Elbow': [7, 8],         # left_elbow, right_elbow
-            'Wrist': [9, 10],        # left_wrist, right_wrist
-            'Hip': [11, 12],         # left_hip, right_hip
-            'Knee': [13, 14],        # left_knee, right_knee
-            'Ankle': [15, 16]        # left_ankle, right_ankle
+            "Head": [0, 1, 2, 3, 4],
+            "Shoulder": [5, 6],
+            "Elbow": [7, 8],
+            "Wrist": [9, 10],
+            "Hip": [11, 12],
+            "Knee": [13, 14],
+            "Ankle": [15, 16],
         }
-        
-        # Initialize default metrics
-        self.default_metrics = {
-            'DHiR_Head': 0.0,
-            'DHiR_Shoulder': 0.0,
-            'DHiR_Elbow': 0.0,
-            'DHiR_Wrist': 0.0,
-            'DHiR_Hip': 0.0,
-            'DHiR_Knee': 0.0,
-            'DHiR_Ankle': 0.0,
-            'DHiR_Mean': 0.0,
-            'DHiR_Meanat0.1': 0.0,
-            'DHiR_AP': 0.0,
-            'DHiR_AP_5': 0.0,
-            'DHiR_AP_75': 0.0,
-            'DHiR_AP_M': 0.0,
-            'DHiR_AP_L': 0.0,
-            'DHiR_AR': 0.0,
-            'DHiR_AR_5': 0.0,
-            'DHiR_AR_75': 0.0,
-            'DHiR_AR_M': 0.0,
-            'DHiR_AR_L': 0.0
+
+        self.default_metrics: Dict[str, Any] = {
+            **{f"DHiR_{part}": 0.0 for part in self.body_parts},
+            "DHiR_Mean": 0.0,
+            "DHiR_Meanat0.1": 0.0,
+            "DHiR_AP": 0.0,
+            "DHiR_AP_5": 0.0,
+            "DHiR_AP_75": 0.0,
+            "DHiR_AP_M": 0.0,
+            "DHiR_AP_L": 0.0,
+            "DHiR_AR": 0.0,
+            "DHiR_AR_5": 0.0,
+            "DHiR_AR_75": 0.0,
+            "DHiR_AR_M": 0.0,
+            "DHiR_AR_L": 0.0,
         }
-        
-    def _initialize_model(self):
-        """Initialize the Deep HRNet model."""
-        if self.initialized:
-            return
-            
+
+        self._initialize_model()
+
+    def _resolve_resources(self, config_override: Optional[str], checkpoint_override: Optional[str]) -> HRNetResources:
+        repo_root = ensure_repo("hrnet_pose")
+        _append_to_syspath(repo_root)
+        _append_to_syspath(repo_root / "lib")
+
+        config = Path(
+            config_override
+            or os.getenv("HRNET_CONFIG_PATH")
+            or repo_root / self.DEFAULT_CONFIG
+        ).expanduser()
+        checkpoint = Path(
+            checkpoint_override
+            or os.getenv("HRNET_CHECKPOINT_PATH")
+            or repo_root / self.DEFAULT_CHECKPOINT
+        ).expanduser()
+
+        if not config.exists():
+            raise FileNotFoundError(
+                "Deep HRNet config not found. Provide HRNET_CONFIG_PATH or place the default YAML in the cloned repo.\n"
+                f"Missing path: {config}"
+            )
+        if not checkpoint.exists():
+            raise FileNotFoundError(
+                "Deep HRNet weights not found. Provide HRNET_CHECKPOINT_PATH or download the official checkpoint.\n"
+                f"Missing path: {checkpoint}"
+            )
+
+        return HRNetResources(repo_root=repo_root, config_path=config, checkpoint_path=checkpoint)
+
+    def _initialize_model(self) -> None:
         try:
-            logger.info(f"Initializing Deep HRNet model ({self.model_type})...")
-            
-            # Create simplified HRNet-like architecture for demonstration
-            # In practice, you would load the actual HRNet model from the repository
-            self.model = self._create_simplified_hrnet()
-            self.model = self.model.to(self.device)
-            self.model.eval()
-            
-            # Initialize preprocessing transforms
-            self._initialize_transforms()
-            
-            self.initialized = True
-            logger.info("Deep HRNet model initialized successfully")
-            
-        except Exception as e:
-            logger.error(f"Failed to initialize Deep HRNet model: {e}")
-            raise
-    
-    def _create_simplified_hrnet(self) -> nn.Module:
-        """
-        Create a simplified HRNet-like model for demonstration.
-        
-        Returns:
-            Simplified neural network model
-        """
-        class SimplifiedHRNet(nn.Module):
-            def __init__(self):
-                super().__init__()
-                # Simplified backbone (in practice, use actual HRNet architecture)
-                self.backbone = nn.Sequential(
-                    nn.Conv2d(3, 64, 7, 2, 3),
-                    nn.BatchNorm2d(64),
-                    nn.ReLU(inplace=True),
-                    nn.MaxPool2d(3, 2, 1),
-                    nn.Conv2d(64, 128, 3, 1, 1),
-                    nn.BatchNorm2d(128),
-                    nn.ReLU(inplace=True),
-                    nn.Conv2d(128, 256, 3, 1, 1),
-                    nn.BatchNorm2d(256),
-                    nn.ReLU(inplace=True),
-                    nn.AdaptiveAvgPool2d((8, 8))
-                )
-                
-                # Keypoint prediction head (17 keypoints for COCO format)
-                self.keypoint_head = nn.Sequential(
-                    nn.Conv2d(256, 17, 1),
-                    nn.Upsample(scale_factor=4, mode='bilinear', align_corners=False),
-                    nn.Sigmoid()  # produce [0,1] confidence-like heatmaps
-                )
-                
-            def forward(self, x):
-                features = self.backbone(x)
-                heatmaps = self.keypoint_head(features)
-                return heatmaps
-        
-        return SimplifiedHRNet()
-    
-    def _initialize_transforms(self):
-        """Initialize preprocessing transforms."""
-        # Standard ImageNet normalization
-        self.mean = np.array([0.485, 0.456, 0.406])
-        self.std = np.array([0.229, 0.224, 0.225])
-        self.input_size = (256, 192)  # Standard HRNet input size
-    
-    def _preprocess_frame(self, frame: np.ndarray) -> torch.Tensor:
-        """
-        Preprocess frame for HRNet inference.
-        
-        Args:
-            frame: Input frame as numpy array (BGR format)
-            
-        Returns:
-            Preprocessed tensor ready for inference
-        """
-        # Convert BGR to RGB
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        
-        # Resize to model input size
-        resized = cv2.resize(rgb_frame, self.input_size)
-        
-        # Normalize
-        normalized = resized.astype(np.float32) / 255.0
-        normalized = (normalized - self.mean) / self.std
-        
-        # Convert to tensor and add batch dimension
-        tensor = torch.from_numpy(normalized.transpose(2, 0, 1)).float()
-        tensor = tensor.unsqueeze(0).to(self.device)
-        
-        return tensor
-    
-    def _extract_keypoints_from_heatmaps(self, heatmaps: torch.Tensor) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Extract keypoint coordinates and confidence scores from heatmaps.
-        
-        Args:
-            heatmaps: Model output heatmaps [1, 17, H, W]
-            
-        Returns:
-            Tuple of (keypoints, confidences)
-        """
-        batch_size, num_keypoints, height, width = heatmaps.shape
-        
-        # Convert to numpy
-        heatmaps_np = heatmaps.squeeze(0).cpu().numpy()
-        
-        keypoints = np.zeros((num_keypoints, 2))
-        confidences = np.zeros(num_keypoints)
-        
-        for i in range(num_keypoints):
-            heatmap = heatmaps_np[i]
-            # Find the maximum response location (always)
-            max_idx = np.unravel_index(np.argmax(heatmap), heatmap.shape)
-            max_val = float(heatmap[max_idx])
-            keypoints[i] = [max_idx[1], max_idx[0]]  # (x, y)
-            confidences[i] = max_val
-        
-        return keypoints, confidences
-    
-    def _calculate_body_part_accuracy(self, keypoints: np.ndarray, confidences: np.ndarray) -> Dict[str, float]:
-        """
-        Calculate accuracy metrics for different body parts.
-        
-        Args:
-            keypoints: Detected keypoint coordinates
-            confidences: Confidence scores for keypoints
-            
-        Returns:
-            Dictionary of body part accuracy metrics
-        """
-        accuracies = {}
-        
-        for part_name, keypoint_indices in self.body_parts.items():
-            # Calculate mean confidence for this body part
-            part_confidences = [confidences[i] for i in keypoint_indices if i < len(confidences)]
-            if part_confidences:
-                accuracies[f'DHiR_{part_name}'] = float(np.mean(part_confidences))
-            else:
-                accuracies[f'DHiR_{part_name}'] = 0.0
-        
-        return accuracies
-    
-    def _calculate_ap_ar_metrics(self, all_keypoints: List[np.ndarray], all_confidences: List[np.ndarray]) -> Dict[str, float]:
-        """
-        Calculate Average Precision (AP) and Average Recall (AR) metrics.
-        
-        Args:
-            all_keypoints: List of keypoint arrays from all frames
-            all_confidences: List of confidence arrays from all frames
-            
-        Returns:
-            Dictionary of AP/AR metrics
-        """
-        if not all_keypoints:
-            return {key: 0.0 for key in self.default_metrics.keys() if key.startswith('DHiR_AP') or key.startswith('DHiR_AR')}
-        
-        # Simplified AP/AR calculation (in practice, use COCO evaluation metrics)
-        all_conf = np.concatenate(all_confidences) if all_confidences else np.array([])
-        
-        if len(all_conf) == 0:
-            ap_ar_metrics = {
-                'DHiR_AP': 0.0,
-                'DHiR_AP_5': 0.0,
-                'DHiR_AP_75': 0.0,
-                'DHiR_AP_M': 0.0,
-                'DHiR_AP_L': 0.0,
-                'DHiR_AR': 0.0,
-                'DHiR_AR_5': 0.0,
-                'DHiR_AR_75': 0.0,
-                'DHiR_AR_M': 0.0,
-                'DHiR_AR_L': 0.0
-            }
-        else:
-            # Simplified metrics based on confidence distributions
-            mean_conf = float(np.mean(all_conf))
-            high_conf = float(np.mean(all_conf[all_conf > 0.75])) if np.any(all_conf > 0.75) else 0.0
-            med_conf = float(np.mean(all_conf[(all_conf > 0.3) & (all_conf <= 0.7)])) if np.any((all_conf > 0.3) & (all_conf <= 0.7)) else 0.0
-            
-            ap_ar_metrics = {
-                'DHiR_AP': mean_conf,
-                'DHiR_AP_5': mean_conf * 1.1 if mean_conf > 0 else 0.0,  # Simplified
-                'DHiR_AP_75': high_conf,
-                'DHiR_AP_M': med_conf,
-                'DHiR_AP_L': high_conf,
-                'DHiR_AR': mean_conf * 0.9 if mean_conf > 0 else 0.0,  # Simplified
-                'DHiR_AR_5': mean_conf,
-                'DHiR_AR_75': high_conf * 0.8 if high_conf > 0 else 0.0,
-                'DHiR_AR_M': med_conf * 0.9 if med_conf > 0 else 0.0,
-                'DHiR_AR_L': high_conf * 0.9 if high_conf > 0 else 0.0
-            }
-        
-        return ap_ar_metrics
-    
-    def _process_frame(self, frame: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Process a single frame for pose estimation.
-        
-        Args:
-            frame: Input frame as numpy array (BGR format)
-            
-        Returns:
-            Tuple of (keypoints, confidences)
-        """
-        if not self.initialized:
-            self._initialize_model()
-        
-        # Preprocess frame
-        input_tensor = self._preprocess_frame(frame)
-        
-        # Run inference
+            from lib.config import cfg as base_cfg
+            from lib.config import update_config
+            from lib.models import pose_hrnet
+        except ImportError as exc:  # pragma: no cover - optional dependency guard
+            raise ImportError(
+                "DeepHRNetAnalyzer requires the upstream HRNet repo; ensure dependencies like yacs are installed."
+            ) from exc
+
+        args = SimpleNamespace(cfg=str(self.resources.config_path), opts=[])
+        cfg = base_cfg.clone()
+        cfg.defrost()
+        update_config(cfg, args)
+        cfg.freeze()
+
+        model = pose_hrnet.get_pose_net(cfg, is_train=False)
+        state_dict = torch.load(str(self.resources.checkpoint_path), map_location=self.device)
+        if "state_dict" in state_dict:
+            state_dict = state_dict["state_dict"]
+        if "model" in state_dict:
+            state_dict = state_dict["model"]
+        cleaned_state = {k.replace("module.", "", 1): v for k, v in state_dict.items()}
+        missing, unexpected = model.load_state_dict(cleaned_state, strict=False)
+        if missing:
+            logger.warning("Deep HRNet missing weights: %s", sorted(missing))
+        if unexpected:
+            logger.warning("Deep HRNet unexpected weights: %s", sorted(unexpected))
+
+        model = model.to(self.device)
+        model.eval()
+
+        self.cfg = cfg
+        self.model = model
+        self.image_size = np.array(cfg.MODEL.IMAGE_SIZE, dtype=np.float32)
+        self.heatmap_size = np.array(cfg.MODEL.HEATMAP_SIZE, dtype=np.float32)
+
+        mean = cfg.DATASET.MEAN if hasattr(cfg, "DATASET") else [0.485, 0.456, 0.406]
+        std = cfg.DATASET.STD if hasattr(cfg, "DATASET") else [0.229, 0.224, 0.225]
+        self.transform = transforms.Compose(
+            [
+                transforms.ToTensor(),
+                transforms.Normalize(mean=mean, std=std),
+            ]
+        )
+
+        logger.info(
+            "Deep HRNet initialized with %s and weights %s",
+            self.resources.config_path,
+            self.resources.checkpoint_path,
+        )
+
+    def _preprocess(self, frame: np.ndarray) -> tuple[torch.Tensor, np.ndarray, np.ndarray]:
+        if self.transform is None or self.image_size is None:
+            raise RuntimeError("Deep HRNet transform uninitialized")
+
+        h, w, _ = frame.shape
+        center = np.array([w * 0.5, h * 0.5], dtype=np.float32)
+        scale = np.array([w / self.pixel_std, h / self.pixel_std], dtype=np.float32)
+
+        from lib.utils.transforms import get_affine_transform
+
+        trans = get_affine_transform(center, scale, 0.0, self.image_size)
+        input_img = cv2.warpAffine(frame, trans, (int(self.image_size[0]), int(self.image_size[1])), flags=cv2.INTER_LINEAR)
+        rgb = cv2.cvtColor(input_img, cv2.COLOR_BGR2RGB)
+        tensor = self.transform(Image.fromarray(rgb)).unsqueeze(0).to(self.device)
+        return tensor, center, scale
+
+    def _infer(self, frame: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        if self.model is None or self.heatmap_size is None:
+            raise RuntimeError("Deep HRNet model uninitialized")
+
+        input_tensor, center, scale = self._preprocess(frame)
+
         with torch.no_grad():
-            heatmaps = self.model(input_tensor)
-        
-        # Extract keypoints and confidences
-        keypoints, confidences = self._extract_keypoints_from_heatmaps(heatmaps)
-        
-        return keypoints, confidences
-    
+            outputs = self.model(input_tensor)
+
+        if isinstance(outputs, (list, tuple)):
+            outputs = outputs[-1]
+
+    heatmaps = outputs.detach().cpu().numpy()
+
+    from lib.core.inference import get_max_preds
+    from lib.utils.transforms import transform_preds
+
+    preds, maxvals = get_max_preds(heatmaps)
+
+        coords = transform_preds(preds[0], center, scale, self.heatmap_size)
+    confidences = maxvals[0].reshape(-1)
+        return coords, confidences
+
+    def _body_part_metrics(self, confidences: np.ndarray) -> Dict[str, float]:
+        metrics: Dict[str, float] = {}
+        for part, indices in self.body_parts.items():
+            if not indices:
+                metrics[f"DHiR_{part}"] = 0.0
+                continue
+            subset = confidences[np.array(indices)]
+            metrics[f"DHiR_{part}"] = float(np.mean(subset)) if subset.size else 0.0
+        return metrics
+
     def analyze_video(self, video_path: str) -> Dict[str, Any]:
-        """
-        Analyze pose in a video file using Deep HRNet.
-        
-        Args:
-            video_path: Path to the video file
-            
-        Returns:
-            Dictionary containing pose analysis results
-        """
-        if not self.initialized:
-            self._initialize_model()
-        
-        logger.info(f"Analyzing pose with Deep HRNet: {video_path}")
-        
-        # Open video
-        cap = cv2.VideoCapture(str(video_path))
+        if self.model is None:
+            raise RuntimeError("Deep HRNet model not loaded")
+
+        path = Path(video_path)
+        if not path.exists():
+            raise FileNotFoundError(f"Video file not found: {video_path}")
+
+        cap = cv2.VideoCapture(str(path))
         if not cap.isOpened():
-            raise ValueError(f"Could not open video file: {video_path}")
-        
-        all_keypoints = []
-        all_confidences = []
-        frame_accuracies = []
-        
-        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        
+            raise RuntimeError(f"Unable to open video: {video_path}")
+
+        frame_total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) or self.max_frames
+        indices = np.linspace(0, frame_total - 1, min(frame_total, self.max_frames), dtype=int)
+
+        confidences_per_frame: List[np.ndarray] = []
+        detection_mask: List[bool] = []
+
         try:
-            frame_idx = 0
-            while cap.isOpened():
-                ret, frame = cap.read()
-                if not ret:
-                    break
-                
-                # Process frame
-                keypoints, confidences = self._process_frame(frame)
-                
-                # Calculate body part accuracies for this frame
-                body_part_acc = self._calculate_body_part_accuracy(keypoints, confidences)
-                frame_accuracies.append(body_part_acc)
-                
-                # Store for global metrics
-                all_keypoints.append(keypoints)
-                all_confidences.append(confidences)
-                
-                frame_idx += 1
-                
-                # Progress logging
-                if frame_idx % 100 == 0:
-                    logger.info(f"Processed {frame_idx}/{total_frames} frames")
-        
+            for frame_idx in indices:
+                cap.set(cv2.CAP_PROP_POS_FRAMES, int(frame_idx))
+                ok, frame = cap.read()
+                if not ok:
+                    continue
+                try:
+                    _, confidences = self._infer(frame)
+                except Exception as exc:  # pragma: no cover - defensive guard
+                    logger.warning("Skipping frame %s due to HRNet failure: %s", frame_idx, exc)
+                    continue
+
+                confidences_per_frame.append(confidences)
+                detection_mask.append(bool(np.any(confidences > self.confidence_threshold)))
         finally:
             cap.release()
-        
-        logger.info(f"Completed Deep HRNet analysis: {len(all_keypoints)} frames processed")
-        
-        # Aggregate results
-        return self._aggregate_results(frame_accuracies, all_keypoints, all_confidences, video_path)
-    
-    def _aggregate_results(self, frame_accuracies: List[Dict[str, float]], 
-                          all_keypoints: List[np.ndarray], 
-                          all_confidences: List[np.ndarray],
-                          video_path: str) -> Dict[str, Any]:
-        """
-        Aggregate frame-level results into final metrics.
-        
-        Args:
-            frame_accuracies: List of per-frame accuracy metrics
-            all_keypoints: List of keypoint arrays from all frames
-            all_confidences: List of confidence arrays from all frames
-            video_path: Path to the video file
-            
-        Returns:
-            Aggregated pose analysis results
-        """
-        if not frame_accuracies:
-            logger.warning("Deep HRNet: no frames processed; returning default metrics")
-            result = self.default_metrics.copy()
-            result.update({
-                'video_path': str(video_path),
-                'total_frames': 0,
-                'pose_detected_frames': 0
-            })
-            return result
-        
-        # Calculate mean body part accuracies across all frames
-        aggregated = {}
-        body_part_keys = [key for key in self.default_metrics.keys() if key.startswith('DHiR_') and not (key.startswith('DHiR_AP') or key.startswith('DHiR_AR') or key.startswith('DHiR_Mean'))]
-        
-        for key in body_part_keys:
-            values = [frame.get(key, 0.0) for frame in frame_accuracies]
-            aggregated[key] = float(np.mean(values))
-        
-        # Calculate overall mean metrics
-        body_part_values = [aggregated[key] for key in body_part_keys]
-        aggregated['DHiR_Mean'] = float(np.mean(body_part_values))
-        aggregated['DHiR_Meanat0.1'] = float(np.mean([v for v in body_part_values if v > 0.1])) if any(v > 0.1 for v in body_part_values) else 0.0
-        
-        # Calculate AP/AR metrics
-        ap_ar_metrics = self._calculate_ap_ar_metrics(all_keypoints, all_confidences)
-        aggregated.update(ap_ar_metrics)
-        
-        # Add summary statistics
-        pose_detected_frames = sum(1 for conf_array in all_confidences 
-                                  if np.any(conf_array > self.confidence_threshold))
-        if pose_detected_frames == 0:
-            logger.warning("Deep HRNet: no detections above threshold; consider lowering confidence_threshold or verifying inputs")
-        
-        aggregated.update({
-            'video_path': str(video_path),
-            'total_frames': len(frame_accuracies),
-            'pose_detected_frames': pose_detected_frames,
-            'detection_rate': pose_detected_frames / len(frame_accuracies) if frame_accuracies else 0.0,
-            'avg_keypoints_per_frame': float(np.mean([
-                np.sum(conf_array > self.confidence_threshold) 
-                for conf_array in all_confidences
-            ])) if all_confidences else 0.0
-        })
-        
-        return aggregated
-    
-    def get_feature_dict(self, video_path: str) -> Dict[str, Any]:
-        """
-        Get Deep HRNet pose features for the pipeline.
-        
-        Args:
-            video_path: Path to the video file
-            
-        Returns:
-            Dictionary with Deep HRNet pose features
-        """
-        try:
-            results = self.analyze_video(video_path)
-            
-            # Create feature group for the pipeline
-            feature_dict = {
-                "Pose estimation (high-resolution)": {
-                    "description": "Deep High-Resolution Representation Learning for Human Pose Estimation",
-                    "features": results
-                }
-            }
-            
-            return feature_dict
-            
-        except Exception as e:
-            logger.error(f"Error in Deep HRNet pose analysis: {e}")
-            
-            # Return default values on error
-            default_result = self.default_metrics.copy()
-            default_result.update({
-                'video_path': str(video_path),
-                'total_frames': 0,
-                'pose_detected_frames': 0,
-                'detection_rate': 0.0,
-                'avg_keypoints_per_frame': 0.0,
-                'error': str(e)
-            })
-            
-            feature_dict = {
-                "Pose estimation (high-resolution)": {
-                    "description": "Deep High-Resolution Representation Learning for Human Pose Estimation",
-                    "features": default_result
-                }
-            }
-            
-            return feature_dict
 
-def extract_deep_hrnet_features(video_path: str, device: str = 'cpu') -> Dict[str, Any]:
-    """
-    Extract Deep HRNet pose features from a video file.
-    
-    Args:
-        video_path: Path to the video file
-        device: Device to run on ('cpu' or 'cuda')
-        
-    Returns:
-        Dictionary containing pose features
-    """
+        if not confidences_per_frame:
+            logger.warning("Deep HRNet produced no detections for %s", video_path)
+            result = self.default_metrics.copy()
+            result.update(
+                {
+                    "video_path": str(path),
+                    "total_frames": 0,
+                    "pose_detected_frames": 0,
+                    "detection_rate": 0.0,
+                    "avg_keypoints_per_frame": 0.0,
+                }
+            )
+            return result
+
+        stacked = np.stack(confidences_per_frame)
+        part_metrics = self._body_part_metrics(np.mean(stacked, axis=0))
+
+        body_part_values = list(part_metrics.values())
+        mean_conf = float(np.mean(body_part_values)) if body_part_values else 0.0
+        mean_over_01 = float(np.mean([v for v in body_part_values if v > 0.1])) if any(v > 0.1 for v in body_part_values) else 0.0
+
+        all_conf = stacked.reshape(-1)
+        ap = float(np.mean(all_conf))
+        ap_5 = float(np.mean(all_conf > 0.5))
+        ap_75 = float(np.mean(all_conf > 0.75))
+        ap_m = float(np.mean(all_conf[(all_conf > 0.3) & (all_conf <= 0.7)])) if np.any((all_conf > 0.3) & (all_conf <= 0.7)) else 0.0
+        ap_l = float(np.mean(all_conf[all_conf > 0.7])) if np.any(all_conf > 0.7) else 0.0
+
+    frame_max = stacked.max(axis=1)
+        ar = float(np.mean(detection_mask))
+    ar_5 = float(np.mean(frame_max > 0.5))
+    ar_75 = float(np.mean(frame_max > 0.75))
+    medium_mask = (frame_max > 0.3) & (frame_max <= 0.7)
+    ar_m = float(np.mean(frame_max[medium_mask])) if np.any(medium_mask) else 0.0
+    high_mask = frame_max > 0.7
+    ar_l = float(np.mean(frame_max[high_mask])) if np.any(high_mask) else 0.0
+
+        avg_visible = float(np.mean((stacked > self.confidence_threshold).sum(axis=1)))
+
+        result: Dict[str, Any] = {
+            **self.default_metrics,
+            **part_metrics,
+            "DHiR_Mean": mean_conf,
+            "DHiR_Meanat0.1": mean_over_01,
+            "DHiR_AP": ap,
+            "DHiR_AP_5": ap_5,
+            "DHiR_AP_75": ap_75,
+            "DHiR_AP_M": ap_m,
+            "DHiR_AP_L": ap_l,
+            "DHiR_AR": ar,
+            "DHiR_AR_5": ar_5,
+            "DHiR_AR_75": ar_75,
+            "DHiR_AR_M": ar_m,
+            "DHiR_AR_L": ar_l,
+            "video_path": str(path),
+            "total_frames": len(confidences_per_frame),
+            "pose_detected_frames": int(np.sum(detection_mask)),
+            "detection_rate": float(np.mean(detection_mask)),
+            "avg_keypoints_per_frame": avg_visible,
+        }
+        return result
+
+    def get_feature_dict(self, video_path: str) -> Dict[str, Any]:
+        features = self.analyze_video(video_path)
+        return {
+            "Deep HRNet Pose": {
+                "description": "Deep High-Resolution Network pose estimation",
+                "features": features,
+            }
+        }
+
+
+def extract_deep_hrnet_features(video_path: str, device: str = "cpu") -> Dict[str, Any]:
     analyzer = DeepHRNetAnalyzer(device=device)
     return analyzer.get_feature_dict(video_path)

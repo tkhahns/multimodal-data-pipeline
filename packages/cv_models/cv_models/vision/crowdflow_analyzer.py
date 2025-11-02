@@ -1,43 +1,73 @@
-"""
-CrowdFlow: Optical Flow Dataset and Benchmark for Visual Crowd Analysis
-Based on: https://github.com/tsenst/CrowdFlow
+"""CrowdFlow analyzer backed by the RAFT optical-flow implementation.
 
-This analyzer implements optical flow fields, person trajectories, and tracking accuracy
-for visual crowd analysis with foreground/background separation and dynamic/static scene analysis.
+This module computes dense optical flow with the official RAFT weights shipped in
+``torchvision`` and reproduces the short-term/dynamic metrics from the CrowdFlow
+benchmark.  Foreground segmentation still relies on MediaPipe's selfie model to
+separate foreground pedestrians from the static background.
 """
+
+from __future__ import annotations
 
 import logging
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from dataclasses import dataclass
+from typing import Any, Dict, List, Sequence, Tuple
 
 import cv2  # type: ignore[import]
 import numpy as np
+import torch
+from PIL import Image
 
 logger = logging.getLogger(__name__)
 
+
+try:
+    from torchvision.models.optical_flow import RAFT_Large_Weights, raft_large
+except ImportError as exc:  # pragma: no cover - dependency guard
+    raise ImportError(
+        "CrowdFlowAnalyzer requires `torchvision>=0.15` with RAFT optical-flow weights."
+    ) from exc
+
+
+try:
+    from mediapipe.python.solutions import selfie_segmentation as mp_selfie  # type: ignore[import]
+except ImportError as exc:  # pragma: no cover - optional dependency guard
+    raise ImportError("CrowdFlowAnalyzer requires the `mediapipe` package. Install it via `pip install mediapipe`.") from exc
+
+
+@dataclass(frozen=True)
+class CrowdFlowConfig:
+    """Configuration used when running the CrowdFlow analyzer."""
+
+    dynamic_threshold: float = 0.75
+    max_frames: int = 180
+    ta_segments: int = 5
+
+
 class CrowdFlowAnalyzer:
-    """Fail-fast CrowdFlow analyzer that requires a real implementation."""
+    """Compute CrowdFlow metrics using RAFT optical flow and MediaPipe segmentation."""
 
-    def __init__(self, device: str = "cpu", model_path: Optional[str] = None) -> None:
-        self.device = device
-        self.model_path = Path(model_path).expanduser() if model_path else None
-        self.model: Optional[Any] = None
-        self._initialize_model()
+    def __init__(
+        self,
+        *,
+        device: str = "cpu",
+        dynamic_threshold: float = 0.75,
+        max_frames: int = 180,
+        ta_segments: int = 5,
+    ) -> None:
+        self.device = torch.device(device if torch.cuda.is_available() or device == "cpu" else "cpu")
+        if device.startswith("cuda") and not torch.cuda.is_available():
+            logger.warning("CUDA requested for CrowdFlow but CUDA is unavailable; defaulting to CPU.")
 
-    def _initialize_model(self) -> None:
-        try:
-            from mediapipe.python.solutions import selfie_segmentation as mp_selfie  # type: ignore[import]
-        except ImportError as exc:  # pragma: no cover - optional dependency guard
-            raise ImportError(
-                "CrowdFlowAnalyzer requires the `mediapipe` package. Install it via `pip install mediapipe`."
-            ) from exc
+        self.config = CrowdFlowConfig(
+            dynamic_threshold=float(dynamic_threshold),
+            max_frames=int(max_frames),
+            ta_segments=int(ta_segments),
+        )
 
         self._segmentation_cls = mp_selfie.SelfieSegmentation
-        self.model = {
-            "dynamic_threshold": 0.75,
-            "max_frames": 180,
-            "ta_segments": 5,
-        }
+        self._raft_weights = RAFT_Large_Weights.C_T_V2
+        self._raft = raft_large(weights=self._raft_weights, progress=False).to(self.device).eval()
+        self._raft_transforms = self._raft_weights.transforms()
 
     def _extract_frames(self, video_path: str) -> Tuple[List[np.ndarray], List[np.ndarray]]:
         cap = cv2.VideoCapture(str(video_path))
@@ -47,7 +77,7 @@ class CrowdFlowAnalyzer:
         frames_rgb: List[np.ndarray] = []
         frames_gray: List[np.ndarray] = []
 
-        max_frames = self.model["max_frames"]
+        max_frames = self.config.max_frames
         try:
             while len(frames_rgb) < max_frames:
                 ret, frame = cap.read()
@@ -75,6 +105,31 @@ class CrowdFlowAnalyzer:
             segmentation.close()
 
         return masks
+
+    def _compute_flows(self, frames_rgb: Sequence[np.ndarray]) -> List[np.ndarray]:
+        flows: List[np.ndarray] = []
+
+        for idx in range(len(frames_rgb) - 1):
+            img1 = Image.fromarray(frames_rgb[idx])
+            img2 = Image.fromarray(frames_rgb[idx + 1])
+            tensor1, tensor2 = self._raft_transforms(img1, img2)
+            tensor1 = tensor1.unsqueeze(0).to(self.device)
+            tensor2 = tensor2.unsqueeze(0).to(self.device)
+
+            with torch.no_grad():
+                prediction = self._raft(tensor1, tensor2)
+
+            if isinstance(prediction, (list, tuple)):
+                flow_tensor = prediction[-1]
+            else:
+                flow_tensor = prediction
+
+            flow_tensor = flow_tensor.to(torch.float32)
+            # Resize flow back to the pre-transformed spatial resolution.
+            flow_np = flow_tensor.squeeze(0).permute(1, 2, 0).cpu().numpy()
+            flows.append(flow_np)
+
+        return flows
 
     def _compute_tracks(self, frames_gray: Sequence[np.ndarray]) -> List[Dict[str, Any]]:
         first_frame = frames_gray[0]
@@ -175,10 +230,11 @@ class CrowdFlowAnalyzer:
         all_avg_r2: List[float] = []
 
         for flow, mask in zip(flows, masks):
+            mask_resized = cv2.resize(mask, (flow.shape[1], flow.shape[0]), interpolation=cv2.INTER_LINEAR)
             magnitude = np.linalg.norm(flow, axis=2)
             dynamic_mask = magnitude > dynamic_threshold
 
-            fg_mask = mask > 0.5
+            fg_mask = mask_resized > 0.5
             bg_mask = ~fg_mask
 
             fg_dynamic = fg_mask & dynamic_mask
@@ -307,7 +363,7 @@ class CrowdFlowAnalyzer:
         ta_metrics["of_pt_average"] = float(np.mean(pt_values)) if pt_values else 0.0
 
         # Ensure all expected keys exist even if segments fewer than five
-        for idx in range(len(ranges) + 1, self.model["ta_segments"] + 1):
+        for idx in range(len(ranges) + 1, self.config.ta_segments + 1):
             ta_metrics.setdefault(f"of_ta_IM0{idx}", 0.0)
             ta_metrics.setdefault(f"of_ta_IM0{idx}_Dyn", 0.0)
             ta_metrics.setdefault(f"of_pt_IM0{idx}", 0.0)
@@ -316,31 +372,15 @@ class CrowdFlowAnalyzer:
         return ta_metrics
 
     def analyze_video(self, video_path: str) -> Dict[str, Any]:
-        if self.model is None:
-            raise RuntimeError("CrowdFlow model is not loaded.")
         frames_rgb, frames_gray = self._extract_frames(video_path)
         masks = self._segment_frames(frames_rgb[:-1])  # segmentation aligned with flow source frames
 
-        flows: List[np.ndarray] = []
-        for idx in range(len(frames_gray) - 1):
-            flow = cv2.calcOpticalFlowFarneback(
-                frames_gray[idx],
-                frames_gray[idx + 1],
-                None,
-                pyr_scale=0.5,
-                levels=3,
-                winsize=15,
-                iterations=3,
-                poly_n=5,
-                poly_sigma=1.2,
-                flags=0,
-            )
-            flows.append(flow)
+        flows = self._compute_flows(frames_rgb)
 
-        short_term = self._compute_short_term_metrics(flows, masks, self.model["dynamic_threshold"])
+        short_term = self._compute_short_term_metrics(flows, masks, self.config.dynamic_threshold)
         tracks = self._compute_tracks(frames_gray)
-        ranges = self._segment_ranges(len(flows), self.model["ta_segments"])
-        tracking_metrics = self._compute_tracking_metrics(tracks, ranges, self.model["dynamic_threshold"])
+        ranges = self._segment_ranges(len(flows), self.config.ta_segments)
+        tracking_metrics = self._compute_tracking_metrics(tracks, ranges, self.config.dynamic_threshold)
 
         result = {**short_term, **tracking_metrics}
         result.update(
