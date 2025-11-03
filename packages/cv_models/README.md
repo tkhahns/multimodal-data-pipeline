@@ -20,6 +20,11 @@ package now contains both the dependency sandbox and the runtime modules.
   soon-to-be-deprecated APIs such as `scipy.stats.bayes_mvs`.
 - After syncing, run `poetry install` here (and optionally `poetry lock`) so
   the new versions are compiled before you launch the pipeline.
+- FACT now pulls in [`FacePerceiver/facer`](https://github.com/FacePerceiver/facer)
+  for RetinaFace detection and FaRL alignment. The analyzer automatically
+  combines FaCER crops with Py-Feat's AU head; export `CV_FACT_FORCE_LEGACY=1`
+  if you need to fall back to the old Haar/MediaPipe heuristic. Installing
+  `mmsegmentation` is optional but enables the dense 68-point alignment model.
 
 ## Upstream vision analyzers
 

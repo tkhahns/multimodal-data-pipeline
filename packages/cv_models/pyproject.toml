@@ -15,6 +15,7 @@ numpy = "^1.26"
 opencv-python = "^4.9.0"
 torch = ">=2.6,<2.8"
 torchvision = ">=0.21,<0.22"
+facer = { git = "https://github.com/FacePerceiver/facer.git", rev = "ddd35c76ff840174b8a5403ad1c1255e37b8782b" }
 mediapipe = "^0.10.7"
 scipy = ">=1.11,<1.13"
 matplotlib = "^3.8"
